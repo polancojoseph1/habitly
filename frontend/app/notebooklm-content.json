@@ -1,0 +1,830 @@
+{
+  "flowPlan": "The onboarding/creation funnel is structured into four sequential steps matching the Four Stages of the Habit Loop and the Four Laws of Behavior Change. Tapping any law banner or technique card opens a dedicated detail modal with instructional guidance, practical steps, examples, and source references.\n\n```\n[Step 1: Cue] ──> [Step 2: Craving] ──> [Step 3: Response] ──> [Step 4: Reward]\n```\n\n1. **Step 1: The Cue (Make It Obvious / Inversion: Make It Invisible)**\n   * **Heading:** Step 1: Design Your Cue\n   * **Helper Text:** Every habit starts with a prompt. Specify when and where you will act, or anchor your new habit to an existing routine. If breaking a bad habit, identify how you will cut exposure to the trigger.\n   * **Relevant Techniques:** *Build:* Pointing-and-Calling, Implementation Intentions, Habit Stacking, Environment Design, Habit Stacking + Temptation Bundling, Motivation Ritual, Prime the Environment, Habit Automation, Habit Stacking + Habit Tracking. *Break:* Pointing-and-Calling, Implementation Intentions, Habit Stacking, Reduce Exposure to Cues, Master the Decisive Moment, Habit Automation, Habit Stacking + Habit Tracking.\n   * **User Input Fields:**\n     * Cue Trigger Type selection (Time & Location, Existing Habit, or Environmental Anchor).\n     * Prompt definition: *\"When / After [Trigger], I will...\"*.\n     * Context/Location: Physical space or activity zone.\n     * Bad Habit Inversion toggle: *\"I am cutting out or hiding this cue\"*.\n\n2. **Step 2: The Craving (Make It Attractive / Inversion: Make It Unattractive)**\n   * **Heading:** Step 2: Spark the Craving\n   * **Helper Text:** Habits require motivation and anticipation to take root. Connect your behavior to an anticipated reward, an enjoyable ritual, or a supportive culture. If breaking a habit, highlight the downsides to make it unattractive.\n   * **Relevant Techniques:** *Build:* Temptation Bundling, Habit Stacking + Temptation Bundling, Imitate Group Norms, Motivation Ritual. *Break:* Imitate Group Norms, Reframe Your Mindset.\n   * **User Input Fields:**\n     * \"Habit I Want\" pairing (Temptation bundle).\n     * Pre-game / Motivation ritual selection (e.g., deep breaths, specific music, physical warm-up).\n     * Mindset reframe statement: *\"I don't 'have to'; I 'get to'...\"* or *\"Avoiding this benefits me by...\"*.\n     * Community/Tribe affiliation selection.\n\n3. **Step 3: The Response (Make It Easy / Inversion: Make It Difficult)**\n   * **Heading:** Step 3: Streamline the Action\n   * **Helper Text:** The easier an action is, the less friction there is between you and completion. Downscale your habit to a two-minute entry point to master showing up. If breaking a bad habit, increase friction to make it impractical.\n   * **Relevant Techniques:** *Build:* Habit Stacking, Reduce Friction, Prime the Environment, Master the Decisive Moment, Two-Minute Rule, Habit Shaping, Habit Automation, Commitment Device, Never Miss Twice. *Break:* Habit Stacking, Master the Decisive Moment, Habit Automation, Increase Friction, Commitment Device, Never Miss Twice.\n   * **User Input Fields:**\n     * The Full Habit Description.\n     * The 2-Minute Gateway Habit version (scaled down).\n     * Friction optimization checklist (e.g., layout prep, digital blockers, preset supplies).\n     * Decisive moment fork identification.\n\n4. **Step 4: The Reward (Make It Satisfying / Inversion: Make It Unsatisfying)**\n   * **Heading:** Step 4: Seal with Immediate Satisfaction\n   * **Helper Text:** What is immediately rewarded is repeated. Reinforce your success instantly with visual progress or identity-aligned treats. If breaking a habit, create immediate costs or accountability.\n   * **Relevant Techniques:** *Build:* Temptation Bundling, Commitment Device, Immediate Reinforcement, Habit Tracking, Habit Stacking + Habit Tracking, Never Miss Twice, Accountability Partner, Habit Contract. *Break:* Commitment Device, Make Restraint Enjoyable, Habit Tracking, Habit Stacking + Habit Tracking, Never Miss Twice, Accountability Partner, Habit Contract.\n   * **User Input Fields:**\n     * Immediate Reinforcement reward (aligned with desired identity).\n     * Habit Tracker setup toggle (Calendar streak, visual counter).\n     * Accountability partner contact / Habit Contract terms & penalty.\n     * \"Avoidance Account\" rule (for breaking habits).\n\n---",
+  "laws": {
+    "cue": {
+      "number": 1,
+      "buildName": "Make It Obvious",
+      "breakName": "Make It Invisible",
+      "cardText": "Make It Obvious. Every behavior begins with a cue. Create clear, unambiguous triggers in your environment so you notice when to act.",
+      "explanation": "The human brain continually scans the environment for cues that predict rewards. When cues are subtle or absent, habits fail to initiate. Behavior change starts with awareness of nonconscious habits and designing an environment where desired cues stand out.",
+      "steps": "(1) Map out your daily habits using an awareness inventory. (2) Attach exact times and places to your habit. (3) Designate distinct spaces for distinct activities.",
+      "examples": "Placing a water bottle on your desk every morning; leaving a book on your pillow.",
+      "breakGuidance": "Make It Invisible. Reduce exposure to temptation by removing the cue from your physical and digital surroundings. Put the TV in a closet, leave your phone in another room, or delete social media apps.",
+      "source": "Chapters 4, 5, 6, and 7; pp. 59–97."
+    },
+    "craving": {
+      "number": 2,
+      "buildName": "Make It Attractive",
+      "breakName": "Make It Unattractive",
+      "cardText": "Make It Attractive. Anticipation drives action. When a habit is associated with positive feelings and dopamine, motivation rises.",
+      "explanation": "Habits are a dopamine-driven feedback loop. The brain experiences the highest surge of dopamine in anticipation of a reward, not just upon receiving it. The greater the perceived payoff, the stronger the craving to act.",
+      "steps": "(1) Link an action you need to do with an action you want to do. (2) Surround yourself with people who already practice your desired behavior. (3) Build a short routine that puts you into a focused, positive mindset.",
+      "examples": "Only watching your favorite show while riding the stationary bike; using a 3-breath smiling ritual before writing.",
+      "breakGuidance": "Make It Unattractive. Reframe your internal narrative by focusing on the drawbacks of the bad habit and the tangible benefits of avoiding it. Change \"I have to give this up\" to \"I get to enjoy the freedom of not doing this\".",
+      "source": "Chapters 8, 9, and 10; pp. 101–137."
+    },
+    "response": {
+      "number": 3,
+      "buildName": "Make It Easy",
+      "breakName": "Make It Difficult",
+      "cardText": "Make It Easy. Reduce resistance. Design your habits so they require minimal physical and cognitive effort to start.",
+      "explanation": "Human behavior naturally follows the Law of Least Effort: we gravitate toward the path requiring the least energy. The goal is not to only do easy things, but to make it as easy as possible in the moment to do things that pay off long term.",
+      "steps": "(1) Reduce intermediate steps between you and the habit. (2) Scale the habit down to a two-minute entry point. (3) Prepare physical materials ahead of time.",
+      "examples": "Laying out workout gear the night before; choosing a gym on the direct path of your daily commute.",
+      "breakGuidance": "Make It Difficult. Increase friction by adding physical steps, delays, or obstacles between you and the bad habit. Unplug devices, use app blockers, or reset passwords every week.",
+      "source": "Chapters 11, 12, 13, and 14; pp. 141–179."
+    },
+    "reward": {
+      "number": 4,
+      "buildName": "Make It Satisfying",
+      "breakName": "Make It Unsatisfying",
+      "cardText": "Make It Satisfying. Close the habit loop. What is immediately rewarded is repeated; what is immediately punished is avoided.",
+      "explanation": "The human brain evolved in an immediate-return environment, prioritizing immediate pleasure over distant results. While the first three laws increase the odds of performing an action this time, the fourth law increases the odds that it will be repeated next time.",
+      "steps": "(1) Add an immediate sensory or symbolic reward to the end of the behavior. (2) Track your progress visually to create immediate proof of showing up. (3) Ensure rewards reinforce your desired identity.",
+      "examples": "Using fresh-mint flavored toothpaste; seeing \\$50 transferred to a vacation fund after skipping takeout; crossing off a calendar day.",
+      "breakGuidance": "Make It Unsatisfying. Make the immediate costs of bad behavior painful, visible, and social. Involve an accountability partner or sign a habit contract with real public or financial penalties.",
+      "source": "Chapters 15, 16, and 17; pp. 183–213."
+    }
+  },
+  "techniques": [
+    {
+      "name": "Pointing-and-Calling",
+      "law": "cue",
+      "mode": "BUILD",
+      "cardText": "Verbalize your action and its outcome out loud to raise awareness before acting.",
+      "explanation": "Derived from the Japanese railway safety system, calling out actions raises awareness from nonconscious autopilot to conscious intention.",
+      "steps": "Identify the upcoming action; say aloud what you are about to do and what the result will be.",
+      "example": "\"I am about to close my work computer and begin my 10-minute walk.\"",
+      "source": "Chapter 4, pp. 62–64, 66.",
+      "laws": [
+        "cue"
+      ],
+      "examples": [
+        "\"I am about to close my work computer and begin my 10-minute walk.\""
+      ],
+      "sources": [
+        "Chapter 4, pp. 62–64, 66."
+      ]
+    },
+    {
+      "name": "Implementation Intentions",
+      "law": "cue",
+      "mode": "BUILD",
+      "cardText": "Pre-commit to an exact time and location: \"I will [BEHAVIOR] at [TIME] in [LOCATION]\".",
+      "explanation": "Transforms vague aspirations into concrete plans, removing ambiguity around when and where to act.",
+      "steps": "Select a precise time and location; write out the implementation statement.",
+      "example": "\"I will meditate for one minute at 7:00 a.m. in my kitchen.\"",
+      "source": "Chapter 5, pp. 69–72.",
+      "laws": [
+        "cue"
+      ],
+      "examples": [
+        "\"I will meditate for one minute at 7:00 a.m. in my kitchen.\""
+      ],
+      "sources": [
+        "Chapter 5, pp. 69–72."
+      ]
+    },
+    {
+      "name": "Habit Stacking",
+      "law": "cue",
+      "mode": "BUILD",
+      "cardText": "Tie a new habit to an existing one: \"After [CURRENT HABIT], I will [NEW HABIT]\".",
+      "explanation": "Uses the behavioral momentum of established daily routines as the cue for new actions (anchoring).",
+      "steps": "Pick an existing daily habit with the same frequency; write your stack formula.",
+      "example": "\"After I pour my morning coffee, I will meditate for sixty seconds.\"",
+      "source": "Chapter 5, pp. 74–79.",
+      "laws": [
+        "cue",
+        "response"
+      ],
+      "examples": [
+        "\"After I pour my morning coffee, I will meditate for sixty seconds.\"",
+        "\"After I sit down at dinner, I will put vegetables on my plate first.\""
+      ],
+      "sources": [
+        "Chapter 5, pp. 74–79."
+      ]
+    },
+    {
+      "name": "Environment Design",
+      "law": "cue",
+      "mode": "BUILD",
+      "cardText": "Make the visual cues of good habits prominent and obvious in your space.",
+      "explanation": "Most human actions are shaped by visual cues; make your desired behaviors the path of least resistance.",
+      "steps": "Place cues in prominent locations; establish \"activity zones\" where each space has one primary purpose.",
+      "example": "Keeping an apple bowl on the kitchen island; dedicating a desk exclusively to study.",
+      "source": "Chapter 6, pp. 81–90.",
+      "laws": [
+        "cue"
+      ],
+      "examples": [
+        "Keeping an apple bowl on the kitchen island; dedicating a desk exclusively to study."
+      ],
+      "sources": [
+        "Chapter 6, pp. 81–90."
+      ]
+    },
+    {
+      "name": "Habit Stacking + Temptation Bundling",
+      "law": "cue",
+      "mode": "BUILD",
+      "cardText": "Chain your habit stack into an immediate desire: \"After [CURRENT HABIT], I will [HABIT I NEED]. After [HABIT I NEED], I will [HABIT I WANT]\".",
+      "explanation": "Combines cue-anchoring with dopamine-driven anticipation.",
+      "steps": "Identify your current anchor, your needed habit, and an enjoyable privilege; link all three.",
+      "example": "\"After I get my morning coffee, I will say one thing I'm grateful for. After I express gratitude, I will read the news.\"",
+      "source": "Chapter 8, pp. 110–111.",
+      "laws": [
+        "cue",
+        "craving"
+      ],
+      "examples": [
+        "\"After I get my morning coffee, I will say one thing I'm grateful for. After I express gratitude, I will read the news.\"",
+        "\"After I finish my sales calls, I will check sports scores.\""
+      ],
+      "sources": [
+        "Chapter 8, pp. 110–111."
+      ]
+    },
+    {
+      "name": "Motivation Ritual",
+      "law": "cue",
+      "mode": "BUILD",
+      "cardText": "Perform a short physical routine you enjoy before a difficult habit to cue focus.",
+      "explanation": "Condition your brain to associate a simple sensory cue with a productive mental state.",
+      "steps": "Pick a 30-second enjoyable action; do it every single time right before you start.",
+      "example": "Putting on noise-canceling headphones and taking three deep breaths before writing.",
+      "source": "Chapter 10, pp. 132–133.",
+      "laws": [
+        "cue",
+        "craving"
+      ],
+      "examples": [
+        "Putting on noise-canceling headphones and taking three deep breaths before writing.",
+        "Playing a specific upbeat song or brewing your favorite tea before starting work."
+      ],
+      "sources": [
+        "Chapter 10, pp. 132–133."
+      ]
+    },
+    {
+      "name": "Prime the Environment",
+      "law": "cue",
+      "mode": "BUILD",
+      "cardText": "Prepare your physical environment in advance so cues are immediately ready.",
+      "explanation": "Setting out objects creates visual triggers that make action immediate when the time comes.",
+      "steps": "Set up tools, gear, or materials at the conclusion of your prior routine (\"resetting the room\").",
+      "example": "Setting out your coffee mug or workout clothes the night before.",
+      "source": "Chapter 12, pp. 156–158.",
+      "laws": [
+        "cue",
+        "response"
+      ],
+      "examples": [
+        "Setting out your coffee mug or workout clothes the night before.",
+        "Chopping fruits and vegetables on Sunday so healthy snacks are ready in the fridge."
+      ],
+      "sources": [
+        "Chapter 12, pp. 156–158."
+      ]
+    },
+    {
+      "name": "Habit Automation",
+      "law": "cue",
+      "mode": "BUILD",
+      "cardText": "Use technology and single upfront decisions to trigger or lock in behavior.",
+      "explanation": "Automated prompts and digital scheduling ensure cues fire reliably without relying on memory.",
+      "steps": "Program recurring calendar reminders, automated notifications, or smart devices.",
+      "example": "Setting an automatic smart-plug timer that turns off Wi-Fi at 10:00 p.m.",
+      "source": "Chapter 14, pp. 171–175.",
+      "laws": [
+        "cue",
+        "response"
+      ],
+      "examples": [
+        "Setting an automatic smart-plug timer that turns off Wi-Fi at 10:00 p.m.",
+        "Enrolling in an automatic savings plan or buying a supportive mattress."
+      ],
+      "sources": [
+        "Chapter 14, pp. 171–175."
+      ]
+    },
+    {
+      "name": "Habit Stacking + Habit Tracking",
+      "law": "cue",
+      "mode": "BUILD",
+      "cardText": "Use the completion of your habit as the immediate cue to record your progress: \"After [CURRENT HABIT], I will [TRACK MY HABIT]\".",
+      "explanation": "Solves the problem of forgetting to track by turning the action itself into the trigger to log.",
+      "steps": "Place tracking tools directly at the site of the habit; record immediately.",
+      "example": "\"After I finish my workout set, I will record it in my fitness log.\"",
+      "source": "Chapter 16, pp. 199–200.",
+      "laws": [
+        "cue",
+        "reward"
+      ],
+      "examples": [
+        "\"After I finish my workout set, I will record it in my fitness log.\"",
+        "\"After I hang up from a sales call, I will move one paper clip over.\""
+      ],
+      "sources": [
+        "Chapter 16, pp. 199–200."
+      ]
+    },
+    {
+      "name": "Pointing-and-Calling",
+      "law": "cue",
+      "mode": "BREAK",
+      "cardText": "Say your bad habit and its negative outcome out loud before doing it.",
+      "explanation": "Interrupts nonconscious impulses by forcing conscious verbal acknowledgement of consequences.",
+      "steps": "When you feel an urge, pause and say out loud what you are about to do and how it will harm you.",
+      "example": "\"I'm about to eat this cookie, but I don't need it. Eating it will hurt my health.\"",
+      "source": "Chapter 4, pp. 62–64, 66.",
+      "laws": [
+        "cue"
+      ],
+      "examples": [
+        "\"I'm about to eat this cookie, but I don't need it. Eating it will hurt my health.\""
+      ],
+      "sources": [
+        "Chapter 4, pp. 62–64, 66."
+      ]
+    },
+    {
+      "name": "Implementation Intentions",
+      "law": "cue",
+      "mode": "BREAK",
+      "cardText": "Script an alternative plan for situations where temptations strike.",
+      "explanation": "Removes the decision burden by pre-deciding how to respond when an old cue arises.",
+      "steps": "Write: \"When [TEMPTING SITUATION] occurs, I will [HEALTHY ALTERNATIVE]\".",
+      "example": "\"When the dessert tray is offered, I will ask for hot tea.\"",
+      "source": "Chapter 5, pp. 69–72.",
+      "laws": [
+        "cue"
+      ],
+      "examples": [
+        "\"When the dessert tray is offered, I will ask for hot tea.\""
+      ],
+      "sources": [
+        "Chapter 5, pp. 69–72."
+      ]
+    },
+    {
+      "name": "Habit Stacking",
+      "law": "cue",
+      "mode": "BREAK",
+      "cardText": "Insert a new, harmless routine directly following an unavoidable old trigger.",
+      "explanation": "Uses unavoidable daily events to initiate a protective behavior rather than the default bad habit.",
+      "steps": "Identify the unavoidable trigger; immediately follow it with an alternative habit.",
+      "example": "\"After I sit down on the couch after work, I will open a book instead of picking up the remote.\"",
+      "source": "Chapter 5, pp. 74–79.",
+      "laws": [
+        "cue",
+        "response"
+      ],
+      "examples": [
+        "\"After I sit down on the couch after work, I will open a book instead of picking up the remote.\"",
+        "\"When I feel like snacking from boredom, I will drink a glass of water.\""
+      ],
+      "sources": [
+        "Chapter 5, pp. 74–79."
+      ]
+    },
+    {
+      "name": "Reduce Exposure to Cues",
+      "law": "cue",
+      "mode": "BREAK",
+      "cardText": "Make bad habit triggers invisible by removing them from your surroundings.",
+      "explanation": "Self-control is a short-term strategy; people with high self-control simply avoid tempting situations.",
+      "steps": "Hide or eliminate physical and digital triggers from your home and workspace.",
+      "example": "Moving the TV out of the bedroom; placing the phone in another room while working.",
+      "source": "Chapter 7, pp. 91–95.",
+      "laws": [
+        "cue"
+      ],
+      "examples": [
+        "Moving the TV out of the bedroom; placing the phone in another room while working."
+      ],
+      "sources": [
+        "Chapter 7, pp. 91–95."
+      ]
+    },
+    {
+      "name": "Master the Decisive Moment",
+      "law": "cue",
+      "mode": "BREAK",
+      "cardText": "Recognize and master the small choices that determine your next chunk of time.",
+      "explanation": "Decisive moments are forks in the road that constrain your future options (e.g., changing into workout clothes vs. sitting on the couch).",
+      "steps": "Identify the pivotal 2-second decision that sets your trajectory; focus all effort on making the positive choice there.",
+      "example": "Choosing to drive past the drive-thru lane rather than turning in.",
+      "source": "Chapter 13, pp. 160–162.",
+      "laws": [
+        "cue",
+        "response"
+      ],
+      "examples": [
+        "Choosing to drive past the drive-thru lane rather than turning in.",
+        "Leaving your credit card in your wallet when browsing an online shop."
+      ],
+      "sources": [
+        "Chapter 13, pp. 160–162."
+      ]
+    },
+    {
+      "name": "Habit Automation",
+      "law": "cue",
+      "mode": "BREAK",
+      "cardText": "Use digital website blockers, timers, or physical locks to eliminate triggers.",
+      "explanation": "Technology eliminates exposure to bad cues automatically without requiring willpower.",
+      "steps": "Install blockers, delete apps, or use timed containers.",
+      "example": "Using an app blocker that shuts off social media feeds between 9:00 a.m. and 5:00 p.m.",
+      "source": "Chapter 14, pp. 171–175.",
+      "laws": [
+        "cue",
+        "response"
+      ],
+      "examples": [
+        "Using an app blocker that shuts off social media feeds between 9:00 a.m. and 5:00 p.m.",
+        "Having a friend change your social media passwords during the work week."
+      ],
+      "sources": [
+        "Chapter 14, pp. 171–175."
+      ]
+    },
+    {
+      "name": "Habit Stacking + Habit Tracking",
+      "law": "cue",
+      "mode": "BREAK",
+      "cardText": "Track slip-ups or cravings immediately after an urge occurs to make mindless routines visible.",
+      "explanation": "Logging an impulse brings it into conscious awareness, exposing patterns.",
+      "steps": "When you feel an urge, record the trigger and context immediately.",
+      "example": "\"After I feel an urge to snack, I will tally it in my pocket notebook.\"",
+      "source": "Chapter 16, pp. 199–200.",
+      "laws": [
+        "cue",
+        "reward"
+      ],
+      "examples": [
+        "\"After I feel an urge to snack, I will tally it in my pocket notebook.\"",
+        "\"After I say no to dessert, I will tap 'Resisted' in my tracker.\""
+      ],
+      "sources": [
+        "Chapter 16, pp. 199–200."
+      ]
+    },
+    {
+      "name": "Temptation Bundling",
+      "law": "craving",
+      "mode": "BUILD",
+      "cardText": "Pair an action you need to do with an action you want to do.",
+      "explanation": "Capitalizes on Premack’s Principle: higher-probability behaviors reinforce lower-probability behaviors.",
+      "steps": "List what you need to do and what you want to do; make the want conditional on the need.",
+      "example": "Only listening to your favorite podcast while doing household chores.",
+      "source": "Chapter 8, pp. 108–111.",
+      "laws": [
+        "craving",
+        "reward"
+      ],
+      "examples": [
+        "Only listening to your favorite podcast while doing household chores.",
+        "Getting a pedicure or massage only after completing all weekly workouts."
+      ],
+      "sources": [
+        "Chapter 8, pp. 108–111."
+      ]
+    },
+    {
+      "name": "Imitate Group Norms",
+      "law": "craving",
+      "mode": "BUILD",
+      "cardText": "Join a culture where your desired behavior is the normal behavior.",
+      "explanation": "Humans are social animals; we adopt habits that earn approval and belonging from our tribe.",
+      "steps": "Find a community where the habit you want is already standard practice and you share a common bond.",
+      "example": "Joining a running club or a local writers’ group.",
+      "source": "Chapter 9, pp. 115–122.",
+      "laws": [
+        "craving"
+      ],
+      "examples": [
+        "Joining a running club or a local writers’ group."
+      ],
+      "sources": [
+        "Chapter 9, pp. 115–122."
+      ]
+    },
+    {
+      "name": "Imitate Group Norms",
+      "law": "craving",
+      "mode": "BREAK",
+      "cardText": "Surround yourself with people who do not practice your bad habit.",
+      "explanation": "Bad habits thrive when social groups normalize them; changing your social circle changes your perceived normal.",
+      "steps": "Spend less time with peers who encourage the behavior; join groups celebrating abstinence.",
+      "example": "Spending time with friends who prioritize fitness rather than drinking every weekend.",
+      "source": "Chapter 9, pp. 115–122.",
+      "laws": [
+        "craving"
+      ],
+      "examples": [
+        "Spending time with friends who prioritize fitness rather than drinking every weekend."
+      ],
+      "sources": [
+        "Chapter 9, pp. 115–122."
+      ]
+    },
+    {
+      "name": "Reframe Your Mindset",
+      "law": "craving",
+      "mode": "BREAK",
+      "cardText": "Highlight the benefits of avoiding a bad habit to make it unattractive.",
+      "explanation": "Cravings stem from how we predict a behavior will make us feel; reframe the action to expose its true costs.",
+      "steps": "Shift your language from \"I am missing out\" to \"I am gaining energy, freedom, and clarity\".",
+      "example": "Reframing skipping alcohol not as deprivation, but as avoiding a hangover and sleeping soundly.",
+      "source": "Chapter 10, pp. 130–132.",
+      "laws": [
+        "craving"
+      ],
+      "examples": [
+        "Reframing skipping alcohol not as deprivation, but as avoiding a hangover and sleeping soundly."
+      ],
+      "sources": [
+        "Chapter 10, pp. 130–132."
+      ]
+    },
+    {
+      "name": "Reduce Friction",
+      "law": "response",
+      "mode": "BUILD",
+      "cardText": "Decrease the number of steps and energy required to perform your good habits.",
+      "explanation": "Human behavior follows the path of least resistance; reduce the intermediate hurdles.",
+      "steps": "Eliminate friction points in your workflow or living space.",
+      "example": "Keeping your guitar stand in the center of the living room rather than packed in a case.",
+      "source": "Chapter 12, pp. 152–156.",
+      "laws": [
+        "response"
+      ],
+      "examples": [
+        "Keeping your guitar stand in the center of the living room rather than packed in a case."
+      ],
+      "sources": [
+        "Chapter 12, pp. 152–156."
+      ]
+    },
+    {
+      "name": "Master the Decisive Moment",
+      "law": "response",
+      "mode": "BUILD",
+      "cardText": "Optimize the small choices that deliver outsized impact on the hours that follow.",
+      "explanation": "A decisive moment sets the trajectory for the next chunk of time.",
+      "steps": "Focus willpower exclusively on the tiny initial fork in the road.",
+      "example": "Putting on workout clothes immediately upon arriving home rather than sitting on the couch.",
+      "source": "Chapter 13, pp. 160–162.",
+      "laws": [
+        "response"
+      ],
+      "examples": [
+        "Putting on workout clothes immediately upon arriving home rather than sitting on the couch."
+      ],
+      "sources": [
+        "Chapter 13, pp. 160–162."
+      ]
+    },
+    {
+      "name": "Two-Minute Rule",
+      "law": "response",
+      "mode": "BUILD",
+      "cardText": "Scale down your habit until it takes less than two minutes to do.",
+      "explanation": "Master the art of showing up; standardize a habit before you attempt to optimize it.",
+      "steps": "Identify the 2-minute gateway version of your larger goal and do only that initially.",
+      "example": "\"Read one page\" instead of \"Read before bed each night.\"",
+      "source": "Chapter 13, pp. 162–165.",
+      "laws": [
+        "response"
+      ],
+      "examples": [
+        "\"Read one page\" instead of \"Read before bed each night.\""
+      ],
+      "sources": [
+        "Chapter 13, pp. 162–165."
+      ]
+    },
+    {
+      "name": "Habit Shaping",
+      "law": "response",
+      "mode": "BUILD",
+      "cardText": "Progressively level up your habit across phases once the 2-minute gateway is mastered.",
+      "explanation": "Build consistency at each phase before advancing to higher volume or difficulty.",
+      "steps": "Map out 4–5 difficulty tiers starting with the 2-minute baseline; level up only when the current tier is automatic.",
+      "example": "Phase 1: Put on running shoes \\\\(\\rightarrow\\\\) Phase 2: Walk 10 minutes \\\\(\\rightarrow\\\\) Phase 3: Walk 10,000 steps \\\\(\\rightarrow\\\\) Phase 4: Run a 5K.",
+      "source": "Chapter 13, pp. 165–167.",
+      "laws": [
+        "response"
+      ],
+      "examples": [
+        "Phase 1: Put on running shoes \\\\(\\rightarrow\\\\) Phase 2: Walk 10 minutes \\\\(\\rightarrow\\\\) Phase 3: Walk 10,000 steps \\\\(\\rightarrow\\\\) Phase 4: Run a 5K."
+      ],
+      "sources": [
+        "Chapter 13, pp. 165–167."
+      ]
+    },
+    {
+      "name": "Commitment Device",
+      "law": "response",
+      "mode": "BUILD",
+      "cardText": "Make a choice in the present that locks in better behavior in the future.",
+      "explanation": "Binds your future self to good choices by making it difficult or costly to back out.",
+      "steps": "Set up a barrier where backing out takes more effort than following through.",
+      "example": "Paying in advance for a series of fitness classes.",
+      "source": "Chapter 14, pp. 170–171.",
+      "laws": [
+        "response",
+        "reward"
+      ],
+      "examples": [
+        "Paying in advance for a series of fitness classes.",
+        "Attending your scheduled yoga class because you already paid \\$20 for it."
+      ],
+      "sources": [
+        "Chapter 14, pp. 170–171."
+      ]
+    },
+    {
+      "name": "Never Miss Twice",
+      "law": "response",
+      "mode": "BUILD",
+      "cardText": "When an emergency breaks your routine, ensure you show up the very next time.",
+      "explanation": "Missing once is an accident, but missing twice is the start of a new, unwanted habit.",
+      "steps": "If you miss a day, do a scaled-down 2-minute version the next day to keep the identity alive.",
+      "example": "Doing five push-ups the morning after a missed workout to protect the streak.",
+      "source": "Chapter 16, pp. 200–202.",
+      "laws": [
+        "response",
+        "reward"
+      ],
+      "examples": [
+        "Doing five push-ups the morning after a missed workout to protect the streak.",
+        "Working out on Monday after missing Sunday, preserving your streak mindset."
+      ],
+      "sources": [
+        "Chapter 16, pp. 200–202."
+      ]
+    },
+    {
+      "name": "Increase Friction",
+      "law": "response",
+      "mode": "BREAK",
+      "cardText": "Increase the number of steps and obstacles between you and bad habits.",
+      "explanation": "When friction is high, bad habits become impractical and fade away.",
+      "steps": "Add multiple layers of difficulty between yourself and the action.",
+      "example": "Unplugging the gaming console and putting it in a closet after each use.",
+      "source": "Chapter 12, pp. 157–158.",
+      "laws": [
+        "response"
+      ],
+      "examples": [
+        "Unplugging the gaming console and putting it in a closet after each use."
+      ],
+      "sources": [
+        "Chapter 12, pp. 157–158."
+      ]
+    },
+    {
+      "name": "Commitment Device",
+      "law": "response",
+      "mode": "BREAK",
+      "cardText": "Restrict your future options so you cannot engage in unwanted behavior.",
+      "explanation": "A choice made in the present that forces ethical or healthy action in the future.",
+      "steps": "Pre-commit your money, time, or access so relapsing is blocked.",
+      "example": "Asking a hotel to remove the mini-bar from your room upon check-in.",
+      "source": "Chapter 14, pp. 170–171.",
+      "laws": [
+        "response",
+        "reward"
+      ],
+      "examples": [
+        "Asking a hotel to remove the mini-bar from your room upon check-in.",
+        "Handing your phone to a colleague until lunch."
+      ],
+      "sources": [
+        "Chapter 14, pp. 170–171."
+      ]
+    },
+    {
+      "name": "Never Miss Twice",
+      "law": "response",
+      "mode": "BREAK",
+      "cardText": "If you succumb to a bad habit, ensure you rebound immediately on the next occasion.",
+      "explanation": "The first mistake never ruins you; it is the spiral of repeated errors that entrenches a bad habit.",
+      "steps": "Do not judge or condemn yourself; immediately re-establish your baseline routine.",
+      "example": "Eating a balanced, healthy breakfast immediately following an evening binge.",
+      "source": "Chapter 16, pp. 200–202.",
+      "laws": [
+        "response",
+        "reward"
+      ],
+      "examples": [
+        "Eating a balanced, healthy breakfast immediately following an evening binge.",
+        "Returning to your eating plan the very next meal after overindulging."
+      ],
+      "sources": [
+        "Chapter 16, pp. 200–202."
+      ]
+    },
+    {
+      "name": "Immediate Reinforcement",
+      "law": "reward",
+      "mode": "BUILD",
+      "cardText": "Give yourself an immediate sensory reward when you complete your habit.",
+      "explanation": "What is immediately rewarded is repeated; ensure your reward aligns with your desired identity.",
+      "steps": "Pair a small immediate pleasure with the ending of the behavior.",
+      "example": "Taking a warm bath or using luxury smelling soap after cleaning.",
+      "source": "Chapter 15, pp. 184–186, 191–193.",
+      "laws": [
+        "reward"
+      ],
+      "examples": [
+        "Taking a warm bath or using luxury smelling soap after cleaning."
+      ],
+      "sources": [
+        "Chapter 15, pp. 184–186, 191–193."
+      ]
+    },
+    {
+      "name": "Habit Tracking",
+      "law": "reward",
+      "mode": "BUILD",
+      "cardText": "Record your streak visually (\"Don't break the chain\") to feel immediate success.",
+      "explanation": "Visual measurements provide clear evidence of progress, casting votes for your identity.",
+      "steps": "Mark an \"X\" on a calendar, move paper clips, or tap complete in the app.",
+      "example": "Moving a paper clip from a full jar to an empty jar after each sales call.",
+      "source": "Chapter 16, pp. 195–200.",
+      "laws": [
+        "reward"
+      ],
+      "examples": [
+        "Moving a paper clip from a full jar to an empty jar after each sales call."
+      ],
+      "sources": [
+        "Chapter 16, pp. 195–200."
+      ]
+    },
+    {
+      "name": "Accountability Partner",
+      "law": "reward",
+      "mode": "BUILD",
+      "cardText": "Have someone observe your habits to create social encouragement and immediate accountability.",
+      "explanation": "We care deeply about what others think; sharing success reinforces positive social identity.",
+      "steps": "Enlist a friend or coach to check in with you daily or weekly.",
+      "example": "Two writers checking in each day to confirm they wrote their daily song or page.",
+      "source": "Chapter 17, pp. 208–210.",
+      "laws": [
+        "reward"
+      ],
+      "examples": [
+        "Two writers checking in each day to confirm they wrote their daily song or page."
+      ],
+      "sources": [
+        "Chapter 17, pp. 208–210."
+      ]
+    },
+    {
+      "name": "Habit Contract",
+      "law": "reward",
+      "mode": "BUILD",
+      "cardText": "Create a signed written agreement with accountability partners specifying goals and consequences.",
+      "explanation": "Puts public stakes behind your commitments, turning completion into a major victory.",
+      "steps": "Draft terms detailing target behaviors, review dates, and partner signatures.",
+      "example": "Signing a contract with your trainer to hit gym sessions weekly or pay a \\$100 penalty.",
+      "source": "Chapter 17, pp. 207–210.",
+      "laws": [
+        "reward"
+      ],
+      "examples": [
+        "Signing a contract with your trainer to hit gym sessions weekly or pay a \\$100 penalty."
+      ],
+      "sources": [
+        "Chapter 17, pp. 207–210."
+      ]
+    },
+    {
+      "name": "Make Restraint Enjoyable",
+      "law": "reward",
+      "mode": "BREAK",
+      "cardText": "Design a visible reward for forgoing a bad habit: \"Make doing nothing enjoyable\".",
+      "explanation": "When avoiding a bad habit, you experience deprivation unless you make the payoff visible.",
+      "steps": "Open a dedicated savings account; transfer money into it every time you resist an impulse.",
+      "example": "Transferring \\$5 to a \"Trip to Europe\" fund every time you skip takeout.",
+      "source": "Chapter 15, pp. 191–192.",
+      "laws": [
+        "reward"
+      ],
+      "examples": [
+        "Transferring \\$5 to a \"Trip to Europe\" fund every time you skip takeout."
+      ],
+      "sources": [
+        "Chapter 15, pp. 191–192."
+      ]
+    },
+    {
+      "name": "Habit Tracking",
+      "law": "reward",
+      "mode": "BREAK",
+      "cardText": "Visually record days of abstinence to keep the unbroken chain alive.",
+      "explanation": "Tracking days of restraint provides visual proof of self-control and identity strength.",
+      "steps": "Mark off each clean day on your tracker immediately before bed.",
+      "example": "Crossing off days you went without smoking or drinking.",
+      "source": "Chapter 16, pp. 195–200.",
+      "laws": [
+        "reward"
+      ],
+      "examples": [
+        "Crossing off days you went without smoking or drinking."
+      ],
+      "sources": [
+        "Chapter 16, pp. 195–200."
+      ]
+    },
+    {
+      "name": "Accountability Partner",
+      "law": "reward",
+      "mode": "BREAK",
+      "cardText": "Give someone permission to call you out immediately when you engage in a bad habit.",
+      "explanation": "Adds an immediate social cost to unwanted behavior.",
+      "steps": "Inform an accountability partner of the bad habit; agree that they will check in.",
+      "example": "Asking a spouse to point out whenever you bite your nails or check your phone at dinner.",
+      "source": "Chapter 17, pp. 208–210.",
+      "laws": [
+        "reward"
+      ],
+      "examples": [
+        "Asking a spouse to point out whenever you bite your nails or check your phone at dinner."
+      ],
+      "sources": [
+        "Chapter 17, pp. 208–210."
+      ]
+    },
+    {
+      "name": "Habit Contract",
+      "law": "reward",
+      "mode": "BREAK",
+      "cardText": "Make the cost of engaging in a bad habit public and painful.",
+      "explanation": "Enforces an immediate, non-negotiable social or financial penalty for breaking a rule.",
+      "steps": "Draft a written agreement with two partners; specify exact penalties for violations.",
+      "example": "Agreeing to pay your trainer \\$50 or post a tweet admitting laziness if you wake up late.",
+      "source": "Chapter 17, pp. 207–210.",
+      "laws": [
+        "reward"
+      ],
+      "examples": [
+        "Agreeing to pay your trainer \\$50 or post a tweet admitting laziness if you wake up late."
+      ],
+      "sources": [
+        "Chapter 17, pp. 207–210."
+      ]
+    }
+  ],
+  "suggestedTechniquesMarkdown": "*(Kept strictly separate, assigned to their respective Law and Step with grounding rationales)*\n\n1. **The Habits Scorecard**\n   * **Assigned Law & Step:** Step 1: The Cue (Make It Obvious / Make It Invisible).\n   * **Why it fits:** Clear places the Habits Scorecard as technique 1.1 in the \"How to Create a Good Habit\" summary table. Before designing any cue, you must list your daily routines and score them (+, –, =) to build awareness of the unconscious triggers operating in your day.\n   * **Source:** Chapter 4, pp. 64–66; Chapter Summary table, p. 96.\n\n2. **\"One Space, One Use\" (Activity Zones)**\n   * **Assigned Law & Step:** Step 1: The Cue (Make It Obvious / Make It Invisible).\n   * **Why it fits:** Clear explains that when contexts mix, habits mix, and the easier habit wins. Assigning each space or device to a single primary purpose creates unambiguous, stable environmental cues.\n   * **Source:** Chapter 6, pp. 87–90.\n\n3. **Imitating the Close, the Many, and the Powerful**\n   * **Assigned Law & Step:** Step 2: The Craving (Make It Attractive).\n   * **Why it fits:** While the catalog includes \"Imitate Group Norms\", Clear dedicates Chapter 9 to this specific three-way breakdown: we imitate the close (family/friends), the many (the tribe), and the powerful (high status role models). Specifying which group to imitate helps tailor social motivation in the app.\n   * **Source:** Chapter 9, pp. 115–122.\n\n4. **Action vs. Motion (Active Practice)**\n   * **Assigned Law & Step:** Step 3: The Response (Make It Easy).\n   * **Why it fits:** Clear emphasizes that people often get stuck in \"motion\" (researching, planning, strategizing) to delay the risk of failure. The 3rd Law requires shifting from passive preparation into active practice that puts in physical repetitions.\n   * **Source:** Chapter 11, pp. 141–144.\n\n5. **The Goldilocks Rule**\n   * **Assigned Law & Step:** Step 3: The Response / Craving (Advanced Tactics).\n   * **Why it fits:** The Goldilocks Rule states that peak motivation occurs when working on tasks of just manageable difficulty—roughly 4% beyond your current ability. It prevents boredom on one side and failure on the other, ensuring responses remain engaging over time.\n   * **Source:** Chapter 19, pp. 231–236.\n\n6. **The Paper Clip Strategy**\n   * **Assigned Law & Step:** Step 4: The Reward (Make It Satisfying).\n   * **Why it fits:** Clear highlights Trent Dyrsmid’s method of moving 120 paper clips between two jars after each sales call as a tactile visual measure that delivers immediate satisfaction. It is a tangible variation of manual tracking.\n   * **Source:** Chapter 16, pp. 195–196.\n\n7. **Nonscale Victories Tracking**\n   * **Assigned Law & Step:** Step 4: The Reward (Make It Satisfying).\n   * **Why it fits:** Prevents users from being discouraged by Goodhart’s Law when primary numbers stall. Tracking alternative indicators (better sleep, higher energy, clothes fitting better) provides immediate evidence that habits are working.\n   * **Source:** Chapter 16, pp. 203–204.\n\n---",
+  "sourcesMarkdown": "*   **Atomic Habits: An Easy & Proven Way to Build Good Habits & Break Bad Ones** by James Clear (Avery / Penguin Random House, 2018).\n    *   *The Fundamentals:* Chapters 1–3 (The Surprising Power of Atomic Habits; How Habits Shape Identity; How to Build Better Habits in 4 Simple Steps), pp. 13–55.\n    *   *The 1st Law (Make It Obvious / Invisible):* Chapters 4–7 (The Man Who Didn't Look Right; The Best Way to Start a New Habit; Motivation Is Overrated, Environment Often Matters More; The Secret to Self-Control), pp. 59–97.\n    *   *The 2nd Law (Make It Attractive / Unattractive):* Chapters 8–10 (How to Make a Habit Irresistible; The Role of Family and Friends; How to Find and Fix Causes of Bad Habits), pp. 101–137.\n    *   *The 3rd Law (Make It Easy / Difficult):* Chapters 11–14 (Walk Slowly, but Never Backward; The Law of Least Effort; The Two-Minute Rule; How to Make Good Habits Inevitable and Bad Habits Impossible), pp. 141–179.\n    *   *The 4th Law (Make It Satisfying / Unsatisfying):* Chapters 15–17 (The Cardinal Rule of Behavior Change; How to Stick with Good Habits Every Day; How an Accountability Partner Can Change Everything), pp. 183–213.\n    *   *Advanced Tactics & Summary:* Chapters 18–20 (The Truth About Talent; The Goldilocks Rule; The Downside of Creating Good Habits; Little Lessons from the Four Laws), pp. 217–264.\n\n***\n\n📱 *Would you like me to map out wireframe text or UI component specs for the detail modals next?*",
+  "suggestedTechniques": [
+    {
+      "name": "The Habits Scorecard",
+      "assignment": "Step 1: The Cue (Make It Obvious / Make It Invisible).",
+      "rationale": "Clear places the Habits Scorecard as technique 1.1 in the \"How to Create a Good Habit\" summary table. Before designing any cue, you must list your daily routines and score them (+, –, =) to build awareness of the unconscious triggers operating in your day.",
+      "source": "Chapter 4, pp. 64–66; Chapter Summary table, p. 96."
+    },
+    {
+      "name": "\"One Space, One Use\" (Activity Zones)",
+      "assignment": "Step 1: The Cue (Make It Obvious / Make It Invisible).",
+      "rationale": "Clear explains that when contexts mix, habits mix, and the easier habit wins. Assigning each space or device to a single primary purpose creates unambiguous, stable environmental cues.",
+      "source": "Chapter 6, pp. 87–90."
+    },
+    {
+      "name": "Imitating the Close, the Many, and the Powerful",
+      "assignment": "Step 2: The Craving (Make It Attractive).",
+      "rationale": "While the catalog includes \"Imitate Group Norms\", Clear dedicates Chapter 9 to this specific three-way breakdown: we imitate the close (family/friends), the many (the tribe), and the powerful (high status role models). Specifying which group to imitate helps tailor social motivation in the app.",
+      "source": "Chapter 9, pp. 115–122."
+    },
+    {
+      "name": "Action vs. Motion (Active Practice)",
+      "assignment": "Step 3: The Response (Make It Easy).",
+      "rationale": "Clear emphasizes that people often get stuck in \"motion\" (researching, planning, strategizing) to delay the risk of failure. The 3rd Law requires shifting from passive preparation into active practice that puts in physical repetitions.",
+      "source": "Chapter 11, pp. 141–144."
+    },
+    {
+      "name": "The Goldilocks Rule",
+      "assignment": "Step 3: The Response / Craving (Advanced Tactics).",
+      "rationale": "The Goldilocks Rule states that peak motivation occurs when working on tasks of just manageable difficulty—roughly 4% beyond your current ability. It prevents boredom on one side and failure on the other, ensuring responses remain engaging over time.",
+      "source": "Chapter 19, pp. 231–236."
+    },
+    {
+      "name": "The Paper Clip Strategy",
+      "assignment": "Step 4: The Reward (Make It Satisfying).",
+      "rationale": "Clear highlights Trent Dyrsmid’s method of moving 120 paper clips between two jars after each sales call as a tactile visual measure that delivers immediate satisfaction. It is a tangible variation of manual tracking.",
+      "source": "Chapter 16, pp. 195–196."
+    },
+    {
+      "name": "Nonscale Victories Tracking",
+      "assignment": "Step 4: The Reward (Make It Satisfying).",
+      "rationale": "Prevents users from being discouraged by Goodhart’s Law when primary numbers stall. Tracking alternative indicators (better sleep, higher energy, clothes fitting better) provides immediate evidence that habits are working.",
+      "source": "Chapter 16, pp. 203–204."
+    }
+  ]
+}

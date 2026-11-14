@@ -1,8 +1,11 @@
 from datetime import date, datetime, timedelta, timezone
 import secrets
-from fastapi import Depends, FastAPI, HTTPException, Request
+import hashlib
+import hmac
+import os
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import inspect, select, text
+from sqlalchemy import func, inspect, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -10,40 +13,350 @@ from .config import settings
 from .database import Base, engine, get_db
 import httpx
 
-from .models import Habit, HabitLog, Identity, Reward, TelegramLink, User
+from .models import (AccountabilityInvite, CircleMembership, CommunityCircle, Habit, HabitContract, HabitEvent, HabitVariation,
+                     HabitDiagnostic, HabitLog, Identity, Reward, TelegramLink, User)
+from .models import WorkspaceState, AccountToken
+from .models import new_id
 from .schemas import (UserCreate, UserOut, IdentityCreate, IdentityOut, HabitCreate, HabitOut,
                       HabitLogOut, HabitUpdate, IdentityUpdate, LogCreate, LogOut, PrepUpdate,
-                      RewardCreate, RewardStatusOut, RewardOut, TelegramLinkOut)
+                      RewardCreate, RewardStatusOut, RewardOut, TelegramLinkOut, HabitEventCreate, HabitEventOut)
+from .schemas import (AccountabilityInviteCreate, CircleCreate, CircleOut, DiagnosticCreate, DiagnosticOut,
+                      HabitVariationCreate, HabitVariationOut, HabitVariationUpdate)
 from .streaks import calculate_streak
 
-Base.metadata.create_all(bind=engine)
-# Keep databases created by the first Habitly commit usable as fields evolve.
-with engine.begin() as connection:
-    additions = {
-        "users": {"telegram_chat_id": "VARCHAR(64)"},
-        "habits": {
-            "gateway_minutes": "INTEGER NOT NULL DEFAULT 2",
-            "cue_to_hide": "VARCHAR(300)",
-            "friction_strategy": "VARCHAR(300)",
-            "habit_contract": "VARCHAR(300)",
-            "friction_votes": "INTEGER NOT NULL DEFAULT 0",
-        },
-        "habit_logs": {"environment_prepped": "BOOLEAN NOT NULL DEFAULT FALSE"},
-    }
-    inspector = inspect(connection)
-    for table, columns in additions.items():
-        existing = {column["name"] for column in inspector.get_columns(table)}
-        for column, declaration in columns.items():
-            if column not in existing:
-                connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {column} {declaration}"))
-                existing.add(column)
-app = FastAPI(title="Habitly API", version="0.1.0", description="Identity-based habit building API")
+if settings.database_url.startswith("sqlite"):
+    Base.metadata.create_all(bind=engine)
+    # Local-only compatibility for existing Codex SQLite files. Production PostgreSQL
+    # schema changes are deliberately applied through Replit's schema workflow.
+    with engine.begin() as connection:
+        inspector = inspect(connection)
+        local_additions = {
+            "users": {"password_hash": "VARCHAR(256)", "api_token_hash": "VARCHAR(64)", "telegram_chat_id": "VARCHAR(64)"},
+            "habits": {"gateway_minutes": "INTEGER NOT NULL DEFAULT 2", "cue_to_hide": "VARCHAR(300)", "friction_strategy": "VARCHAR(300)", "habit_contract": "VARCHAR(300)", "motivation_ritual": "VARCHAR(300)", "shaping_milestones": "VARCHAR(1200)", "shaping_current_step": "INTEGER NOT NULL DEFAULT 0", "accountability_partner": "VARCHAR(200)", "accountability_cost": "VARCHAR(300)", "accountability_partner_email": "VARCHAR(320)", "alternative_routine": "VARCHAR(300)", "aversion_reminder": "VARCHAR(300)", "friction_votes": "INTEGER NOT NULL DEFAULT 0", "technique_ids": "JSON", "technique_notes": "JSON", "baseline_daily": "INTEGER"},
+            "habit_logs": {"environment_prepped": "BOOLEAN NOT NULL DEFAULT FALSE"},
+            "habit_events": {"strategy": "VARCHAR(300)", "variation_id": "VARCHAR(36)", "variation_name": "VARCHAR(160)"},
+            "workspace_states": {"revision": "INTEGER NOT NULL DEFAULT 1"},
+        }
+        for table, columns in local_additions.items():
+            if table not in inspector.get_table_names():
+                continue
+            existing = {column["name"] for column in inspector.get_columns(table)}
+            for name, declaration in columns.items():
+                if name not in existing:
+                    connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {declaration}"))
+        if "habits" in inspector.get_table_names():
+            connection.execute(text("UPDATE habits SET technique_ids='[]' WHERE technique_ids IS NULL"))
+            connection.execute(text("UPDATE habits SET technique_notes='{}' WHERE technique_notes IS NULL"))
+app = FastAPI(title="Habitly API", version="0.2.0", description="Four Laws habit building and behavior change API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in settings.cors_origins.split(",") if origin.strip()],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "Authorization"],
 )
+
+
+def token_digest(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def password_digest(password: str, salt: bytes | None = None) -> str:
+    salt = salt or os.urandom(16)
+    derived = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 310_000)
+    return f"{salt.hex()}:{derived.hex()}"
+
+
+def password_matches(password: str, stored: str | None) -> bool:
+    if not stored or ":" not in stored:
+        return False
+    salt_hex, expected = stored.split(":", 1)
+    return hmac.compare_digest(password_digest(password, bytes.fromhex(salt_hex)).split(":", 1)[1], expected)
+
+
+@app.middleware("http")
+async def account_boundary(request: Request, call_next):
+    path = request.url.path
+    if request.method == "OPTIONS" or path in {"/health", "/api/auth/register", "/api/auth/login", "/webhook/telegram"} or path.startswith("/api/accountability-invites/"):
+        return await call_next(request)
+    if not path.startswith("/api/"):
+        return await call_next(request)
+    authorization = request.headers.get("authorization", "")
+    token = authorization.removeprefix("Bearer ").strip()
+    if not token:
+        return Response('{"detail":"Authentication required"}', status_code=401, media_type="application/json")
+    db_provider = app.dependency_overrides.get(get_db, get_db)
+    db = next(db_provider())
+    try:
+        digest = token_digest(token)
+        user = db.scalar(select(User).where(User.api_token_hash == digest)) or db.scalar(select(AccountToken.user_id).where(AccountToken.token_hash == digest).join(User, AccountToken.user_id == User.id))
+        if isinstance(user, str):
+            user = db.get(User, user)
+        if not user:
+            return Response('{"detail":"Invalid account token"}', status_code=401, media_type="application/json")
+        segments = [part for part in path.split("/") if part]
+        owner_id = None
+        if len(segments) >= 3 and segments[1] == "users":
+            owner_id = segments[2]
+        elif len(segments) >= 3 and segments[1] == "identities":
+            identity = db.get(Identity, segments[2]); owner_id = identity.user_id if identity else ""
+        elif len(segments) >= 3 and segments[1] == "habits":
+            if segments[2] == "" or segments[2] == "habits":
+                owner_id = None
+            else:
+                habit = db.get(Habit, segments[2]); owner_id = habit.identity.user_id if habit else ""
+        elif len(segments) >= 3 and segments[1] == "diagnostics":
+            owner_id = None
+        if owner_id is not None and owner_id != user.id:
+            return Response('{"detail":"Record not found"}', status_code=404, media_type="application/json")
+        identity_id = request.query_params.get("identity_id")
+        if identity_id:
+            identity = db.get(Identity, identity_id)
+            if not identity or identity.user_id != user.id:
+                return Response('{"detail":"Record not found"}', status_code=404, media_type="application/json")
+        if request.method in {"POST", "PUT", "PATCH"} and (path.endswith("/api/habits") or path.endswith("/api/diagnostics") or path.endswith("/api/identities") or path.endswith("/api/rewards")):
+            body = await request.body()
+            request._body = body
+            try:
+                from json import loads
+                payload = loads(body or b"{}")
+            except Exception:
+                payload = {}
+            requested_identity = payload.get("identity_id")
+            requested_user = payload.get("user_id")
+            if requested_identity:
+                identity = db.get(Identity, requested_identity)
+                if not identity or identity.user_id != user.id:
+                    return Response('{"detail":"Record not found"}', status_code=404, media_type="application/json")
+            requested_habit = payload.get("habit_id")
+            if requested_habit:
+                habit = db.get(Habit, requested_habit)
+                if not habit or habit.identity.user_id != user.id:
+                    return Response('{"detail":"Record not found"}', status_code=404, media_type="application/json")
+            if requested_user and requested_user != user.id:
+                return Response('{"detail":"Record not found"}', status_code=404, media_type="application/json")
+        request.state.user_id = user.id
+        return await call_next(request)
+    finally:
+        db.close()
+
+
+@app.post("/api/auth/register", status_code=201)
+def register(payload: dict, db: Session = Depends(get_db)):
+    email = str(payload.get("email", "")).strip().lower()
+    password = str(payload.get("password", ""))
+    if len(email) > 320 or "@" not in email or len(password) < 10:
+        raise HTTPException(422, "Enter a valid email and password with at least 10 characters")
+    if db.scalar(select(User.id).where(User.email == email)):
+        raise HTTPException(409, "An account with that email already exists")
+    token = secrets.token_urlsafe(32)
+    user = User(email=email, password_hash=password_digest(password))
+    db.add(user); db.commit(); db.refresh(user)
+    db.add(AccountToken(token_hash=token_digest(token), user_id=user.id)); db.commit()
+    return {"id": user.id, "email": user.email, "token": token}
+
+
+@app.post("/api/auth/login")
+def login(payload: dict, db: Session = Depends(get_db)):
+    email = str(payload.get("email", "")).strip().lower()
+    password = str(payload.get("password", ""))
+    user = db.scalar(select(User).where(User.email == email))
+    if not user or not password_matches(password, user.password_hash):
+        raise HTTPException(401, "Email or password is incorrect")
+    token = secrets.token_urlsafe(32)
+    db.add(AccountToken(token_hash=token_digest(token), user_id=user.id)); db.commit()
+    return {"id": user.id, "email": user.email, "token": token}
+
+
+@app.get("/api/account")
+def account_info(request: Request, db: Session = Depends(get_db)):
+    user = db.get(User, request.state.user_id)
+    identity = db.scalar(select(Identity).where(Identity.user_id == user.id).order_by(Identity.id).limit(1))
+    return {"id": user.id, "email": user.email, "identity": identity}
+
+
+def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
+    identity = db.scalar(select(Identity).where(Identity.user_id == user_id).order_by(Identity.id).limit(1))
+    habits = list(db.scalars(select(Habit).join(Identity).where(Identity.user_id == user_id, Habit.is_active.is_(True)).order_by(Habit.cue_trigger)))
+    if not state and not habits:
+        return {}
+    data = dict(state.payload) if state else {}
+    data["identity"] = identity.identity_statement if identity else data.get("identity", "")
+    data["votes"] = identity.total_votes if identity else data.get("votes", 0)
+    data["habits"] = []
+    history: dict[str, list[str]] = {}
+    prep: dict[str, bool] = {}
+    events: list[dict] = []
+    variations: list[dict] = []
+    for habit in habits:
+        logs = list(db.scalars(select(HabitLog).where(HabitLog.habit_id == habit.id).order_by(HabitLog.logged_date.desc())))
+        streak, _warning = calculate_streak(logs)
+        today = next((log for log in logs if log.logged_date == date.today()), None)
+        yesterday = next((log for log in logs if log.logged_date == date.today() - timedelta(days=1)), None)
+        invite_token = db.scalar(select(AccountabilityInvite.token).where(AccountabilityInvite.habit_id == habit.id).order_by(AccountabilityInvite.created_at.desc()).limit(1))
+        data["habits"].append({
+            "id": habit.id, "name": habit.target_action, "target": habit.target_action,
+            "gateway": habit.gateway_action, "gatewayMinutes": habit.gateway_minutes,
+            "cueType": habit.cue_type, "cue": habit.cue_trigger,
+            "time": habit.cue_trigger if habit.cue_type == "TIME_LOCATION" else None,
+            "location": habit.location, "motive": habit.craving_motive, "reward": habit.reward_payoff,
+            "prep": habit.prep_step or "", "completed": bool(today and today.status in {"COMPLETED", "RECOVERED"}),
+            "missedYesterday": bool(yesterday and yesterday.status == "MISSED"), "streak": streak,
+            "kind": habit.habit_type, "hideCue": habit.cue_to_hide, "friction": habit.friction_strategy,
+            "contract": habit.habit_contract, "aversionReminder": habit.aversion_reminder,
+            "frictionVotes": habit.friction_votes, "rewardBundle": habit.reward_bundle,
+            "alternativeRoutine": habit.alternative_routine, "ritual": habit.motivation_ritual,
+            "milestones": habit.shaping_milestones.split("\n") if habit.shaping_milestones else [],
+            "milestoneIndex": habit.shaping_current_step, "accountabilityPartner": habit.accountability_partner,
+            "accountabilityEmail": habit.accountability_partner_email, "accountabilityCost": habit.accountability_cost,
+            "techniqueIds": habit.technique_ids or [], "techniqueNotes": habit.technique_notes or {},
+            "baselineDaily": habit.baseline_daily, "inviteLink": f"/?accountability={invite_token}" if invite_token else None,
+        })
+        for log in logs:
+            statuses = history.setdefault(log.logged_date.isoformat(), [])
+            statuses.append(f"missed:{habit.id}" if log.status == "MISSED" else habit.id if log.status in {"COMPLETED", "RECOVERED"} else "")
+            if not statuses[-1]:
+                statuses.pop()
+            if log.logged_date == date.today() and log.environment_prepped:
+                prep[habit.id] = True
+        for event in db.scalars(select(HabitEvent).where(HabitEvent.habit_id == habit.id).order_by(HabitEvent.occurred_at.desc())):
+            events.append({"id": event.id, "habitId": habit.id, "type": event.event_type, "at": event.occurred_at.isoformat(), "note": event.note, "strategy": event.strategy, "variationId": event.variation_id, "variationName": event.variation_name})
+        for variation in db.scalars(select(HabitVariation).where(HabitVariation.habit_id == habit.id).order_by(HabitVariation.created_at.desc())):
+            variations.append({"id": variation.id, "habitId": habit.id, "law": variation.law, "name": variation.name, "techniqueId": variation.technique_id, "setup": variation.setup, "isActive": variation.is_active, "triedAt": variation.tried_at.isoformat() if variation.tried_at else None, "helped": variation.helped, "outcomeNote": variation.outcome_note, "createdAt": variation.created_at.isoformat()})
+    data["history"] = history
+    data["preppedHabits"] = prep
+    data["habitEvents"] = events
+    data["variations"] = variations
+    data["rewards"] = [{"id": reward.id, "name": reward.name, "habitId": reward.habit_id, "detail": reward.detail or ""} for reward in db.scalars(select(Reward).join(Habit).join(Identity).where(Identity.user_id == user_id, Reward.is_active.is_(True)))]
+    data["diagnostics"] = [{"id": row.id, "routine": row.routine, "craving": row.craving, "rewardExperiment": row.reward_experiment, "cueTime": row.cue_time or "", "cueLocation": row.cue_location or "", "cueEmotion": row.cue_emotion or "", "cuePeople": row.cue_people or "", "plan": row.plan} for row in db.scalars(select(HabitDiagnostic).join(Identity).where(Identity.user_id == user_id).order_by(HabitDiagnostic.created_at.desc()))]
+    circles = list(db.scalars(select(CommunityCircle).order_by(CommunityCircle.name)))
+    memberships = set(db.scalars(select(CircleMembership.circle_id).where(CircleMembership.identity_id == identity.id))) if identity else set()
+    data["communityCircles"] = [{"id": circle.id, "name": circle.name, "category": circle.identity, "detail": circle.description, "members": db.scalar(select(func.count(CircleMembership.id)).where(CircleMembership.circle_id == circle.id)) or 0} for circle in circles]
+    data["joinedTribes"] = list(memberships)
+    return data
+
+
+@app.get("/api/identities")
+def list_identities(request: Request, db: Session = Depends(get_db)):
+    return list(db.scalars(select(Identity).where(Identity.user_id == request.state.user_id).order_by(Identity.id)))
+
+
+@app.get("/api/workspace")
+def read_workspace(request: Request, db: Session = Depends(get_db)):
+    state = db.get(WorkspaceState, request.state.user_id)
+    data = build_workspace(db, request.state.user_id, state)
+    return {"data": data, "revision": state.revision if state else 0}
+
+
+@app.put("/api/workspace")
+def write_workspace(payload: dict, request: Request, db: Session = Depends(get_db)):
+    state = db.get(WorkspaceState, request.state.user_id)
+    expected_revision = int(payload.get("expected_revision", 0))
+    workspace = payload.get("data", payload)
+    if state:
+        if expected_revision != state.revision:
+            raise HTTPException(409, "This workspace changed in another browser. Reconnect to load the latest server copy before saving again.")
+        state.payload = workspace
+        state.revision += 1
+    else:
+        if expected_revision != 0:
+            raise HTTPException(409, "This workspace was created in another browser. Reconnect to load it before saving again.")
+        state = WorkspaceState(user_id=request.state.user_id, payload=workspace, revision=1); db.add(state)
+    db.commit()
+    return {"saved": True, "updated_at": state.updated_at, "revision": state.revision}
+
+
+@app.post("/api/workspace/import")
+def import_workspace(payload: dict, request: Request, db: Session = Depends(get_db)):
+    """One-time, idempotent localStorage import. Existing server state always wins."""
+    state = db.get(WorkspaceState, request.state.user_id)
+    if state:
+            return {"imported": False, "reason": "server_data_exists", "habits": len(state.payload.get("habits", [])), "revision": state.revision}
+    existing_habits = db.scalar(select(func.count(Habit.id)).join(Identity).where(Identity.user_id == request.state.user_id)) or 0
+    if existing_habits:
+        return {"imported": False, "reason": "server_data_exists", "habits": existing_habits, "revision": 0}
+    clean = dict(payload)
+    clean["habits"] = [habit for habit in clean.get("habits", []) if not str(habit.get("id", "")).startswith("demo-")]
+    clean["rewards"] = [reward for reward in clean.get("rewards", []) if not str(reward.get("id", "")).startswith("reward-show") and not str(reward.get("habitId", "")).startswith("demo-")]
+    state = WorkspaceState(user_id=request.state.user_id, payload=clean)
+    db.add(state); db.flush()
+    identity = db.scalar(select(Identity).where(Identity.user_id == request.state.user_id).order_by(Identity.id).limit(1))
+    if not identity:
+        identity = Identity(user_id=request.state.user_id, identity_statement=str(clean.get("identity") or "A person building better habits")[:240])
+        db.add(identity); db.flush()
+    else:
+        identity.identity_statement = str(clean.get("identity") or identity.identity_statement)[:240]
+    identity.total_votes = int(clean.get("votes", identity.total_votes) or 0)
+    habit_ids = set()
+    imported_invites = []
+    for row in clean["habits"]:
+        habit_id = str(row.get("id", ""))
+        if not habit_id or db.get(Habit, habit_id):
+            continue
+        habit_ids.add(habit_id)
+        db.add(Habit(
+            id=habit_id, identity_id=identity.id, habit_type=row.get("kind", "BUILD"),
+            target_action=row.get("target") or row.get("name") or "Habit", gateway_action=row.get("gateway", ""),
+            gateway_minutes=int(row.get("gatewayMinutes", 0) or 0), cue_type=row.get("cueType", "STACK"),
+            cue_trigger=row.get("cue") or row.get("time") or "", location=row.get("location"),
+            craving_motive=row.get("motive", ""), reward_payoff=row.get("reward", ""), prep_step=row.get("prep"),
+            reward_bundle=row.get("rewardBundle"), cue_to_hide=row.get("hideCue"), friction_strategy=row.get("friction"),
+            habit_contract=row.get("contract"), motivation_ritual=row.get("ritual"),
+            shaping_milestones="\n".join(row.get("milestones", [])) or None, shaping_current_step=row.get("milestoneIndex", 0) or 0,
+            accountability_partner=row.get("accountabilityPartner"), accountability_partner_email=row.get("accountabilityEmail"),
+            accountability_cost=row.get("accountabilityCost"), alternative_routine=row.get("alternativeRoutine"),
+            aversion_reminder=row.get("aversionReminder"), technique_ids=row.get("techniqueIds", []),
+            technique_notes=row.get("techniqueNotes", {}), baseline_daily=row.get("baselineDaily"),
+            friction_votes=row.get("frictionVotes", 0) or 0,
+        ))
+        partner_email = str(row.get("accountabilityEmail") or "").strip()
+        if partner_email and "@" in partner_email:
+            invite_token = secrets.token_urlsafe(24)
+            db.add(AccountabilityInvite(habit_id=habit_id, partner_email=partner_email, partner_name=row.get("accountabilityPartner"), token=invite_token))
+            imported_invites.append({"habit_id": habit_id, "token": invite_token})
+    db.flush()
+    for day, values in clean.get("history", {}).items():
+        for value in values:
+            missed = str(value).startswith("missed:")
+            habit_id = str(value).removeprefix("missed:")
+            if habit_id in habit_ids:
+                db.add(HabitLog(habit_id=habit_id, logged_date=date.fromisoformat(day), status="MISSED" if missed else "COMPLETED", completed_via="WEB"))
+    for habit_id, is_prepped in clean.get("preppedHabits", {}).items():
+        if is_prepped and habit_id in habit_ids:
+            logged = db.scalar(select(HabitLog.id).where(HabitLog.habit_id == habit_id, HabitLog.logged_date == date.today()))
+            if logged:
+                db.get(HabitLog, logged).environment_prepped = True
+            else:
+                db.add(HabitLog(habit_id=habit_id, logged_date=date.today(), status="PREPPED", completed_via="WEB", environment_prepped=True))
+    for row in clean.get("habitEvents", []):
+        if row.get("habitId") in habit_ids:
+            db.add(HabitEvent(id=row.get("id") or new_id(), habit_id=row["habitId"], event_type=row.get("type", "ACTION_COMPLETED"), occurred_at=datetime.fromisoformat(row["at"].replace("Z", "+00:00")) if row.get("at") else datetime.now(timezone.utc), note=row.get("note"), strategy=row.get("strategy"), variation_id=row.get("variationId"), variation_name=row.get("variationName")))
+    for row in clean.get("variations", []):
+        if row.get("habitId") in habit_ids:
+            db.add(HabitVariation(id=row.get("id") or new_id(), habit_id=row["habitId"], law=row.get("law", "response"), name=row.get("name", "Variation"), technique_id=row.get("techniqueId"), setup=row.get("setup", ""), is_active=bool(row.get("isActive")), tried_at=datetime.fromisoformat(row["triedAt"].replace("Z", "+00:00")) if row.get("triedAt") else None, helped=row.get("helped"), outcome_note=row.get("outcomeNote"), created_at=datetime.fromisoformat(row["createdAt"].replace("Z", "+00:00")) if row.get("createdAt") else datetime.now(timezone.utc)))
+    for row in clean.get("rewards", []):
+        if row.get("habitId") in habit_ids:
+            db.add(Reward(id=row.get("id") or new_id(), habit_id=row["habitId"], name=row.get("name", "Reward"), detail=row.get("detail")))
+    for row in clean.get("diagnostics", []):
+        db.add(HabitDiagnostic(id=row.get("id") or new_id(), identity_id=identity.id, routine=row.get("routine", ""), craving=row.get("craving", ""), reward_experiment=row.get("rewardExperiment", ""), cue_time=row.get("cueTime"), cue_location=row.get("cueLocation"), cue_emotion=row.get("cueEmotion"), cue_people=row.get("cuePeople"), plan=row.get("plan", "")))
+    for row in clean.get("communityCircles", []):
+        circle = db.scalar(select(CommunityCircle).where(CommunityCircle.name == row.get("name", "")))
+        if not circle and row.get("name"):
+            circle = CommunityCircle(id=row.get("id") or new_id(), name=row["name"], identity=row.get("category", "Community"), description=row.get("detail", ""))
+            db.add(circle); db.flush()
+        if circle and row.get("id") in set(clean.get("joinedTribes", [])):
+            membership = db.scalar(select(CircleMembership.id).where(CircleMembership.circle_id == circle.id, CircleMembership.identity_id == identity.id))
+            if not membership:
+                db.add(CircleMembership(circle_id=circle.id, identity_id=identity.id))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = db.get(WorkspaceState, request.state.user_id)
+        if existing:
+            return {"imported": False, "reason": "server_data_exists", "habits": len(existing.payload.get("habits", [])), "revision": existing.revision}
+        raise
+    return {"imported": True, "habits": len(clean["habits"]), "rewards": len(clean["rewards"]), "invites": imported_invites, "revision": 1}
 
 
 @app.get("/health")
@@ -116,15 +429,187 @@ def create_habit(payload: HabitCreate, db: Session = Depends(get_db)):
     db.add(habit)
     db.commit()
     db.refresh(habit)
+    if payload.habit_type == "BREAK" and (payload.habit_contract or payload.accountability_cost or payload.accountability_partner):
+        db.add(HabitContract(habit_id=habit.id, agreement=payload.habit_contract or "", consequence=payload.accountability_cost or "", partner_name=payload.accountability_partner or ""))
+        db.commit()
     return habit
 
 
 @app.get("/api/habits", response_model=list[HabitOut])
-def list_habits(identity_id: str | None = None, db: Session = Depends(get_db)):
-    query = select(Habit).where(Habit.is_active.is_(True))
-    if identity_id:
-        query = query.where(Habit.identity_id == identity_id)
+def list_habits(identity_id: str, db: Session = Depends(get_db)):
+    query = select(Habit).where(Habit.is_active.is_(True), Habit.identity_id == identity_id)
     return list(db.scalars(query.order_by(Habit.cue_trigger)))
+
+
+@app.post("/api/diagnostics", response_model=DiagnosticOut, status_code=201)
+def create_diagnostic(payload: DiagnosticCreate, db: Session = Depends(get_db)):
+    if not db.get(Identity, payload.identity_id):
+        raise HTTPException(404, "Identity not found")
+    diagnostic = HabitDiagnostic(**payload.model_dump())
+    db.add(diagnostic)
+    db.commit()
+    db.refresh(diagnostic)
+    return diagnostic
+
+
+@app.get("/api/diagnostics", response_model=list[DiagnosticOut])
+def list_diagnostics(identity_id: str, db: Session = Depends(get_db)):
+    if not db.get(Identity, identity_id):
+        raise HTTPException(404, "Identity not found")
+    return list(db.scalars(select(HabitDiagnostic).where(HabitDiagnostic.identity_id == identity_id).order_by(HabitDiagnostic.created_at.desc())))
+
+
+@app.post("/api/habits/{habit_id}/accountability-invites", status_code=201)
+def create_accountability_invite(habit_id: str, payload: AccountabilityInviteCreate, db: Session = Depends(get_db)):
+    habit = db.get(Habit, habit_id)
+    if not habit:
+        raise HTTPException(404, "Habit not found")
+    invite = AccountabilityInvite(habit_id=habit_id, **payload.model_dump())
+    db.add(invite)
+    db.commit()
+    db.refresh(invite)
+    return {"id": invite.id, "token": invite.token, "status": invite.status, "partner_email": invite.partner_email}
+
+
+@app.get("/api/accountability-invites/{token}")
+def get_accountability_invite(token: str, db: Session = Depends(get_db)):
+    invite = db.scalar(select(AccountabilityInvite).where(AccountabilityInvite.token == token))
+    if not invite:
+        raise HTTPException(404, "Invite not found")
+    habit = db.get(Habit, invite.habit_id)
+    recent_logs = list(db.scalars(select(HabitLog).where(HabitLog.habit_id == habit.id).order_by(HabitLog.logged_date.desc()).limit(7)))
+    return {"status": invite.status, "partner_name": invite.partner_name, "partner_email": invite.partner_email,
+            "habit": habit.target_action, "agreement": habit.habit_contract, "consequence": habit.accountability_cost,
+            "recent_activity": [{"date": row.logged_date.isoformat(), "status": row.status} for row in recent_logs]}
+
+
+@app.post("/api/accountability-invites/{token}/accept")
+def accept_accountability_invite(token: str, db: Session = Depends(get_db)):
+    invite = db.scalar(select(AccountabilityInvite).where(AccountabilityInvite.token == token))
+    if not invite:
+        raise HTTPException(404, "Invite not found")
+    invite.status = "ACCEPTED"
+    db.commit()
+    return {"status": invite.status}
+
+
+@app.post("/api/habits/{habit_id}/events", response_model=HabitEventOut, status_code=201)
+def create_habit_event(habit_id: str, payload: HabitEventCreate, db: Session = Depends(get_db)):
+    habit = db.get(Habit, habit_id)
+    if not habit:
+        raise HTTPException(404, "Habit not found")
+    event = HabitEvent(habit_id=habit_id, **payload.model_dump())
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+    return event
+
+
+@app.get("/api/habits/{habit_id}/events", response_model=list[HabitEventOut])
+def list_habit_events(habit_id: str, db: Session = Depends(get_db)):
+    if not db.get(Habit, habit_id):
+        raise HTTPException(404, "Habit not found")
+    return list(db.scalars(select(HabitEvent).where(HabitEvent.habit_id == habit_id).order_by(HabitEvent.occurred_at.desc()).limit(500)))
+
+
+@app.get("/api/habits/{habit_id}/variations", response_model=list[HabitVariationOut])
+def list_habit_variations(habit_id: str, db: Session = Depends(get_db)):
+    if not db.get(Habit, habit_id):
+        raise HTTPException(404, "Habit not found")
+    return list(db.scalars(select(HabitVariation).where(HabitVariation.habit_id == habit_id).order_by(HabitVariation.created_at.desc())))
+
+
+@app.post("/api/habits/{habit_id}/variations", response_model=HabitVariationOut, status_code=201)
+def create_habit_variation(habit_id: str, payload: HabitVariationCreate, db: Session = Depends(get_db)):
+    if not db.get(Habit, habit_id):
+        raise HTTPException(404, "Habit not found")
+    variation = HabitVariation(habit_id=habit_id, **payload.model_dump())
+    db.add(variation)
+    db.commit()
+    db.refresh(variation)
+    return variation
+
+
+@app.patch("/api/habits/{habit_id}/variations/{variation_id}", response_model=HabitVariationOut)
+def update_habit_variation(habit_id: str, variation_id: str, payload: HabitVariationUpdate, db: Session = Depends(get_db)):
+    variation = db.scalar(select(HabitVariation).where(HabitVariation.id == variation_id, HabitVariation.habit_id == habit_id))
+    if not variation:
+        raise HTTPException(404, "Variation not found")
+    changes = payload.model_dump(exclude_unset=True)
+    if changes.get("is_active"):
+        db.query(HabitVariation).filter(HabitVariation.habit_id == habit_id).update({"is_active": False})
+        changes.setdefault("tried_at", datetime.now(timezone.utc))
+    for key, value in changes.items():
+        setattr(variation, key, value)
+    db.commit()
+    db.refresh(variation)
+    return variation
+
+
+@app.delete("/api/habits/{habit_id}/variations/{variation_id}", status_code=204)
+def delete_habit_variation(habit_id: str, variation_id: str, db: Session = Depends(get_db)):
+    variation = db.scalar(select(HabitVariation).where(HabitVariation.id == variation_id, HabitVariation.habit_id == habit_id))
+    if not variation:
+        raise HTTPException(404, "Variation not found")
+    db.delete(variation)
+    db.commit()
+
+
+DEFAULT_CIRCLES = [
+    {"name": "Morning Movers", "identity": "The Runner", "description": "Make a little movement part of the morning."},
+    {"name": "The Daily Readers", "identity": "The Reader", "description": "A page a day, alongside people who love books."},
+    {"name": "Makers’ Hour", "identity": "The Maker", "description": "Show up for one focused creative session."},
+]
+
+
+def ensure_default_circles(db: Session):
+    if not db.scalar(select(CommunityCircle.id).limit(1)):
+        db.add_all([CommunityCircle(**circle) for circle in DEFAULT_CIRCLES])
+        db.commit()
+
+
+@app.get("/api/community/circles", response_model=list[CircleOut])
+def list_community_circles(identity_id: str | None = None, db: Session = Depends(get_db)):
+    ensure_default_circles(db)
+    if identity_id and not db.get(Identity, identity_id):
+        raise HTTPException(404, "Identity not found")
+    circles = list(db.scalars(select(CommunityCircle).order_by(CommunityCircle.name)))
+    return [{"id": circle.id, "name": circle.name, "identity": circle.identity, "description": circle.description,
+             "member_count": db.scalar(select(func.count(CircleMembership.id)).where(CircleMembership.circle_id == circle.id)) or 0,
+             "joined": bool(identity_id and db.scalar(select(CircleMembership.id).where(CircleMembership.circle_id == circle.id, CircleMembership.identity_id == identity_id)))} for circle in circles]
+
+
+@app.post("/api/community/circles", response_model=CircleOut, status_code=201)
+def create_community_circle(payload: CircleCreate, db: Session = Depends(get_db)):
+    circle = CommunityCircle(**payload.model_dump())
+    db.add(circle)
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(409, "A circle with that name already exists") from exc
+    db.refresh(circle)
+    return {"id": circle.id, **payload.model_dump(), "member_count": 0, "joined": False}
+
+
+@app.post("/api/community/circles/{circle_id}/join")
+def join_community_circle(circle_id: str, identity_id: str, db: Session = Depends(get_db)):
+    if not db.get(CommunityCircle, circle_id) or not db.get(Identity, identity_id):
+        raise HTTPException(404, "Circle or identity not found")
+    existing = db.scalar(select(CircleMembership).where(CircleMembership.circle_id == circle_id, CircleMembership.identity_id == identity_id))
+    if not existing:
+        db.add(CircleMembership(circle_id=circle_id, identity_id=identity_id))
+        db.commit()
+    return {"joined": True}
+
+
+@app.delete("/api/community/circles/{circle_id}/join")
+def leave_community_circle(circle_id: str, identity_id: str, db: Session = Depends(get_db)):
+    membership = db.scalar(select(CircleMembership).where(CircleMembership.circle_id == circle_id, CircleMembership.identity_id == identity_id))
+    if membership:
+        db.delete(membership)
+        db.commit()
+    return {"joined": False}
 
 
 @app.post("/api/habits/{habit_id}/log", response_model=LogOut, status_code=201)
@@ -186,8 +671,8 @@ def update_environment_prep(habit_id: str, payload: PrepUpdate, db: Session = De
 
 
 @app.get("/api/rewards", response_model=list[RewardStatusOut])
-def list_rewards(db: Session = Depends(get_db)):
-    rewards = list(db.scalars(select(Reward).where(Reward.is_active.is_(True))))
+def list_rewards(request: Request, db: Session = Depends(get_db)):
+    rewards = list(db.scalars(select(Reward).join(Habit).join(Identity).where(Reward.is_active.is_(True), Identity.user_id == request.state.user_id)))
     today = date.today()
     result = []
     for reward in rewards:

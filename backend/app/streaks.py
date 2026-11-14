@@ -13,16 +13,19 @@ def calculate_streak(logs, as_of: date | None = None) -> tuple[int, bool]:
     streak = 0
     completed_days = 0
     grace_used = False
+    previous_was_missed = False
     while cursor in by_day or (cursor == today and cursor not in by_day):
         status = by_day.get(cursor)
         if status in {"COMPLETED", "RECOVERED"}:
             streak += 1
             completed_days += 1
+            previous_was_missed = False
         elif status == "MISSED":
-            if grace_used:
+            if previous_was_missed:
                 # Keep completions after the broken chain; they start a fresh streak.
                 return completed_days, False
             grace_used = True
+            previous_was_missed = True
             streak += 1
         else:
             break

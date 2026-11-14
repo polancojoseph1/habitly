@@ -14,8 +14,9 @@ from app.main import app
 
 
 @pytest.fixture
-def client():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+def client(tmp_path):
+    db_path = tmp_path / "test-habitly.db"
+    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)
     test_sessions = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
@@ -28,6 +29,7 @@ def client():
 
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as test_client:
+        test_client.db_path = db_path
         yield test_client
     app.dependency_overrides.clear()
     Base.metadata.drop_all(bind=engine)
@@ -35,14 +37,73 @@ def client():
 
 
 def create_identity(client: TestClient):
-    user_response = client.post("/api/users", json={"email": f"{uuid4()}@habitly.test"})
+    user_response = client.post("/api/auth/register", json={"email": f"{uuid4()}@habitly.test", "password": "correct horse battery"})
     assert user_response.status_code == 201
+    client.headers.update({"Authorization": f"Bearer {user_response.json()['token']}"})
+    user_response.json().pop("token")
     identity_response = client.post("/api/identities", json={
         "user_id": user_response.json()["id"],
         "identity_statement": "I am a reader",
     })
     assert identity_response.status_code == 201
     return user_response.json(), identity_response.json()
+
+
+def test_account_data_isolation_and_workspace_import_restart(client):
+    cors = client.options("/api/auth/login", headers={"Origin": "http://localhost:5174", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "authorization,content-type"})
+    assert cors.status_code == 200
+    assert cors.headers["access-control-allow-origin"] == "http://localhost:5174"
+    owner, identity = create_identity(client)
+    imported = {
+        "habits": [{"id": "habit-imported", "name": "Read", "target": "Read one page", "gateway": "Open book", "cueType": "STACK", "cue": "after coffee", "kind": "BUILD", "motive": "learn", "reward": "calm", "gatewayMinutes": 2}],
+        "history": {date.today().isoformat(): ["habit-imported"]},
+        "rewards": [{"id": "reward-imported", "habitId": "habit-imported", "name": "Tea", "detail": ""}],
+        "habitEvents": [{"id": "event-imported", "habitId": "habit-imported", "type": "ACTION_COMPLETED", "at": "2026-11-14T12:00:00Z", "note": "Imported"}],
+        "variations": [{"id": "variation-imported", "habitId": "habit-imported", "law": "response", "name": "Short read", "setup": "Read one paragraph", "isActive": True}],
+        "identity": "The Reader",
+    }
+    first = client.post("/api/workspace/import", json=imported)
+    assert first.status_code == 200 and first.json()["imported"] is True
+    second = client.post("/api/workspace/import", json=imported)
+    assert second.status_code == 200 and second.json()["imported"] is False
+    habit = client.get("/api/habits", params={"identity_id": identity["id"]}).json()[0]
+    assert habit["id"] == "habit-imported"
+    assert client.get("/api/habits/habit-imported/logs").json()["logs"][0]["status"] == "COMPLETED"
+    assert client.get("/api/habits/habit-imported/events").json()[0]["note"] == "Imported"
+    assert client.get("/api/habits/habit-imported/variations").json()[0]["name"] == "Short read"
+    restarted_engine = create_engine(f"sqlite:///{client.db_path}")
+    restarted_sessions = sessionmaker(bind=restarted_engine)
+    with restarted_sessions() as db:
+        persisted = db.get(__import__("app.models", fromlist=["Habit"]).Habit, "habit-imported")
+        assert persisted is not None and persisted.identity.user_id == owner["id"]
+    def override_restarted_db():
+        db = restarted_sessions()
+        try:
+            yield db
+        finally:
+            db.close()
+    app.dependency_overrides[get_db] = override_restarted_db
+    assert client.get("/api/habits", params={"identity_id": identity["id"]}).json()[0]["id"] == "habit-imported"
+    workspace = client.get("/api/workspace").json()
+    assert workspace["data"]["identity"] == "The Reader"
+    assert client.put("/api/workspace", json={"data": {"identity": "stale"}, "expected_revision": 0}).status_code == 409
+    original_token = client.headers["Authorization"]
+    second_session = client.post("/api/auth/login", json={"email": owner["email"], "password": "correct horse battery"}).json()["token"]
+    client.headers.update({"Authorization": f"Bearer {second_session}"})
+    assert client.get("/api/habits", params={"identity_id": identity["id"]}).status_code == 200
+    client.headers.update({"Authorization": original_token})
+    assert client.get("/api/habits", params={"identity_id": identity["id"]}).status_code == 200
+
+    other = client.post("/api/auth/register", json={"email": f"{uuid4()}@habitly.test", "password": "another secure pass"}).json()
+    client.headers.update({"Authorization": f"Bearer {other['token']}"})
+    assert client.get(f"/api/identities/{identity['id']}").status_code == 404
+    assert client.patch(f"/api/identities/{identity['id']}", json={"identity_statement": "Not mine"}).status_code == 404
+    assert client.get(f"/api/habits/{habit['id']}/logs").status_code == 404
+    assert client.patch(f"/api/habits/{habit['id']}", json={"is_active": False}).status_code == 404
+    assert client.post("/api/rewards", json={"habit_id": habit["id"], "name": "Cross-account"}).status_code == 404
+    assert client.get("/api/workspace").json() == {"data": {}, "revision": 0}
+    assert client.get("/api/account", headers={"Authorization": ""}).status_code == 401
+    restarted_engine.dispose()
 
 
 def create_habit(client: TestClient, identity_id: str, **overrides):
@@ -70,13 +131,45 @@ def test_identity_habit_creation_and_formula_validation(client):
     assert habit.status_code == 201
     assert habit.json()["gateway_minutes"] == 2
     assert habit.json()["craving_motive"] == "Wind down"
+    habit_id = habit.json()["id"]
+    assert client.post(f"/api/habits/{habit_id}/events", json={"event_type": "ACTION_COMPLETED"}).status_code == 201
+    assert client.post(f"/api/habits/{habit_id}/events", json={"event_type": "ACTION_COMPLETED", "note": "Second session"}).status_code == 201
+    assert len(client.get(f"/api/habits/{habit_id}/events").json()) == 2
 
     missing_location = create_habit(client, identity["id"], cue_type="TIME_LOCATION", cue_trigger="08:00")
     assert missing_location.status_code == 422
-    missing_fourth_law = create_habit(client, identity["id"], reward_payoff="", cue_type="STACK")
-    assert missing_fourth_law.status_code == 422
-    too_long_starter = create_habit(client, identity["id"], gateway_minutes=6)
-    assert too_long_starter.status_code == 422
+    optional_fourth_law = create_habit(client, identity["id"], craving_motive="", reward_payoff="", cue_type="STACK")
+    assert optional_fourth_law.status_code == 201
+    longer = create_habit(client, identity["id"], gateway_minutes=30)
+    assert longer.status_code == 201
+    assert longer.json()["gateway_minutes"] == 30
+    no_duration = client.patch(f"/api/habits/{longer.json()['id']}", json={"gateway_minutes": 0})
+    assert no_duration.status_code == 200
+    assert no_duration.json()["gateway_minutes"] == 0
+    assert next(item for item in client.get(f"/api/habits?identity_id={identity['id']}").json() if item["id"] == longer.json()["id"])["gateway_minutes"] == 0
+    assert create_habit(client, identity["id"], gateway_minutes=-1).status_code == 422
+
+
+def test_habit_variations_and_multiple_attributed_checkins(client):
+    _, identity = create_identity(client)
+    habit = create_habit(client, identity["id"], habit_type="BREAK", technique_ids=["increase-friction"], technique_notes={"response": "Keep the phone outside the bedroom"})
+    assert habit.status_code == 201
+    habit_id = habit.json()["id"]
+    first = client.post(f"/api/habits/{habit_id}/variations", json={"law": "response", "name": "Phone outside", "technique_id": "increase-friction", "setup": "Charge it in the kitchen"})
+    second = client.post(f"/api/habits/{habit_id}/variations", json={"law": "response", "name": "App blocker", "setup": "Block social apps after 10 PM"})
+    assert first.status_code == second.status_code == 201
+    assert client.patch(f"/api/habits/{habit_id}/variations/{first.json()['id']}", json={"is_active": True}).json()["is_active"]
+    switched = client.patch(f"/api/habits/{habit_id}/variations/{second.json()['id']}", json={"is_active": True, "helped": True, "outcome_note": "Fewer late scroll sessions"})
+    assert switched.json()["is_active"] is True
+    rows = client.get(f"/api/habits/{habit_id}/variations").json()
+    assert sum(row["is_active"] for row in rows) == 1
+    assert client.post(f"/api/habits/{habit_id}/events", json={"event_type": "URGE_PASSED", "variation_id": switched.json()["id"], "variation_name": "App blocker", "strategy": "App blocker: Block social apps after 10 PM", "note": "Closed the browser"}).status_code == 201
+    assert client.post(f"/api/habits/{habit_id}/events", json={"event_type": "OLD_HABIT", "variation_id": switched.json()["id"], "variation_name": "App blocker"}).status_code == 201
+    events = client.get(f"/api/habits/{habit_id}/events").json()
+    assert len(events) == 2
+    assert events[0]["variation_name"] == "App blocker"
+    assert events[1]["note"] == "Closed the browser"
+    assert client.delete(f"/api/habits/{habit_id}/variations/{first.json()['id']}").status_code == 204
 
 
 def test_completion_votes_are_idempotent_and_reward_unlocks(client):
@@ -122,6 +215,42 @@ def test_prep_record_does_not_break_the_habit_streak(client):
     assert any(log["environment_prepped"] for log in history["logs"])
 
 
+def test_break_plan_is_optional_accountability_and_tracks_multiple_daily_events(client):
+    _, identity = create_identity(client)
+    plan = create_habit(
+        client,
+        identity["id"],
+        habit_type="BREAK",
+        target_action="Scroll in bed",
+        gateway_action="Read one page",
+        craving_motive="Unwind after work",
+        reward_payoff="Feel rested tomorrow",
+        technique_ids=["reduce-exposure", "two-minute-rule", "habit-tracking"],
+        technique_notes={
+            "reduce-exposure": "Leave phone charging in the kitchen",
+            "two-minute-rule": "Open the book on my pillow",
+            "habit-tracking": "Mark each urge check-in",
+        },
+        alternative_routine="Read one page",
+    )
+    assert plan.status_code == 201
+    saved_plan = plan.json()
+    assert saved_plan["habit_contract"] is None
+    assert saved_plan["accountability_partner"] is None
+    assert saved_plan["technique_ids"] == ["reduce-exposure", "two-minute-rule", "habit-tracking"]
+    assert saved_plan["technique_notes"]["two-minute-rule"] == "Open the book on my pillow"
+
+    event_url = f"/api/habits/{saved_plan['id']}/events"
+    for event_type in ("URGE_PASSED", "REPLACEMENT_USED", "OLD_HABIT"):
+        event = client.post(event_url, json={"event_type": event_type})
+        assert event.status_code == 201
+
+    events = client.get(event_url)
+    assert events.status_code == 200
+    assert len(events.json()) == 3
+    assert {event["event_type"] for event in events.json()} == {"URGE_PASSED", "REPLACEMENT_USED", "OLD_HABIT"}
+
+
 def test_telegram_one_time_link_and_done_message(client, monkeypatch):
     user, identity = create_identity(client)
     habit = create_habit(client, identity["id"]).json()
@@ -145,3 +274,13 @@ def test_telegram_one_time_link_and_done_message(client, monkeypatch):
     assert log.json()["logged"] is True
     history = client.get(f"/api/habits/{habit['id']}/logs").json()["logs"]
     assert history[0]["completed_via"] == "TELEGRAM_BOT"
+
+
+def test_removing_habit_keeps_activity(client):
+    _, identity = create_identity(client)
+    habit = create_habit(client, identity["id"]).json()
+    habit_id = habit["id"]
+    assert client.post(f"/api/habits/{habit_id}/events", json={"event_type": "ACTION_COMPLETED"}).status_code == 201
+    assert client.patch(f"/api/habits/{habit_id}", json={"is_active": False}).status_code == 200
+    assert all(item["id"] != habit_id for item in client.get(f"/api/habits?identity_id={identity['id']}").json())
+    assert len(client.get(f"/api/habits/{habit_id}/events").json()) == 1

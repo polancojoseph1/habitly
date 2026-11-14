@@ -1,0 +1,23 @@
+modules = ["python-3.12", "nodejs-22", "postgresql-16"]
+
+[workflows]
+runButton = "Habitly"
+
+[[workflows.workflow]]
+name = "Habitly"
+mode = "sequential"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "bash scripts/run-replit.sh"
+waitForPort = 5000
+
+[deployment]
+deploymentTarget = "vm"
+run = ["bash", "scripts/run-replit.sh"]
+ignorePorts = false
+
+[[ports]]
+localPort = 5000
+externalPort = 80

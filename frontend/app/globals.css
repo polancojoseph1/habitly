@@ -20,6 +20,11 @@
 .celebration-overlay{position:fixed;z-index:75;inset:0;display:grid;place-items:center;background:rgba(231,237,223,.78);backdrop-filter:blur(4px);pointer-events:none;animation:celebrate-bg 1.15s both}.celebration-copy{display:grid;justify-items:center;text-align:center;gap:9px;animation:celebrate-card 1.15s both}.celebration-copy span{font-size:14px;letter-spacing:1.7px;color:#757395;font-weight:700}.celebration-copy b{font:800 clamp(25px,5vw,42px)/1.13 'Manrope',sans-serif;letter-spacing:-1.4px;color:#323049}.celebration-copy small{color:#79788a;font-size:17px}.celebration-spark{position:absolute;top:calc(50% - 115px);color:#7976a5;font-size:44px;animation:spin-pop 1.1s cubic-bezier(.2,.8,.2,1)}.confetti{position:absolute;width:9px;height:14px;border-radius:3px;background:#928fbd;animation:confetti-float 1.15s ease-out both}.confetti-one{left:24%;top:40%;transform:rotate(-25deg);background:#e6b47a}.confetti-two{left:34%;top:58%;background:#9d9ac9}.confetti-three{left:67%;top:35%;transform:rotate(30deg);background:#c9b7d2}.confetti-four{left:75%;top:57%;background:#e6b47a}.confetti-five{left:18%;top:57%;background:#c9b7d2}.confetti-six{left:81%;top:43%;background:#9d9ac9}@keyframes celebrate-bg{0%,100%{opacity:0}20%,75%{opacity:1}}@keyframes celebrate-card{0%{opacity:0;transform:scale(.78) translateY(10px)}20%,72%{opacity:1;transform:scale(1) translateY(0)}100%{opacity:0;transform:scale(1.06) translateY(-8px)}}@keyframes spin-pop{0%{opacity:0;transform:rotate(-100deg) scale(.4)}22%{opacity:1;transform:rotate(0) scale(1.2)}75%{opacity:1;transform:rotate(20deg) scale(1)}100%{opacity:0;transform:rotate(60deg) scale(.8)}}@keyframes confetti-float{0%,100%{opacity:0;translate:0 8px;rotate:0deg}22%{opacity:1;translate:0 -8px;rotate:25deg}72%{opacity:.8;translate:0 -24px;rotate:-20deg}}
 .anti-link{margin:19px 0 0}
 
+.builder-law-strip button{padding:0;border:0;background:transparent;color:#77758f;font:inherit;text-align:left;cursor:pointer}.builder-law-strip button:hover{color:#4541a8}.builder-law-strip button span{font-size:14px}.law-techniques summary{position:relative;padding-right:35px}.law-info-button{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:26px;height:26px;border:1px solid #e5e3ef;border-radius:50%;background:#fff;color:#77758f;cursor:pointer}.law-info-button:hover{border-color:#aaa5e9;color:#4541a8}.technique-learn-more{margin:0 0 10px 31px;padding:0;border:0;background:transparent;color:#625f99;font-size:14px;font-weight:700;cursor:pointer}.technique-learn-more:hover{text-decoration:underline}.info-modal-backdrop{z-index:95}.learning-modal{max-width:610px}.learning-content{display:grid;gap:12px;color:#68677d;font-size:15px;line-height:1.65}.learning-content>p{margin:0}.learning-content h3{margin:5px 0 0;color:#33324f;font:700 16px 'Manrope',sans-serif}.learning-content ol,.learning-example-list{display:grid;gap:8px;margin:0;padding-left:22px}.learning-content li{padding-left:3px}.learning-example{padding:12px 14px;border:1px solid #e7e5f1;border-radius:10px;background:#f7f6fb}.learning-example b{color:#4541a8}.learning-example p{margin:3px 0 0}.learning-related-laws{display:flex;flex-wrap:wrap;gap:7px}.learning-related-laws button{padding:7px 10px;border:1px solid #e5e3ef;border-radius:8px;background:#f7f6fb;color:#55527e;font-size:14px;cursor:pointer}.learning-related-laws button:hover{border-color:#aaa5e9}.learning-source{padding-top:8px;border-top:1px solid #edebf2;color:#9291a1;font-size:14px}.learning-source i{color:#686682}
+[data-theme="dark"] .law-info-button,[data-theme="dark"] .learning-example,[data-theme="dark"] .learning-related-laws button{background:#292938;border-color:#3e3e52;color:#d3d0ff}[data-theme="dark"] .learning-content h3{color:#eeedf7}[data-theme="dark"] .learning-content{color:#c0bfd0}
+@media(max-width:760px){.builder-law-strip{grid-template-columns:1fr 1fr}.builder-law-strip button{font-size:14px}.learning-modal{padding:19px 17px}}
+.builder-law-strip button{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 9px;border:1px solid #e5e3ef;border-radius:8px;background:#f8f7fc;color:#55527e;cursor:pointer}.builder-law-strip button:hover{border-color:#aaa5e9;background:#eeecff}.law-info-button{width:auto;height:auto;padding:5px 8px;border-radius:7px;font-size:14px;font-weight:700;white-space:nowrap}.technique-learn-more{display:inline-flex;align-items:center;gap:5px;margin:7px 0 10px 31px;padding:7px 10px;border:1px solid #d9d5f0;border-radius:8px;background:#f1efff;color:#393583;font-size:14px;font-weight:700;text-decoration:none}.technique-learn-more:hover{border-color:#aaa5e9;background:#e7e4ff;text-decoration:none}.learning-inversion{padding:12px 14px;border-left:3px solid #d59873;border-radius:7px;background:#fbf3ed}.learning-inversion b{color:#925e43}.learning-inversion p{margin:4px 0 0}.notebook-suggestion-list{display:grid;gap:8px;padding:12px}.notebook-suggestion-list article{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e9e7f1;border-radius:9px;background:#fff}.notebook-suggestion-list article p{margin:4px 0 0;color:#89889b;font-size:14px}.notebook-suggestion-list .technique-learn-more{margin:0;white-space:nowrap}[data-theme="dark"] .builder-law-strip button,[data-theme="dark"] .notebook-suggestion-list article{background:#292938;border-color:#3e3e52;color:#d3d0ff}[data-theme="dark"] .technique-learn-more{background:#302e50;border-color:#49466f;color:#d3d0ff}[data-theme="dark"] .learning-inversion{background:#302720;border-color:#ad795e}[data-theme="dark"] .learning-inversion b{color:#e3b494}@media(max-width:600px){.notebook-suggestion-list article{align-items:flex-start;flex-direction:column}.notebook-suggestion-list .technique-learn-more{margin:3px 0 0}}
+
 /* Atomic Habits additions: simple, scannable actions with an indigo and coral palette. */
 :root{color-scheme:light;--paper:#f7f6fb;--white:#fff;--ink:#20213c;--muted:#77778e;--line:#e8e6f0;--green:#4541a8;--green-dark:#302d78;--lime:#e9e5ff;--shadow:0 12px 38px rgba(40,35,91,.075)}
 .primary-button{background:#4541a8;box-shadow:0 4px 11px rgba(69,65,168,.16)}
@@ -65,6 +70,128 @@
 .theme-toggle{display:grid;place-items:center;width:31px;height:31px;border:1px solid #e6e4ee;border-radius:9px;background:#fff;color:#514da2}
 .friction-buttons{display:flex;align-items:center;gap:7px}.friction-buttons button:first-child{background:#f5f2fb;border-color:#e6e0f1;color:#716486}
 [data-theme="dark"] .friction-buttons button:first-child{background:#302d3c;border-color:#454052;color:#d0c5e1}
+.diagnostic-list{display:grid;gap:10px}.diagnostic-card,.circle-create-form,.accountability-invite-banner{padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--surface-raised);box-shadow:var(--shadow)}.diagnostic-card h3,.circle-create-form h3,.accountability-invite-banner h2{margin:4px 0 8px;color:var(--ink);font:700 18px 'Manrope',sans-serif}.diagnostic-card p,.accountability-invite-banner p{margin:5px 0;color:var(--muted);font-size:14px}.circle-create-form{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.circle-create-form>div{grid-column:1/-1}.circle-create-form input{min-width:0;min-height:42px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);color:var(--ink)}.circle-create-form button{justify-self:start}.accountability-invite-banner{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.accountability-invite-banner>div{min-width:0}.accountability-invite-banner small{color:var(--muted)}.diagnostic-modal [data-diagnostic-step]{gap:14px}
+[data-theme="dark"] .diagnostic-card,[data-theme="dark"] .circle-create-form,[data-theme="dark"] .accountability-invite-banner{background:var(--surface-raised);border-color:var(--line)}
+[data-theme="dark"] .circle-create-form input{background:var(--surface-soft);border-color:var(--line);color:var(--ink)}
+@media(max-width:600px){.circle-create-form{grid-template-columns:1fr}.circle-create-form>div{grid-column:1}.accountability-invite-banner{align-items:flex-start;flex-direction:column}.accountability-invite-banner h2{font-size:17px}}
+
+.law-save-section{display:block;margin:0 10px 10px auto;padding:8px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);color:var(--accent-ink);font-size:12px;font-weight:700}
+.habit-checkin-workspace{display:grid;gap:10px;margin-top:12px}
+.checkin-controls{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-soft)}
+.checkin-controls>label,.variation-fields label{display:grid;gap:5px;color:var(--muted);font-size:12px;font-weight:700}
+.checkin-controls textarea,.variation-fields input,.variation-fields textarea,.variation-fields select,.variation-outcome select{width:100%;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-raised);color:var(--ink);font:inherit;font-size:13px}
+.variation-workspace,.event-history{border:1px solid var(--line);border-radius:12px;background:var(--surface-raised);overflow:hidden}
+.variation-workspace>summary,.event-history>summary{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 14px;color:var(--ink);font-size:14px;font-weight:700;cursor:pointer}
+.variation-workspace>summary small,.event-history>summary small{color:var(--accent-ink);font-size:12px;font-weight:600}
+.variation-create{padding:0 14px 12px}.variation-create p{margin:0 0 8px;color:var(--muted);font-size:12px;line-height:1.5}
+.variation-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}.variation-fields input,.variation-fields textarea,.variation-fields select{font-size:13px}.variation-fields button{grid-column:1/-1;justify-self:start}
+.variation-row{display:grid;gap:8px;padding:12px 14px;border-top:1px solid var(--line)}
+.variation-row-main,.variation-outcome{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.variation-row-main>div{min-width:0}.variation-row-main b{color:var(--ink);font-size:13px}.variation-row-main p,.variation-note{margin:4px 0;color:var(--muted);font-size:12px;line-height:1.5;overflow-wrap:anywhere}.variation-row-main small,.variation-outcome>span{color:var(--muted);font-size:11px}
+.variation-active{margin-left:7px;padding:3px 7px;border-radius:20px;background:var(--accent-soft);color:var(--accent-ink);font-size:10px;font-weight:700}
+.variation-outcome{justify-content:flex-start;flex-wrap:wrap}.variation-outcome label{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:11px}.variation-outcome select{width:auto;padding:5px 8px}.variation-outcome .text-button{margin-left:auto}
+.event-history ol{display:grid;gap:0;margin:0;padding:0 14px;list-style:none}.event-history li{display:grid;gap:3px;padding:10px 0;border-top:1px solid var(--line)}.event-history li b{color:var(--ink);font-size:12px}.event-history time,.event-history li small{color:var(--muted);font-size:11px}.event-history li p,.event-history>p{margin:2px 0 10px;color:var(--muted);font-size:12px;line-height:1.5}.event-history>p{padding:0 14px}
+.build-variation-workspace{display:grid;gap:8px;margin-top:8px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface-raised)}.build-variation-workspace>summary{display:flex;justify-content:space-between;gap:8px;color:var(--ink);font-size:13px;font-weight:700;cursor:pointer}.build-variation-workspace>summary small{color:var(--accent-ink)}.build-variation-workspace>p{margin:0;color:var(--muted);font-size:12px}.today-checkin{display:grid;gap:7px;min-width:0}.today-checkin>textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-raised);color:var(--ink);font:inherit;font-size:13px}
+.action-checkin{display:flex;align-items:center;gap:10px;margin:9px 0}.action-checkin textarea{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-raised);color:var(--ink);font:inherit;font-size:12px}.action-checkin .text-button{min-height:40px;color:var(--accent-ink)}
+[data-theme="dark"] .checkin-controls,[data-theme="dark"] .variation-workspace,[data-theme="dark"] .event-history,[data-theme="dark"] .variation-fields input,[data-theme="dark"] .variation-fields textarea,[data-theme="dark"] .variation-fields select,[data-theme="dark"] .variation-outcome select{background:var(--surface-raised);border-color:var(--line);color:var(--ink)}
+@media(max-width:600px){.law-save-section{width:calc(100% - 20px);margin:0 10px 10px}.checkin-controls{padding:10px}.urge-actions>div{display:grid;grid-template-columns:1fr}.urge-actions button{width:100%;min-height:40px;white-space:normal}.variation-fields{grid-template-columns:1fr}.variation-fields button{grid-column:1}.variation-row-main{align-items:flex-start;flex-direction:column}.variation-outcome{align-items:flex-start}.variation-outcome .text-button{margin-left:0}.event-history time{font-size:10px}.today-checkin{grid-column:1/-1}.change-today-card{grid-template-columns:1fr}.change-today-card .change-today-count{display:none}.change-today-card .today-checkin{width:100%}.action-checkin{align-items:stretch;flex-direction:column}.action-checkin .text-button{align-self:flex-start}}
+
+/* The four behavior laws are the primary planning surface. */
+.today-law-hero{display:grid;grid-template-columns:minmax(220px,.85fr) minmax(400px,1.15fr);gap:24px;align-items:center;padding:24px;margin-bottom:18px;border:1px solid var(--line);border-radius:18px;background:linear-gradient(125deg,#eeecff,#f8f5fb 58%,#f5edf5);box-shadow:var(--shadow)}
+.today-law-copy .overline{color:var(--accent-ink)}
+.today-law-copy h2{max-width:420px;margin:7px 0;font:700 24px/1.24 'Manrope',sans-serif;letter-spacing:-.6px;color:var(--ink)}
+.today-law-copy p{max-width:410px;margin:0;color:var(--muted);font-size:14px;line-height:1.6}
+.today-law-columns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.today-law-columns>div{display:grid;grid-template-columns:1fr 1fr;gap:5px 9px;padding:13px;border:1px solid var(--line);border-radius:13px;background:var(--surface-raised)}
+.today-law-columns b{grid-column:1/-1;color:var(--ink);font:700 16px 'Manrope',sans-serif}
+.today-law-columns span{color:var(--muted);font-size:12px}
+.today-law-columns button{grid-column:1/-1;display:flex;align-items:center;gap:5px;margin-top:5px;padding:0;border:0;background:transparent;color:var(--accent-ink);font-weight:700;text-align:left}
+.law-board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:0 0 18px}
+.law-board-card{display:flex;gap:10px;min-height:80px;padding:13px;border:1px solid var(--line);border-radius:13px;background:var(--surface-raised)}
+.law-board-card>span,.law-number{display:grid;place-items:center;flex:0 0 27px;width:27px;height:27px;border-radius:9px;background:var(--accent-soft);color:var(--accent-ink);font-size:12px;font-weight:800}
+.law-board-card>div{display:grid;align-content:start;gap:3px}
+.law-board-card b{color:var(--ink);font:700 14px 'Manrope',sans-serif}
+.law-board-card small{color:var(--muted);font-size:12px;line-height:1.4}
+.builder-law-strip{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0 0}
+.builder-law-strip span{padding:5px 8px;border:1px solid var(--line);border-radius:20px;background:var(--surface-soft);color:var(--muted);font-size:11px;font-weight:700}
+.technique-picker{display:grid;gap:9px;padding:14px;border:1px solid var(--line);border-radius:14px;background:var(--surface-soft)}
+.technique-picker-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.technique-picker-head h3{margin:3px 0;color:var(--ink);font:700 18px 'Manrope',sans-serif}
+.technique-picker-head p{max-width:470px;margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+.technique-selected-count,.law-count{flex:0 0 auto;color:var(--accent-ink);font-size:12px;font-weight:700}
+.law-techniques{overflow:hidden;border:1px solid var(--line);border-radius:11px;background:var(--surface-raised)}
+.law-techniques>summary{display:flex;align-items:center;gap:10px;min-height:58px;padding:10px 12px;cursor:pointer;list-style:none}
+.law-techniques>summary::-webkit-details-marker{display:none}
+.law-title{display:grid;flex:1;gap:2px;min-width:0}
+.law-title b{color:var(--ink);font-size:14px}
+.law-title small{color:var(--muted);font-size:12px;line-height:1.35}
+.technique-options,.playbook-options{display:grid;gap:7px;padding:0 10px 10px}
+.technique-option,.playbook-options article{padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft)}
+.technique-option-selected{border-color:#aaa1eb;background:var(--accent-soft)}
+.technique-option>label:first-child{display:flex;align-items:flex-start;gap:9px;cursor:pointer}
+.technique-option input[type=checkbox]{flex:0 0 auto;margin:4px 0 0;accent-color:var(--green)}
+.technique-option>label:first-child span{display:grid;gap:3px}
+.technique-option b,.playbook-options b{color:var(--ink);font-size:13px}
+.technique-option small,.playbook-options p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.technique-option em,.playbook-options article>small{color:var(--accent-ink);font-size:12px;line-height:1.45;font-style:normal}
+.technique-note{display:grid;gap:5px;margin:9px 0 0 25px;color:var(--muted);font-size:12px;font-weight:700}
+.technique-note textarea{width:100%;resize:vertical;padding:8px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);color:var(--ink);font:inherit;font-size:13px}
+.selected-techniques{display:grid;gap:7px;padding-top:4px;color:var(--ink);font-size:13px}
+.selected-techniques>div{display:flex;gap:6px;flex-wrap:wrap}
+.selected-techniques span{display:flex;align-items:center;gap:5px;padding:5px 7px;border-radius:18px;background:var(--accent-soft);color:var(--accent-ink);font-size:11px;font-weight:700}
+.selected-techniques button{padding:0;border:0;background:transparent;color:inherit;font-size:16px;line-height:1}
+.playbook-switch{display:flex;gap:5px;width:max-content;margin-bottom:15px;padding:4px;border-radius:11px;background:var(--surface-soft)}
+.playbook-switch button{padding:8px 12px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-size:13px;font-weight:700}
+.playbook-switch button.selected{background:var(--surface-raised);color:var(--accent-ink);box-shadow:var(--shadow)}
+.playbook-law{margin-bottom:9px}
+.playbook-options{grid-template-columns:repeat(2,minmax(0,1fr));padding:4px 12px 12px}
+.playbook-options article{display:grid;align-content:start;gap:5px}
+.anti-stats{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0;padding:11px 12px;border-radius:10px;background:var(--surface-soft)}
+.anti-stats>div{display:grid;gap:1px}
+.anti-stats b{color:var(--ink);font:700 18px 'Manrope',sans-serif}
+.anti-stats span,.anti-steps small{color:var(--muted);font-size:11px}
+.anti-review{margin:0 0 12px;color:var(--muted);font-size:12px;line-height:1.5}
+.anti-steps{grid-template-columns:repeat(4,minmax(0,1fr))}
+.anti-steps small{display:block;margin-top:6px;line-height:1.45}
+.replacement-plan{margin-top:10px;padding:12px;border-radius:10px;background:var(--accent-soft)}
+.replacement-plan p{margin:4px 0;color:var(--ink);font-weight:700}
+.replacement-plan small{color:var(--muted);font-size:12px}
+.urge-actions{display:grid;gap:7px;margin-top:12px}
+.urge-actions>span{color:var(--ink);font-size:12px;font-weight:700}
+.urge-actions>div{display:flex;gap:7px;flex-wrap:wrap}
+.urge-actions button,.habit-plan-edit{padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-raised);color:var(--accent-ink);font-size:12px;font-weight:700}
+.urge-actions button:hover,.habit-plan-edit:hover{border-color:#a9a1e8;background:var(--accent-soft)}
+.accountability-optional{margin-top:11px;padding-top:9px;border-top:1px solid var(--line)}
+.accountability-optional summary{color:var(--muted);font-size:12px;font-weight:700;cursor:pointer}
+.accountability-optional p,.accountability-optional small{color:var(--muted);font-size:12px}
+.change-today-section{margin-top:24px}
+.change-today-list{display:grid;gap:10px}
+.change-today-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:15px;border:1px solid var(--line);border-radius:14px;background:var(--surface-raised)}
+.change-today-card h3{margin:3px 0;color:var(--ink);font:700 16px 'Manrope',sans-serif}
+.change-today-card p{margin:3px 0;color:var(--muted);font-size:13px}
+.change-today-card small{color:var(--accent-ink);font-size:11px}
+.change-today-count{display:grid;align-content:center;justify-items:center;min-width:68px;padding:7px;border-radius:10px;background:var(--surface-soft)}
+.change-today-count b{color:var(--ink);font:700 22px 'Manrope',sans-serif}
+.change-today-count span{color:var(--muted);font-size:10px}
+.change-today-card .urge-actions{grid-column:1/-1}
+.habit-technique-summary{display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin:0 0 10px 43px}
+.habit-technique-summary>span{color:var(--muted);font-size:10px;font-weight:800;letter-spacing:.5px}
+.habit-technique-summary>b{padding:4px 6px;border-radius:14px;background:var(--accent-soft);color:var(--accent-ink);font-size:10px}
+.habit-technique-summary>small{color:var(--muted);font-size:10px}
+.habit-laws-inline{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:10px 0 8px 43px}
+.habit-laws-inline>div{min-width:0;padding:8px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft)}
+.habit-laws-inline b{display:block;color:var(--accent-ink);font-size:10px;line-height:1.3}
+.habit-laws-inline p{margin:4px 0 0;color:var(--ink);font-size:10px;line-height:1.4;overflow-wrap:anywhere}
+.habit-laws-inline small{display:block;margin-top:4px;color:var(--muted);font-size:9px;line-height:1.35;overflow-wrap:anywhere}
+.habit-plan-edit{display:block;margin:0 0 10px 43px;padding:4px 0;border:0;background:transparent;text-align:left}
+.loop-diagnosis-note{padding:11px 12px;border-radius:10px;background:var(--accent-soft);color:var(--ink)}
+.loop-diagnosis-note p{margin:2px 0 0;color:var(--muted);font-size:12px}
+.optional-planning{padding:10px;border:1px solid var(--line);border-radius:10px}
+.optional-planning summary{color:var(--accent-ink);font-size:13px;font-weight:700;cursor:pointer}
+.optional-planning[open]{display:grid;gap:12px}
+.anti-card-top .secondary-button{margin-left:auto}
+@media(max-width:900px){.today-law-hero{grid-template-columns:1fr}.law-board{grid-template-columns:repeat(2,minmax(0,1fr))}.anti-steps{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.today-law-hero{gap:14px;padding:16px}.today-law-copy h2{font-size:21px}.today-law-columns{gap:7px}.today-law-columns>div{padding:10px}.law-board{grid-template-columns:1fr 1fr}.law-board-card{min-height:74px;padding:10px}.law-board-card small{font-size:11px}.playbook-options{grid-template-columns:1fr}.technique-picker{padding:10px}.technique-picker-head{display:grid}.technique-selected-count{justify-self:start}.law-techniques>summary{gap:7px;padding:9px}.law-count{font-size:10px}.anti-stats{gap:12px}.anti-steps{grid-template-columns:1fr}.change-today-card{grid-template-columns:minmax(0,1fr) auto}.change-today-card .urge-actions>div{display:grid;grid-template-columns:1fr 1fr}.change-today-card .urge-actions button:last-child{grid-column:1/-1}.anti-card-top{flex-wrap:wrap}.anti-card-top .secondary-button{margin-left:auto}.habit-laws-inline{grid-template-columns:1fr 1fr;margin-left:0}.habit-plan-edit{margin-left:0}}
 
 /* Reading comfort: clearer small labels, better contrast, and a little more breathing room. */
 body{line-height:1.5;-webkit-font-smoothing:auto;text-rendering:optimizeLegibility}
@@ -246,6 +373,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .form-kind-tabs button.selected,.cue-tabs button.cue-tab-selected { border-color: #b9b2f0; background: var(--accent-soft); color: var(--accent-ink); }
 .form-note { color: var(--muted); }
 .toast-message { max-width: min(420px, calc(100vw - 28px)); overflow-wrap: anywhere; }
+.toast-message.toast-habit-added { width: min(560px, calc(100vw - 32px)); min-height: 112px; justify-content: center; padding: 24px 32px; border-radius: 20px; font-size: 20px; }
 
 :root[data-theme="dark"] body { background: var(--paper); color: var(--ink); }
 :root[data-theme="dark"] .sidebar,:root[data-theme="dark"] .topbar,:root[data-theme="dark"] .summary-card,:root[data-theme="dark"] .habit-card,:root[data-theme="dark"] .settings-card,:root[data-theme="dark"] .reward-card,:root[data-theme="dark"] .calendar-card,:root[data-theme="dark"] .anti-card,:root[data-theme="dark"] .tribe-card,:root[data-theme="dark"] .scorecard-row,:root[data-theme="dark"] .vault-add-card { background: var(--surface-raised); border-color: var(--line); color: var(--ink); }
@@ -338,4 +466,224 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* Keep the four laws readable against the dark workspace and on narrow screens. */
+:root[data-theme="dark"] .today-law-hero {
+  background: linear-gradient(125deg, #242238, #201e2c 58%, #282131);
+  border-color: var(--line);
+}
+:root[data-theme="dark"] .today-law-copy h2 { color: var(--ink); }
+:root[data-theme="dark"] .today-law-copy .overline { color: #bcb7ff; }
+.today-law-columns button {
+  min-height: 36px;
+  padding: 6px 0;
+  border-radius: 7px;
+  touch-action: manipulation;
+}
+.today-law-columns button:hover { color: var(--ink); }
+.today-law-columns button:focus-visible {
+  outline: 2px solid var(--accent-ink);
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .today-law-hero { grid-template-columns: minmax(0, 1fr); }
+  .today-law-copy h2 { max-width: 24ch; }
+  .today-law-columns { grid-template-columns: minmax(0, 1fr); }
+  .today-law-columns > div { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 12px; padding: 14px; }
+  .today-law-columns span { font-size: 13px; }
+}
+.step-heading { display: grid; gap: 5px; margin: 8px 0 14px; }
+.step-heading h3, .step-heading p { margin: 0; }
+.step-heading p { color: var(--muted); }
+.step-heading .law-info-button { justify-self: start; margin-top: 5px; }
+.builder-law-strip .current-law { border-color: #8279d9; background: #eceaff; color: #373078; font-weight: 700; }
+[data-theme="dark"] .builder-law-strip .current-law { background: #46416c; color: #fff; border-color: #aaa1ff; }
+@media (max-width: 600px) { .builder-law-strip { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .builder-law-strip button { text-align: left; font-size: 12px; } .field-two { grid-template-columns: 1fr; } }
+/* Habit builder: one quiet foundation, then a single scrollable plan. */
+.habit-builder { width: min(100%, 680px); padding: 28px; }
+.habit-builder .modal-header { border: 0; padding-bottom: 8px; }
+.builder-progress { display: flex; align-items: center; gap: 12px; margin: 20px 0 6px; color: var(--muted); font-size: 13px; }
+.builder-progress span { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.builder-progress span::first-letter { font-weight: 800; }
+.builder-progress .active { color: var(--accent-ink); }
+.builder-progress .complete { color: var(--ink); }
+.builder-progress i { width: 36px; height: 1px; background: var(--line); }
+.basics-page, .law-fields { display: grid; gap: 15px; }
+.basics-page { padding: 12px 0 20px; }
+.laws-page { display: grid; gap: 14px; padding-bottom: 8px; }
+.builder-law { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-soft); }
+.builder-law-heading { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; }
+.builder-law-index { display: grid; place-items: center; width: 38px; height: 38px; flex: 0 0 38px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-ink); font-weight: 800; font-size: 12px; }
+.builder-law-heading > div { flex: 1; min-width: 0; }
+.builder-law-heading small { font-size: 10px; font-weight: 800; letter-spacing: .1em; color: var(--muted); }
+.builder-law-heading h3 { margin: 2px 0 0; color: var(--ink); font: 700 18px 'Manrope', sans-serif; }
+.law-info, .technique-info { display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 50%; color: var(--muted); background: transparent; font: 700 14px Georgia, serif; cursor: pointer; }
+.law-info:hover, .technique-info:hover { color: var(--accent-ink); border-color: var(--accent-ink); background: var(--accent-soft); }
+.law-info:focus-visible, .technique-info:focus-visible, .strategy-disclosure summary:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 3px; }
+.strategy-disclosure { margin-top: 16px; border-top: 1px solid var(--line); }
+.strategy-disclosure summary { display: flex; align-items: center; gap: 8px; padding: 14px 0 2px; color: var(--accent-ink); font-weight: 700; font-size: 13px; cursor: pointer; list-style: none; }
+.strategy-disclosure summary::-webkit-details-marker { display: none; }
+.strategy-disclosure summary::before { content: '+'; font-size: 19px; line-height: 1; }
+.strategy-disclosure[open] summary::before { content: '−'; }
+.strategy-disclosure summary span { margin-left: auto; color: var(--muted); font-size: 12px; font-weight: 500; }
+.strategy-list { display: grid; gap: 8px; padding-top: 12px; }
+.strategy-list .technique-option { position: relative; padding: 12px 48px 12px 12px; background: var(--surface-raised); }
+.strategy-list .technique-option-selected { background: var(--accent-soft); }
+.strategy-list .technique-info { position: absolute; top: 8px; right: 8px; }
+.strategy-list .technique-note { margin-top: 12px; }
+.habit-builder .modal-actions { position: sticky; bottom: -28px; z-index: 2; margin: 0 -28px -28px; padding: 15px 28px 22px; background: var(--surface-raised); }
+@media (max-width: 600px) {
+  .habit-builder { padding: 18px 16px; border-radius: 16px; }
+  .builder-law { padding: 15px; }
+  .builder-law-heading { gap: 10px; }
+  .builder-law-heading h3 { font-size: 16px; }
+  .habit-builder .modal-actions { bottom: -18px; margin: 0 -16px -18px; padding: 12px 16px 16px; }
+  .habit-builder .modal-actions .primary-button { flex: 1; }
+}
+.duration-hint { margin: -6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+/* Keep information guides distinct from the plan underneath. */
+.info-modal-backdrop {
+  align-items: center;
+  padding: max(32px, env(safe-area-inset-top)) 32px max(32px, env(safe-area-inset-bottom));
+  background: rgba(12, 10, 24, .55);
+}
+.info-modal-backdrop .learning-modal {
+  width: min(100%, 580px);
+  max-height: calc(100dvh - 64px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+:root[data-theme="dark"] .info-modal-backdrop { background: rgba(4, 4, 10, .68); }
+@media (max-width: 600px) {
+  .info-modal-backdrop { align-items: center; padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom)); }
+  .info-modal-backdrop .learning-modal { max-height: calc(100dvh - 48px); }
+}
+/* Align each law number with its two-line heading and keep help controls quiet. */
+.builder-law-heading { align-items: center; }
+.law-info, .technique-info {
+  width: 36px;
+  height: 36px;
+  flex-basis: 36px;
+  border-color: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.law-info:hover, .technique-info:hover { border-color: var(--line); }
+.habit-manage-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.habit-manage-actions button { min-height: 36px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-soft); color: var(--ink); font-size: 13px; font-weight: 700; cursor: pointer; }
+.habit-manage-actions button:hover { border-color: var(--accent-ink); color: var(--accent-ink); }
+.habit-manage-actions .habit-delete-action { color: #c36c75; }
+.habit-manage-actions .habit-delete-action:hover { color: #e58790; border-color: #c36c75; }
+.anti-card-top .habit-manage-actions { margin: 0 0 0 auto; }
+.delete-habit-backdrop { z-index: 100; }
+.delete-habit-modal { margin: 0; }
+.delete-habit-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.delete-confirm-button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #b74656; color: #fff; font-weight: 700; cursor: pointer; }
+.delete-confirm-button:disabled { opacity: .6; cursor: wait; }
+@media (max-width: 600px) { .anti-card-top .habit-manage-actions { width: 100%; margin: 4px 0; } .habit-manage-actions button { min-height: 40px; } .delete-habit-actions > button { flex: 1; } }
+
+/* Navigation stays compact and scrollable on smaller screens. */
+.sidebar { overflow-y: auto; }
+.identity-link { width: 100%; padding: 14px 12px; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--muted); text-align: left; font-size: 14px; font-weight: 600; }
+.identity-link:hover { color: var(--ink); }
+.breadcrumb { min-width: 0; overflow: hidden; white-space: nowrap; }
+.breadcrumb b { overflow: hidden; text-overflow: ellipsis; }
+.topbar-right { flex: 0 0 auto; }
+.nav-backdrop { display: none; }
+@media (max-width: 900px) {
+  .sidebar { visibility: hidden; transform: translateX(-101%); transition: transform .24s, visibility .24s; }
+  .sidebar-open { visibility: visible; transform: translateX(0); }
+  .mobile-menu { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-raised); color: var(--ink); }
+  .breadcrumb { margin-left: 12px; margin-right: auto; }
+  .nav-backdrop { display: block; position: fixed; inset: 0; z-index: 25; border: 0; background: rgba(15, 12, 38, .45); }
+}
+
+/* Give each habit room to breathe and a distinct visual rhythm. */
+.habit-list, .anti-list { gap: 24px; }
+.habit-group-block { display: grid; gap: 10px; }
+.habit-group-label { padding: 5px 2px 2px; color: var(--accent-ink); font-weight: 800; }
+.habit-card, .anti-card {
+  --habit-accent: #7568d7;
+  --habit-wash: #f1efff;
+  position: relative;
+  border-color: color-mix(in srgb, var(--habit-accent) 28%, var(--line));
+  border-left: 5px solid var(--habit-accent);
+  background: linear-gradient(115deg, var(--habit-wash), var(--surface-raised) 45%);
+  box-shadow: 0 10px 28px rgba(47, 38, 93, .09);
+}
+.habit-list > :nth-child(3n + 2) .habit-card,
+.habit-list > .habit-card:nth-child(3n + 2),
+.anti-list > :nth-child(3n + 2) { --habit-accent: #ca755e; --habit-wash: #fff1eb; }
+.habit-list > :nth-child(3n) .habit-card,
+.habit-list > .habit-card:nth-child(3n),
+.anti-list > :nth-child(3n) { --habit-accent: #b37a28; --habit-wash: #fff6e5; }
+.habit-card:hover, .anti-card:hover { border-color: var(--habit-accent); box-shadow: 0 15px 34px rgba(47, 38, 93, .14); }
+.habit-check { border-color: color-mix(in srgb, var(--habit-accent) 38%, transparent); background: var(--habit-wash); color: var(--habit-accent); }
+.habit-main h3 { font-size: 18px; }
+.habit-card-foot { margin-top: 18px; padding-top: 14px; padding-bottom: 14px; }
+.habit-card-done { border-left-color: var(--habit-accent); }
+:root[data-theme="dark"] .habit-card, :root[data-theme="dark"] .anti-card {
+  --habit-wash: #302b50;
+  background: linear-gradient(115deg, var(--habit-wash), var(--surface-raised) 48%);
+  border-color: color-mix(in srgb, var(--habit-accent) 45%, var(--line));
+  border-left-color: var(--habit-accent);
+}
+:root[data-theme="dark"] .habit-list > :nth-child(3n + 2) .habit-card,
+:root[data-theme="dark"] .habit-list > .habit-card:nth-child(3n + 2),
+:root[data-theme="dark"] .anti-list > :nth-child(3n + 2) { --habit-wash: #44302f; --habit-accent: #ef9b7e; }
+:root[data-theme="dark"] .habit-list > :nth-child(3n) .habit-card,
+:root[data-theme="dark"] .habit-list > .habit-card:nth-child(3n),
+:root[data-theme="dark"] .anti-list > :nth-child(3n) { --habit-wash: #403725; --habit-accent: #e4b55f; }
+:root[data-theme="dark"] .habit-check { background: var(--habit-wash); color: #e1d9ff; border-color: var(--habit-accent); }
+@media (max-width: 600px) {
+  .habit-list, .anti-list { gap: 18px; }
+  .habit-main h3 { font-size: 17px; }
+}
+
+.connection-error { margin: 0 0 18px; padding: 14px 16px; border: 1px solid #b45d56; border-radius: 12px; background: rgba(180, 93, 86, .12); color: var(--text-primary); }
+.connection-error a, .import-panel a { display: inline-block; margin-left: 10px; color: var(--accent); text-decoration: underline; }
+.import-panel { margin-top: 18px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-raised); }
+.import-panel p { margin: 0 0 12px; max-width: 760px; color: var(--text-secondary); line-height: 1.55; }
+
+/* Keep the create path and daily habit list focused on the next action. */
+.habit-plan-details > summary { display: flex; align-items: center; gap: 8px; cursor: pointer; list-style: none; }
+.habit-plan-details > summary::-webkit-details-marker { display: none; }
+.habit-plan-details > summary::before { content: '+'; width: 16px; font-size: 19px; line-height: 1; }
+.habit-plan-details[open] > summary { border-bottom: 1px solid var(--line); }
+.habit-plan-details[open] > summary::before { content: '−'; }
+.habit-plan-details { margin-top: 0; border-top: 1px solid var(--line); }
+.habit-plan-details > summary { min-height: 44px; color: var(--accent-ink); font-size: 12px; font-weight: 700; }
+.habit-plan-details[open] > summary { margin-bottom: 12px; }
+.habit-plan-details .habit-laws-inline { margin-left: 0; }
+.habit-plan-details .action-checkin { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; }
+.habit-plan-details .action-checkin > p { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.habit-plan-details .action-checkin > textarea { width: 100%; }
+.habit-plan-details > .quiet-button { margin: 4px 0 10px; }
+@media (max-width: 600px) {
+  .habit-plan-details .action-checkin { grid-template-columns: 1fr; }
+  .habit-plan-details .action-checkin > p { grid-column: auto; }
+}
+.law-picker { display: grid; gap: 8px; margin-top: 16px; }
+.law-picker-heading { display: grid; gap: 4px; margin: 0 0 3px; }
+.law-picker-heading b { color: var(--ink); font-size: 14px; }
+.law-picker-heading p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.law-choice { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: var(--surface-soft); }
+.law-choice > summary { display: flex; align-items: center; gap: 11px; min-height: 58px; padding: 9px 14px; color: var(--ink); cursor: pointer; list-style: none; }
+.law-choice > summary::-webkit-details-marker { display: none; }
+.law-choice > summary::after { content: '+'; margin-left: auto; color: var(--accent-ink); font-size: 20px; }
+.law-choice[open] > summary { border-bottom: 1px solid var(--line); }
+.law-choice[open] > summary::after { content: '−'; }
+.law-choice-index { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border-radius: 9px; background: var(--accent-soft); color: var(--accent-ink); font-size: 11px; font-weight: 800; }
+.law-choice-label { display: grid; gap: 2px; min-width: 0; }
+.law-choice-label b { font-size: 13px; }
+.law-choice-label small { color: var(--muted); font-size: 11px; }
+.law-choice-body { display: grid; gap: 12px; padding: 14px; }
+.law-choice-info-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 12px; }
+.law-choice-body > .builder-law { margin: 0; }
+.law-choice summary:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: -3px; }
+@media (max-width: 600px) {
+  .law-choice > summary { min-height: 54px; padding: 8px 11px; }
+  .law-choice-body { padding: 10px; }
 }

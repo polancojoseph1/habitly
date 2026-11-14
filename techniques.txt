@@ -1,0 +1,140 @@
+ATOMIC HABITS
+Actionable Techniques, Methods, and Rules
+
+James Clear's techniques, organized by foundational awareness, the Four Laws of Behavior Change and their inversions, and advanced tactics.
+
+============================================================
+FOUNDATIONAL AWARENESS AND IDENTITY TECHNIQUES
+============================================================
+
+1. The Two-Step Process of Identity Change
+   Decide the type of person you want to be, then prove it to yourself with small wins by casting votes for that identity with each action.
+
+2. Pointing-and-Calling
+   Borrowed from Japanese railways, this method involves verbally stating an action and its outcome out loud. It raises awareness of nonconscious habits before performing them.
+
+3. The Habits Scorecard
+   List your daily routines in chronological order. Mark each with + (effective or good), - (ineffective or bad), or = (neutral), based on whether it reinforces your desired identity.
+
+============================================================
+THE 1ST LAW: MAKE IT OBVIOUS (CUE)
+============================================================
+
+1. Implementation Intentions
+   Pre-plan the exact time and location of a habit using this formula:
+   "I will [BEHAVIOR] at [TIME] in [LOCATION]."
+
+2. Habit Stacking
+   Tie a new behavior to an existing daily routine using this formula:
+   "After [CURRENT HABIT], I will [NEW HABIT]."
+
+3. Environment Design: Making Cues Obvious
+   Arrange your living or working space so visual cues for good habits are prominent and hard to miss.
+
+INVERSION OF THE 1ST LAW: MAKE IT INVISIBLE (CUE)
+
+1. Reduce Exposure: Removing Cues
+   Cut bad habits off at the source by eliminating, hiding, or removing environmental triggers from your immediate surroundings.
+
+============================================================
+THE 2ND LAW: MAKE IT ATTRACTIVE (CRAVING)
+============================================================
+
+1. Temptation Bundling
+   Pair an action you need to do with an action you want to do to use dopamine anticipation (Premack's Principle).
+
+2. Habit Stacking Plus Temptation Bundling
+   Combine both strategies into a sequential chain:
+   "1. After [CURRENT HABIT], I will [HABIT I NEED].
+   2. After [HABIT I NEED], I will [HABIT I WANT]."
+
+3. Imitating Group Norms: Joining a Culture
+   Join a culture or community where your desired behavior is normal and you already share something in common with the group.
+
+4. Motivation Ritual
+   Immediately before a difficult habit, perform a short, pleasurable routine, such as taking three deep breaths and smiling or putting on specific headphones. The cue can trigger a focused, positive mental state.
+
+INVERSION OF THE 2ND LAW: MAKE IT UNATTRACTIVE (CRAVING)
+
+1. Reframing Your Mindset
+   Shift internal dialogue, such as changing "I have to" into "I get to," and highlight the tangible benefits of avoiding a bad habit to make it unattractive.
+
+============================================================
+THE 3RD LAW: MAKE IT EASY (RESPONSE)
+============================================================
+
+1. Reduce Friction: The Law of Least Effort
+   Decrease the physical effort and number of intermediate steps between you and your good habits.
+
+2. Prime the Environment
+   Prepare your space in advance so your next desired action is frictionless and ready to go. For example, place a book on your pillow or set out clothes.
+
+3. Master the Decisive Moment
+   Optimize the small daily choices, or forks in the road, that have an outsized impact on how you spend the next stretch of time.
+
+4. The Two-Minute Rule
+   Scale down any new habit until it takes less than two minutes. Standardize the ritual of showing up before trying to optimize it.
+
+5. Habit Shaping
+   Progressively level up a habit across multiple phases once the initial two-minute gateway behavior is established.
+
+6. Habit Automation
+   Use technology, software, and strategic one-time choices, such as purchasing a better mattress or setting up automatic bill pay, to lock in future good behaviors.
+
+INVERSION OF THE 3RD LAW: MAKE IT DIFFICULT (RESPONSE)
+
+1. Increase Friction
+   Add steps, obstacles, and physical effort between you and bad habits to make them inconvenient or impractical.
+
+2. Commitment Device: Ulysses Pact
+   Make a choice in the present that binds your behavior, locks in good habits, and restricts your future choices to prevent impulsive lapses.
+
+============================================================
+THE 4TH LAW: MAKE IT SATISFYING (REWARD)
+============================================================
+
+1. Immediate Reinforcement
+   Reward yourself immediately after completing a habit with a small sensory or tangible pleasure that aligns with your desired identity.
+
+2. Making "Doing Nothing" Enjoyable
+   Design a visible reward for restraint. For example, open a labeled savings account and transfer money into it whenever you forgo a bad habit or impulse purchase.
+
+3. Habit Tracking: "Don't Break the Chain"
+   Use visual measurement tools, such as crossing off days on a calendar or moving paper clips, to create an immediate visual record of your progress.
+
+4. Habit Stacking Plus Habit Tracking
+   Tie measurement directly to completion using this formula:
+   "After [CURRENT HABIT], I will [TRACK MY HABIT]."
+
+5. The "Never Miss Twice" Rule
+   If you miss a habit one day because of an emergency or slip-up, get back on track immediately the following day.
+
+INVERSION OF THE 4TH LAW: MAKE IT UNSATISFYING (REWARD)
+
+1. Accountability Partner
+   Enlist another person to observe your progress and check in, creating an immediate social cost to slacking off.
+
+2. Habit Contract
+   Create a signed, written agreement with accountability partners that specifies your habit commitments and enforces painful, public consequences if you fail.
+
+============================================================
+ADVANCED TACTICS
+============================================================
+
+1. The Explore/Exploit Trade-Off
+   Experiment broadly across different activities to find what aligns with your natural abilities and personality. Then exploit the winning method roughly 80% of the time.
+
+2. The Goldilocks Rule
+   Maintain peak motivation by choosing tasks of manageable difficulty, near the edge of your current abilities, roughly 4% beyond your comfort zone.
+
+3. Reflection and Review
+   Periodically review your habits and make course corrections with tools such as:
+
+   a. Decision Journals
+      Record key choices and the reasoning behind them, then review outcomes over time.
+
+   b. Annual Review
+      Reflect on the previous year by tallying habits and evaluating what went well and what did not.
+
+   c. Integrity Report
+      Conduct a mid-year check-in on core values, identity, and personal standards.
