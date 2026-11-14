@@ -1,58 +1,57 @@
-# Habitly implementation plan
+# Habitly implementation status
 
 ## Product principles
 
-1. Measure identity votes (completed actions), not outcome goals or generic XP.
-2. Capture cue, motive, response, and reward for every routine.
-3. Require a specific implementation intention or anchor habit.
-4. Store both target and small gateway actions.
-5. Reward completion immediately and use one grace day to encourage recovery.
-6. Keep the interface supportive and avoid punitive streak resets.
+- Track completed actions as **identity votes**, not generic XP.
+- Capture cue, motive, response, and payoff when building a routine.
+- Attach routines to a specific time and place or to an existing anchor.
+- Keep the starter action within two minutes while the routine forms.
+- Make desirable behaviors visible and easy; make unwanted loops harder.
+- Reinforce completion immediately and make recovery gentler than punishment.
 
-## Milestone 1 — Backend foundation (started)
+## Implemented in the current MVP
 
-- FastAPI, SQLAlchemy models for users, identities, habits, and logs.
-- Endpoints for user/identity/habit creation, habit listing, and logging.
-- Completion logs update identity votes; a unique daily log prevents duplicates.
-- SQLite local default and PostgreSQL Docker service.
-- Remaining: migrations, fuller CRUD, and API integration tests.
+### Identity and onboarding
 
-## Milestone 2 — Core web app (started)
+- Outcome-to-identity reframing suggestions and editable identity statement.
+- Identity statement and vote count on the Today dashboard.
+- Browser-local persistence; API-backed identity update after account setup.
 
-- Next.js and Tailwind dashboard showing identity, habits, cues, and completion action.
-- Completion invokes the API and shows vote/streak feedback with vibration where supported.
-- Remaining: persistent onboarding, habit creation form, calendar/history, and recovery visuals.
+### Habit creation and tracking
 
-## Milestone 3 — Resilient streak and votes (started)
+- Time/location implementation intention and anchor-based stacking paths.
+- Draggable anchor chips and a stack drop target.
+- Required target, two-minute gateway action, cue, motive, and immediate payoff.
+- Two-minute starter length enforced by a one- or two-minute selector.
+- Optional environment preparation and temptation bundle.
+- Chronological daypart grouping, button completion, mobile swipe completion/miss, haptic feedback, vote toast, and 28-day progress calendar.
+- Habit logs store web or Telegram source and a per-day preparation flag.
 
-- Completed actions count as identity votes.
-- One missed calendar day is bridged; two consecutive misses break the streak.
-- Unit tests cover completed days, one grace day, two misses, and the open current day.
-- Remaining: calendar-based API/UI integration and careful timezone handling.
+### Recovery, rewards, and anti-habits
 
-## Milestone 4 — Telegram bot (scaffolded)
+- One missed day is bridged; two misses break the chain and trigger the circuit breaker message.
+- Recovery screen uses supportive language and preserves identity votes.
+- Reward Vault links a wanted activity to a needed habit and unlocks when completed.
+- Anti-habit plans capture the cue to hide, friction to add, replacement action, and a required habit contract; users can earn friction shield votes.
 
-- Webhook checks Telegram's configured secret token.
-- Remaining: account linking, command-to-habit mapping, Telegram replies, webhook registration, and end-to-end tests. A verified Telegram chat association is needed before messages can safely log actions.
+### API and Telegram
 
-## Follow-on features from the blueprint
+- FastAPI and SQLAlchemy data models for users, identities, habits, logs, rewards, and one-time Telegram links.
+- User and identity creation/update, habit creation/listing/update, daily logs, prep updates, reward creation/listing, streak calculation, health check.
+- Telegram webhook verifies Telegram's secret header, links one-time expiring codes, resolves explicit habit names (or a single remaining habit), logs completions, and replies with the streak.
+- Additive startup schema updates support databases created by the first MVP commit.
 
-- Identity setup and onboarding.
-- Four-law habit builder, time/location and anchor stack options.
-- Two-minute downscaler interaction.
-- Environment preparation check-in and anti-habit friction tools.
-- Reward vault and temptation-bundling unlocks.
-- Recovery screen, calendar visualization, and accessible feedback.
-- Database migrations and production authentication/authorization.
+## Run and configure
 
-## API contracts available
+- `docker compose up --build` starts PostgreSQL, the API, and the web app.
+- The web app's sample workspace works in browser storage before API setup.
+- Configure API URL and connect an account in **Settings** to use the backend.
+- Set `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, and production `CORS_ORIGINS`; register the webhook with Telegram.
 
-- `POST /api/users`
-- `POST /api/identities`
-- `GET /api/identities/{identity_id}`
-- `POST /api/habits`
-- `GET /api/habits?identity_id=...`
-- `POST /api/habits/{habit_id}/log`
-- `GET /api/habits/{habit_id}/logs`
-- `POST /webhook/telegram`
-- `GET /health`
+## Remaining before production
+
+- Add authentication/authorization and account deletion/export flows.
+- Replace the additive startup schema updater with versioned Alembic migrations.
+- Add robust timezone preferences, notification scheduling, and reliable offline-to-server conflict resolution.
+- Verify Telegram webhook deployment and linking with a real bot token and public API URL.
+- Add full API integration and frontend interaction tests.

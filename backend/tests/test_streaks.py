@@ -23,7 +23,11 @@ def test_one_miss_is_bridged():
 
 
 def test_two_misses_break_chain():
-    assert calculate_streak(chain("COMPLETED", "MISSED", "MISSED", "COMPLETED"), date(2025, 1, 3)) == (0, False)
+    assert calculate_streak(chain("COMPLETED", "MISSED", "MISSED", "COMPLETED"), date(2025, 1, 3)) == (1, False)
+
+
+def test_two_missed_days_leave_no_active_chain():
+    assert calculate_streak(chain("MISSED", "MISSED", "COMPLETED"), date(2025, 1, 3)) == (0, False)
 
 
 def test_open_today_keeps_yesterdays_chain():

@@ -15,6 +15,7 @@ class User(Base):
     __tablename__ = "users"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     email: Mapped[str | None] = mapped_column(String(320), unique=True, nullable=True)
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     identities: Mapped[list["Identity"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
@@ -36,13 +37,18 @@ class Habit(Base):
     habit_type: Mapped[str] = mapped_column(String(8), default="BUILD")
     target_action: Mapped[str] = mapped_column(String(300))
     gateway_action: Mapped[str] = mapped_column(String(300))
+    gateway_minutes: Mapped[int] = mapped_column(Integer, default=2)
     cue_type: Mapped[str] = mapped_column(String(20))
     cue_trigger: Mapped[str] = mapped_column(String(300))
     location: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    craving_motive: Mapped[str | None] = mapped_column(String(300), nullable=True)
-    reward_payoff: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    craving_motive: Mapped[str] = mapped_column(String(300))
+    reward_payoff: Mapped[str] = mapped_column(String(300))
     prep_step: Mapped[str | None] = mapped_column(String(300), nullable=True)
     reward_bundle: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    cue_to_hide: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    friction_strategy: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    habit_contract: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    friction_votes: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     identity: Mapped[Identity] = relationship(back_populates="habits")
     logs: Mapped[list["HabitLog"]] = relationship(back_populates="habit", cascade="all, delete-orphan")
@@ -56,4 +62,22 @@ class HabitLog(Base):
     logged_date: Mapped[date] = mapped_column(Date, default=date.today)
     status: Mapped[str] = mapped_column(String(12))
     completed_via: Mapped[str] = mapped_column(String(20), default="WEB")
+    environment_prepped: Mapped[bool] = mapped_column(Boolean, default=False)
     habit: Mapped[Habit] = relationship(back_populates="logs")
+
+
+class Reward(Base):
+    __tablename__ = "rewards"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    habit_id: Mapped[str] = mapped_column(ForeignKey("habits.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(160))
+    detail: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    habit: Mapped[Habit] = relationship()
+
+
+class TelegramLink(Base):
+    __tablename__ = "telegram_links"
+    token: Mapped[str] = mapped_column(String(80), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

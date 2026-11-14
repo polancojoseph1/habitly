@@ -1,10 +1,21 @@
 # Habitly
 
-Habitly is an identity-based habit tracker built around small actions, clear cues, immediate reinforcement, and resilient recovery. This repository starts the implementation from the provided product blueprint.
+Habitly turns behavioral science into a practical daily habit workspace: identity votes, small starter actions, clear cues, recovery after a miss, and immediate rewards.
+
+## What’s in the app
+
+- **Today:** identity statement, identity votes, weekly activity, daypart habit groups, starter actions, completion/recovery actions, and preparation checklists.
+- **Habit builder:** implementation intention or habit stack, anchor routines, cue/motive/action/reward fields, a two-minute downscaler, and optional temptation bundles.
+- **Recovery:** one grace day, a 28-day activity calendar, and a circuit breaker after two misses.
+- **Reward vault:** rewards unlock when their linked habit is completed.
+- **Habit to break:** cue hiding, friction strategy, replacement action, habit contract, and friction shield votes.
+- **Settings:** local workspace persistence, optional API account sync, and Telegram linking.
+
+The app opens with a guided sample workspace and saves changes in browser storage. Connect a deployed API in **Settings** to persist user-created habits and logs to PostgreSQL. The demo entries remain labeled as sample content.
 
 ## Stack
 
-- `frontend/`: Next.js, React, Tailwind CSS
+- `frontend/`: Next.js, React, Tailwind CSS, installable PWA manifest
 - `backend/`: FastAPI, SQLAlchemy 2, PostgreSQL (SQLite is the local API default)
 - `docker-compose.yml`: PostgreSQL and both development servers
 
@@ -14,29 +25,34 @@ Habitly is an identity-based habit tracker built around small actions, clear cue
 docker compose up --build
 ```
 
-Open the app at http://localhost:3000 and the API docs at http://localhost:8000/docs. The initial dashboard will show its empty state until an identity and habit are created through the API. For example:
+Open the dashboard at http://localhost:3000 and API docs at http://localhost:8000/docs. The dashboard includes sample habits immediately. API-backed user habits are created after connecting an API account in Settings.
 
-```sh
-curl -X POST http://localhost:8000/api/users -H 'Content-Type: application/json' -d '{}'
-# Use the returned id as user_id below.
-curl -X POST http://localhost:8000/api/identities -H 'Content-Type: application/json' -d '{"user_id":"USER_ID","identity_statement":"I am a reader"}'
-# Use the returned id as identity_id below.
-curl -X POST http://localhost:8000/api/habits -H 'Content-Type: application/json' -d '{"identity_id":"IDENTITY_ID","target_action":"Read one page","gateway_action":"Open my book","cue_type":"TIME_LOCATION","cue_trigger":"8:00 PM","location":"bedroom"}'
-```
-
-## Run the API directly
+## Run separately
 
 ```sh
 cd backend
 python -m venv .venv && . .venv/bin/activate
-pip install -e '.[dev]'
+python -m pip install -e '.[dev]'
 uvicorn app.main:app --reload
 ```
 
-Set `DATABASE_URL` for PostgreSQL. The default is a local SQLite file. The Telegram route also requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`; see `.env.example`.
+In another terminal:
 
-## Current implementation
+```sh
+cd frontend
+npm install
+NEXT_PUBLIC_API_URL=http://localhost:8000 npm run dev
+```
 
-The API includes user and identity creation, habit creation/listing, daily habit logs, identity vote counts, and a resilient streak calculation with a one-day grace rule. The dashboard displays active habits and can log completion with immediate feedback. Telegram requests are secret-checked, but user/chat linking and bot replies still need implementation before remote logging is enabled.
+Set `DATABASE_URL` and `CORS_ORIGINS` for the API deployment. Telegram requires `TELEGRAM_BOT_TOKEN` and `TELEGRAM_WEBHOOK_SECRET`; configure the webhook with Telegram to point at `/webhook/telegram`. Users can create a short-lived `/start` link from Settings after connecting an API account. Once linked, messages such as `done reading` log an unambiguous habit and reply with the resilient streak.
 
-See [the implementation plan](docs/implementation-plan.md) for feature sequencing and known gaps.
+## Verification
+
+```sh
+cd backend && python -m pytest -q
+cd frontend && npm run build
+```
+
+## Current limits
+
+The local sample workspace is browser-local until an API account is connected. API mode is an early MVP without authentication; don’t expose it to untrusted users or store sensitive personal data until authentication and authorization are added. Telegram secrets are never placed in the frontend.
