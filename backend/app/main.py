@@ -177,7 +177,7 @@ def account_info(request: Request, db: Session = Depends(get_db)):
 
 def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
     identity = db.scalar(select(Identity).where(Identity.user_id == user_id).order_by(Identity.id).limit(1))
-    habits = list(db.scalars(select(Habit).join(Identity).where(Identity.user_id == user_id, Habit.is_active.is_(True)).order_by(Habit.cue_trigger)))
+    habits = list(db.scalars(select(Habit).join(Identity).where(Identity.user_id == user_id, Habit.is_active.is_(True)).order_by(text("habits.rowid") if settings.database_url.startswith("sqlite") else Habit.id)))
     if not state and not habits:
         return {}
     data = dict(state.payload) if state else {}

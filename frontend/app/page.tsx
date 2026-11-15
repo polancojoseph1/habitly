@@ -24,7 +24,6 @@ type Circle = { id: string; name: string; category: string; members: number; det
 type Reward = { id: string; name: string; habitId: string; detail: string };
 type Tab = 'Today' | 'My habits' | 'Habit scorecard' | 'Community' | 'Recovery' | 'Reward vault' | 'Habit to break' | 'Playbook' | 'Settings';
 type Palette = 'lavender' | 'ocean' | 'rose' | 'amber' | 'sage';
-type HabitSort = 'default' | 'name' | 'progress' | 'streak';
 const palettes: { id: Palette; name: string; colors: [string, string, string] }[] = [
   { id: 'lavender', name: 'Lavender', colors: ['#6256c8', '#b8adff', '#efedff'] },
   { id: 'ocean', name: 'Ocean', colors: ['#287c9b', '#77c2d5', '#e3f5f8'] },
@@ -166,7 +165,8 @@ function techniqueNoteFor(notes: Record<string, string>, id: string, law?: Law) 
 export default function Home() {
   const [active, setActive] = useState<Tab>('Today');
   const [habits, setHabits] = useState<Habit[]>(demoHabits);
-  const [habitSort, setHabitSort] = useState<HabitSort>('default');
+  const [habitOrder, setHabitOrder] = useState<string[]>([]);
+  const [reorderingHabits, setReorderingHabits] = useState(false);
   const [scorecard, setScorecard] = useState<ScorecardEntry[]>([]);
   const [scorecardDraft, setScorecardDraft] = useState('');
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
@@ -254,6 +254,7 @@ export default function Home() {
       const saved = localStorage.getItem(STORAGE);
       if (saved) {
         const data = JSON.parse(saved);
+        setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
         const originalHabits: Habit[] = data.habits ?? demoHabits;
         const demoIds = new Set(demoHabits.map(habit => habit.id));
         const isSampleWorkspace = originalHabits.every(habit => habit.id.startsWith('demo-'));
@@ -296,12 +297,12 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated) return;
-    try { localStorage.setItem(STORAGE, JSON.stringify({ habits, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, dayKey: todayKey(), apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand })); } catch { setConnectionError('Browser storage is unavailable. Export your local data before continuing.'); }
-  }, [hydrated, habits, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand]);
+    try { localStorage.setItem(STORAGE, JSON.stringify({ habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, dayKey: todayKey(), apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand })); } catch { setConnectionError('Browser storage is unavailable. Export your local data before continuing.'); }
+  }, [hydrated, habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand]);
 
   useEffect(() => {
     if (!hydrated || !workspaceReady || !apiUrl || !remoteToken) return;
-    const payload = { habits, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, dayKey: todayKey() };
+    const payload = { habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, dayKey: todayKey() };
     const timer = window.setTimeout(async () => {
       try {
         const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/workspace`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: payload, expected_revision: workspaceRevision }) });
@@ -311,7 +312,7 @@ export default function Home() {
       } catch (error) { setConnectionError(error instanceof Error && error.message.includes('409') ? 'Another browser saved newer data. Reconnect to load the server copy before editing here. Your local backup is still available.' : 'Could not save to the server. Your device copy remains available; retry the connection before switching devices.'); }
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [hydrated, workspaceReady, apiUrl, remoteToken, habits, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, workspaceRevision]);
+  }, [hydrated, workspaceReady, apiUrl, remoteToken, habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, workspaceRevision]);
 
   useEffect(() => {
     if (!hydrated || !apiUrl || !remoteToken) return;
@@ -328,6 +329,7 @@ export default function Home() {
         setServerHasWorkspace(hasData);
         setWorkspaceRevision(workspace.revision ?? 0);
         if (hasData) {
+          setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
           setHabits((data.habits ?? []).map(expandInviteLink).filter((habit: Habit) => !habit.id.startsWith('demo-')));
           setRewards((data.rewards ?? []).filter((reward: Reward) => !reward.id.startsWith('reward-show')));
           setIdentity(data.identity ?? 'The Writer'); setGoal(data.goal ?? ''); setVotes(data.votes ?? 0);
@@ -378,12 +380,18 @@ export default function Home() {
   }, []);
 
   const buildHabits = habits.filter(h => h.kind === 'BUILD');
+  const orderedIds = habitOrder.filter(id => habits.some(habit => habit.id === id));
   const todayHabits = [...habits].sort((a, b) => {
-    if (habitSort === 'name') return a.name.localeCompare(b.name);
-    if (habitSort === 'progress') return Number(b.completed) - Number(a.completed) || a.name.localeCompare(b.name);
-    if (habitSort === 'streak') return (b.streak || 0) - (a.streak || 0) || a.name.localeCompare(b.name);
-    return (a.kind === 'BUILD' ? 0 : 1) - (b.kind === 'BUILD' ? 0 : 1);
+    const ai = orderedIds.indexOf(a.id), bi = orderedIds.indexOf(b.id);
+    return (ai < 0 ? orderedIds.length : ai) - (bi < 0 ? orderedIds.length : bi);
   });
+  function moveHabit(index: number, direction: -1 | 1) {
+    const next = todayHabits.map(habit => habit.id);
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    setHabitOrder(next);
+  }
   const completed = buildHabits.filter(h => h.completed).length;
   const progress = buildHabits.length ? Math.round((completed / buildHabits.length) * 100) : 0;
   const unlockedRewards = useMemo(() => rewards.filter(r => habits.find(h => h.id === r.habitId)?.completed), [rewards, habits]);
@@ -772,6 +780,7 @@ export default function Home() {
       const hasData = Object.keys(data).length > 0;
       setServerHasWorkspace(hasData);
       if (hasData) {
+        setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
         setHabits((data.habits ?? []).map(expandInviteLink).filter((h: Habit) => !h.id.startsWith('demo-'))); setRewards((data.rewards ?? []).filter((r: Reward) => !r.id.startsWith('reward-show')));
         setIdentity(data.identity ?? currentIdentity.identity_statement); setGoal(data.goal ?? ''); setVotes(data.votes ?? currentIdentity.total_votes ?? 0); setPrepped(data.prepped ?? false); setPreppedHabits(data.preppedHabits ?? {}); setHistory(data.history ?? {}); setHabitEvents(data.habitEvents ?? []); setVariations(data.variations ?? []); setScorecard(data.scorecard ?? []); setJoinedTribes(data.joinedTribes ?? []); setCommunityCircles(data.communityCircles ?? []); setDiagnostics(data.diagnostics ?? []); setWorkspaceReady(true);
         setDarkMode(data.darkMode ?? true); if (palettes.some(option => option.id === data.palette)) setPalette(data.palette); setLabs(data.labs ?? false); setTelegramCommand(data.telegramCommand ?? '');
@@ -867,7 +876,7 @@ export default function Home() {
   function renderToday() {
     return <>
       <div className="page-heading-row today-page-heading"><div><div className="eyebrow">{currentDate}</div><h1>{greeting()}, Joseph<span className="heading-period">.</span></h1></div></div>
-      <section className="today-section"><div className="section-heading today-section-heading"><div><span className="eyebrow">YOUR SMALL PROMISES</span><h2>Today’s habits <span className="soft-count">{todayHabits.length}</span></h2><p className="today-progress-note">{completed} of {buildHabits.length} build habits completed</p></div><div className="today-list-actions"><label className="habit-sort-label">Sort<select aria-label="Sort habits" value={habitSort} onChange={event => setHabitSort(event.target.value as HabitSort)}><option value="default">Build first</option><option value="name">Name</option><option value="progress">Completed first</option><option value="streak">Longest streak</option></select></label><button className="text-button today-add-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus" size={15}/> Add habit</button></div></div><div className="habit-list">{todayHabits.length ? todayHabits.map((habit, i) => renderHabitCard(habit, i)) : <div className="empty-card"><div className="empty-flower">✳</div><h3>Start with one tiny promise.</h3><p>Choose a cue, make the action easy, and give your future self a clear path.</p><button className="primary-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus"/> Create your first habit</button></div>}</div></section>
+      <section className="today-section"><div className="section-heading today-section-heading"><div><span className="eyebrow">YOUR SMALL PROMISES</span><h2>Today’s habits <span className="soft-count">{todayHabits.length}</span></h2><p className="today-progress-note">{completed} of {buildHabits.length} build habits completed</p></div><div className="today-list-actions"><button type="button" className="text-button" aria-pressed={reorderingHabits} onClick={() => setReorderingHabits(value => !value)}>{reorderingHabits ? 'Done arranging' : 'Arrange'}</button><button className="text-button today-add-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus" size={15}/> Add habit</button></div></div><div className="habit-list">{todayHabits.length ? todayHabits.map((habit, i) => <div className="today-order-item" key={habit.id}>{renderHabitCard(habit, i)}{reorderingHabits && <div className="habit-order-controls" aria-label={`Arrange ${habit.name}`}><span>Move {habit.name}</span><button type="button" disabled={i === 0} aria-label={`Move ${habit.name} up`} onClick={() => moveHabit(i, -1)}>↑</button><button type="button" disabled={i === todayHabits.length - 1} aria-label={`Move ${habit.name} down`} onClick={() => moveHabit(i, 1)}>↓</button></div>}</div>) : <div className="empty-card"><div className="empty-flower">✳</div><h3>Start with one tiny promise.</h3><p>Choose a cue, make the action easy, and give your future self a clear path.</p><button className="primary-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus"/> Create your first habit</button></div>}</div></section>
     </>;
   }
 
