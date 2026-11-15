@@ -31,13 +31,11 @@ The production Compose file has no server `.env` dependency. Telegram credential
 
 The GitHub Actions workflow uses public GHCR images, so no container registry credentials are needed on the VPS. It connects with the `HABITLY_DEPLOY_PRIVATE_KEY` Actions secret and the verified `HABITLY_SSH_KNOWN_HOSTS` entry. It invokes a root-owned fixed wrapper through a narrowly scoped sudo rule; the deploy account is not added to the Docker group. The wrapper only accepts full Git commit SHA image tags and fixed operations for the `habitly-prod` project. Optional Telegram credentials default to empty.
 
-## Before enabling deployment
+## Deployment status and boundaries
 
-1. Confirm the `habitly-deploy` SSH login and fixed wrapper are working.
-2. Back up `/docker/habitly/backend/habitly.db` and copy a consistent snapshot into the new `habitly-prod_habitly_data` volume.
-3. Confirm the external Docker network `n8n_default` and Traefik resolver `mytlschallenge` exist.
-4. Enable daily VPS backups after reviewing any additional cost. Verify n8n is healthy before deployment.
-5. Set the GitHub Actions variable `HABITLY_DEPLOY_ENABLED` to `true` only after backup and volume migration.
+GitHub Actions deployment is enabled. The restricted `habitly-deploy` account, fixed wrapper, SSH secrets, `n8n_default` network, Traefik route, and HTTPS health check are configured and were used successfully for the 2026-11-15 deployment.
+
+Daily Hostinger VPS backups are not a prerequisite for deploying Habitly. Jefe explicitly waived that requirement. Preserve the existing Traefik and n8n containers, volumes, networks, and routes during future deployments.
 
 Do not install Nginx. Do not stop, replace, delete, or reconfigure the existing Traefik or n8n containers, volumes, networks, or routes.
 
@@ -76,8 +74,8 @@ sudo /usr/local/sbin/habitly-deploy
 
 Rollback changes only the Habitly API and web images. It does not remove the SQLite volume. Before restoring an old image after a database schema change, review compatibility with the current SQLite data.
 
-## Data and backup notes
+## Data persistence
 
-The SQLite volume persists across container replacement. The original server database is `/docker/habitly/backend/habitly.db`; the deployment copies a consistent backup into `habitly-prod_habitly_data` and leaves the source file intact. Enable Hostinger daily VPS backups after checking the price, and regularly make an off-server copy of the production volume before schema changes. The ignored local `backend/habitly.db` is not copied to the VPS.
+The SQLite volume `habitly-prod_habitly_data` persists across container replacement and is not removed by rollback. Before restoring an old image after a database schema change, review compatibility with the current SQLite data. The ignored local `backend/habitly.db` is not copied to the VPS.
 
 The old `docker-compose.hostinger.yml` remains in the repository for reference. It is not used by this image based deployment.
