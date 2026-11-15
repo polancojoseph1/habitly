@@ -734,15 +734,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-page-heading{margin-bottom:24px}
 .today-page-heading h1{font-size:clamp(30px,2.7vw,36px);line-height:1.15;letter-spacing:-1.2px}
 .today-section-heading{gap:12px}
-.today-section-actions{display:flex;align-items:center;gap:12px;flex:0 0 auto}
-.today-add-button{min-height:36px;height:36px;padding:0 11px;border-radius:10px;box-shadow:none;font-size:13px;gap:6px}
+.today-add-button{min-height:44px;height:44px;padding:0 5px;border-radius:8px;box-shadow:none;font-size:14px;font-weight:600;gap:6px;color:var(--muted);background:transparent;white-space:nowrap}
+.today-add-button:hover{color:var(--accent-ink);background:var(--surface-soft)}
 @media(max-width:600px){
   .today-page-heading{margin-bottom:22px}
   .today-page-heading h1{font-size:clamp(27px,6.8vw,31px);letter-spacing:-1px}
   .today-section-heading{gap:8px}
   .today-section-heading h2{font-size:clamp(17px,5vw,20px)}
-  .today-section-actions{gap:8px}
-  .today-add-button{min-height:34px;height:34px;padding:0 9px;font-size:12px}
-  .today-section-heading .text-button{gap:4px;font-size:13px;white-space:nowrap}
+  .today-add-button{padding:0 4px;font-size:13px}
 }
-@media(max-width:360px){.today-section-heading{align-items:flex-start;flex-direction:column}.today-section-actions{align-self:flex-end}}
+@media(max-width:360px){.today-section-heading{align-items:flex-start;flex-direction:column}.today-add-button{align-self:flex-end}}
