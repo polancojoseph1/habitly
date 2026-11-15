@@ -797,6 +797,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-quick-complete,.today-quick-break-actions button{min-height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface-soft);color:var(--accent-ink);font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer}
 .today-quick-complete:hover,.today-quick-break-actions button:hover{border-color:var(--accent-ink);background:var(--accent-soft)}
 .today-quick-break-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.today-choice-count{color:var(--muted);font-size:10px;line-height:1.4}
+.today-choice-menu{position:relative}
+.today-choice-menu>summary{display:flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface-soft);color:var(--accent-ink);font-size:11px;font-weight:700;list-style:none;cursor:pointer;white-space:nowrap}
+.today-choice-menu>summary::-webkit-details-marker{display:none}
+.today-choice-menu[open]>summary{border-color:var(--accent-ink)}
+.today-choice-menu .today-quick-break-actions{position:absolute;z-index:5;right:0;top:calc(100% + 5px);display:grid;gap:4px;min-width:160px;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--surface-raised);box-shadow:0 8px 24px rgba(0,0,0,.25)}
+.today-choice-menu .today-quick-break-actions button{min-height:40px;text-align:left}
 @media(max-width:600px){
   .today-quick-card .today-law-details{grid-column:1/-1}
   .today-quick-card .today-law-details summary{margin-left:34px}
@@ -831,19 +838,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
   .today-quick-card-break .today-quick-side{
     grid-column:2;
-    grid-row:3;
+    grid-row:2;
     display:grid;
-    justify-items:start;
+    justify-self:end;
+    justify-items:end;
+    z-index:2;
     gap:7px;
     min-width:0;
   }
   .today-quick-card-break .today-quick-side>span{
     flex:0 0 auto;
     white-space:nowrap;
-  }
-  .today-quick-card-break .today-quick-break-actions{
-    justify-content:flex-start;
-    gap:6px;
   }
   .today-quick-card-break .today-quick-break-actions button{
     padding-inline:8px;
@@ -852,4 +857,5 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     grid-column:1/-1;
     grid-row:2;
   }
+  .today-quick-card-break .today-law-details>summary{min-height:36px}
 }
