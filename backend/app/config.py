@@ -14,11 +14,11 @@ settings = Settings()
 runtime_environment = os.environ.get("HABITLY_ENV", "development").lower()
 if not settings.database_url:
     if runtime_environment == "production":
-        raise RuntimeError("Production requires DATABASE_URL; filesystem SQLite is disabled.")
+        raise RuntimeError("Production requires an explicit DATABASE_URL.")
     from pathlib import Path
     settings.database_url = f"sqlite:///{Path(__file__).resolve().parents[1] / 'habitly.db'}"
-if runtime_environment == "production" and settings.database_url.startswith("sqlite"):
-    raise RuntimeError("Production requires PostgreSQL; SQLite is for local development only.")
+if runtime_environment == "production" and settings.database_url.startswith("sqlite") and not settings.database_url.startswith("sqlite:////data/"):
+    raise RuntimeError("Production SQLite must use the persistent /data volume.")
 if settings.database_url.startswith("postgres://"):
     settings.database_url = settings.database_url.replace("postgres://", "postgresql+psycopg://", 1)
 elif settings.database_url.startswith("postgresql://") and "+psycopg" not in settings.database_url:

@@ -1,0 +1,151 @@
+name: Build and deploy Habitly
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push API image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/polancojoseph1/habitly-api:${{ github.sha }}
+            ghcr.io/polancojoseph1/habitly-api:latest
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          build-args: |
+            HABITLY_API_INTERNAL_URL=http://api:8000
+          tags: |
+            ghcr.io/polancojoseph1/habitly-web:${{ github.sha }}
+            ghcr.io/polancojoseph1/habitly-web:latest
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && vars.HABITLY_DEPLOY_ENABLED == 'true'
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out deployment Compose file
+        uses: actions/checkout@v4
+
+      - name: Install SSH credentials and pinned host key
+        env:
+          DEPLOY_KEY: ${{ secrets.HABITLY_DEPLOY_PRIVATE_KEY }}
+          PINNED_KNOWN_HOSTS: ${{ secrets.HABITLY_SSH_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          test -n "$DEPLOY_KEY"
+          test -n "$PINNED_KNOWN_HOSTS"
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$PINNED_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$DEPLOY_KEY" | ssh-add -
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
+
+      - name: Copy production Compose file
+        env:
+          SERVER_HOST: ${{ vars.HABITLY_SERVER_HOST }}
+          SERVER_PORT: ${{ vars.HABITLY_SERVER_PORT }}
+          SERVER_USER: ${{ vars.HABITLY_SERVER_USER }}
+        run: |
+          set -eu
+          scp -P "$SERVER_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            docker-compose.yml "$SERVER_USER@$SERVER_HOST:/opt/habitly/docker-compose.yml.incoming"
+
+      - name: Deploy and roll back on failed health check
+        env:
+          SERVER_HOST: ${{ vars.HABITLY_SERVER_HOST }}
+          SERVER_PORT: ${{ vars.HABITLY_SERVER_PORT }}
+          SERVER_USER: ${{ vars.HABITLY_SERVER_USER }}
+          DEPLOY_TAG: ${{ github.sha }}
+        run: |
+          set -eu
+          ssh -p "$SERVER_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$SERVER_USER@$SERVER_HOST" "IMAGE_TAG=$DEPLOY_TAG sh -s" <<'REMOTE'
+          set -eu
+          cd /opt/habitly
+          test -f .env.production || { echo 'Missing protected .env.production' >&2; exit 1; }
+          docker network inspect n8n_default >/dev/null
+          mv docker-compose.yml.incoming docker-compose.yml
+
+          previous_tag=
+          if [ -f .deploy-state ]; then
+            IFS= read -r previous_tag < .deploy-state || true
+          fi
+
+          export IMAGE_TAG
+          docker compose pull
+          docker compose up -d
+
+          healthy=0
+          attempt=0
+          while [ "$attempt" -lt 24 ]; do
+            api_id=$(docker compose ps -q api)
+            web_id=$(docker compose ps -q web)
+            if [ -n "$api_id" ] && [ -n "$web_id" ]; then
+              api_health=$(docker inspect -f '{{.State.Health.Status}}' "$api_id" 2>/dev/null || true)
+              web_health=$(docker inspect -f '{{.State.Health.Status}}' "$web_id" 2>/dev/null || true)
+              route_status=$(curl -sS -o /dev/null -w '%{http_code}' -H 'Host: 187.77.8.184' http://127.0.0.1/health || true)
+              if [ "$api_health" = healthy ] && [ "$web_health" = healthy ] && [ "$route_status" = 200 ]; then
+                healthy=1
+                break
+              fi
+            fi
+            attempt=$((attempt + 1))
+            sleep 5
+          done
+
+          if [ "$healthy" = 1 ]; then
+            printf '%s\n' "$IMAGE_TAG" > .deploy-state.incoming
+            if [ -f .deploy-state ]; then
+              cp .deploy-state .deploy-state.previous.incoming
+              mv .deploy-state.previous.incoming .deploy-state.previous
+            fi
+            mv .deploy-state.incoming .deploy-state
+            echo "Habitly deployment is healthy at http://187.77.8.184"
+            exit 0
+          fi
+
+          echo 'New Habitly deployment failed its health check; restoring the previous image tag.' >&2
+          if [ -n "$previous_tag" ]; then
+            export IMAGE_TAG="$previous_tag"
+            docker compose pull
+            docker compose up -d
+          else
+            docker compose stop web api || true
+          fi
+          exit 1
+          REMOTE

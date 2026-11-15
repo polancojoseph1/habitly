@@ -1,80 +1,88 @@
-# Habitly Hostinger Deployment Brief
+# Habitly Hostinger Deployment
 
-This file keeps the deployment facts and safety requirements for Habitly's Hostinger VPS. It contains no passwords, API tokens, private keys, or database credentials.
-
-## Confirmed project details
+## Target
 
 | Item | Value |
 | --- | --- |
-| GitHub repository | `https://github.com/polancojoseph1/habitly.git` |
+| Repository | `https://github.com/polancojoseph1/habitly.git` |
 | Branch | `main` |
-| Application | Habitly |
-| Stack | Next.js frontend, FastAPI Python API, PostgreSQL, Docker Compose |
+| VPS | Ubuntu 24.04 at `187.77.8.184`, SSH port `22` |
 | Deployment directory | `/opt/habitly` |
-| Frontend container port | `3000`, bound only to VPS loopback through the deployment Compose file |
-| API container port | `8000`, internal Docker network only |
-| PostgreSQL container port | `5432`, internal Docker network only |
-| Public web ports | `80` and `443` through the existing Hostinger reverse proxy |
-| VPS operating system | Ubuntu 24.04 |
-| VPS hostname | `srv1353882.hstgr.cloud` |
-| VPS public IPv4 | `187.77.8.184` |
-| SSH port | `22` |
-| VPS resources | 2 vCPU, 8 GB RAM, 100 GB disk |
-| Region | Boston, United States |
-| Docker Manager | Installed |
-| Existing service to preserve | n8n and its data, configuration, containers, and routes |
+| Initial URL | `http://187.77.8.184` |
+| Existing proxy | Traefik on ports `80` and `443` |
+| Shared proxy network | `n8n_default` |
+| Existing app to preserve | n8n at `n8n.srv1353882.hstgr.cloud`, internal port `5678` |
 
-## Still required before public release
+Habitly uses two public GHCR images, `ghcr.io/polancojoseph1/habitly-api` and `ghcr.io/polancojoseph1/habitly-web`. GitHub Actions tags each image with the full Git commit SHA and `latest`. The production `docker-compose.yml` pulls those images and does not build or mount source code on the VPS. Local development stays in `docker-compose.dev.yml`.
 
-- Public domain or subdomain for Habitly. Do not assume the VPS hostname is the website domain.
-- A dedicated deployment SSH key and a limited deployment user. Do not use the Hostinger password, root password, or an unrestricted root key in automation.
-- A verified inventory of the existing Docker containers, reverse proxy, networks, and ports. Do not alter or stop n8n or its proxy while determining the route for Habitly.
-- Hostinger daily VPS backups are reported as disabled. Enable a suitable backup plan before storing live user data. Check any added cost in hPanel first.
-- Set production database credentials in an untracked server-side `.env` file. Never put real credentials in this repository or in chat.
+The API stores its SQLite database at `/data/habitly.db` in the Compose volume `habitly_habitly_data`. Neither the API nor web service publishes a host port. Traefik routes HTTP traffic to the web container on internal port `3000`; the web service proxies API requests to the API on internal port `8000`.
 
-## Repository findings
+The production route uses Traefik entrypoint `web` and matches the IP host. Confirm that the existing Traefik entrypoint is named `web` and that no global HTTP to HTTPS redirect prevents access by IP. Do not change Traefik or the n8n route to make Habitly work. The current route should be inspected before enabling deployment.
 
-- The existing `docker-compose.yml` is for local development. It uses SQLite, mounts the source tree, and runs the Next.js development server. Do not use it on the VPS.
-- `docker-compose.hostinger.yml` is the separate production stack. It gives PostgreSQL a named persistent volume, keeps the API and database off public host ports, and binds the frontend to loopback only.
-- `frontend/Dockerfile` builds Next.js as a standalone production server. Its API rewrite is compiled to the internal Docker service address `http://api:8000`.
-- `backend/Dockerfile` runs FastAPI on port `8000` inside Docker. Production mode refuses to start if `DATABASE_URL` is missing or points to SQLite.
-- `schema.postgres.sql` initializes tables only when the PostgreSQL volume is first created. Later schema updates require reviewed incremental SQL. Never reapply the full schema to a database containing data.
-- The deployment Compose file does not bind ports `80` or `443`. The VPS must first be inspected to identify the existing proxy and route Habitly without disturbing n8n.
+## Files and secrets
 
-## Safe deployment path
+- `docker-compose.yml`: production image based stack and Traefik labels.
+- `docker-compose.dev.yml`: local development stack with source bind mounts.
+- `backend/Dockerfile` and `frontend/Dockerfile`: non-root production images with health checks.
+- `.github/workflows/deploy.yml`: build and publish images on `main`, then deploy only when explicitly enabled.
+- `env.production.example`: safe template for the protected server file `/opt/habitly/.env.production`.
 
-1. Confirm the domain and its DNS records point to `187.77.8.184`.
-2. Enable daily backups in hPanel before the first live database write. Confirm any backup charge before enabling it.
-3. Inspect running Docker containers, compose projects, networks, firewall rules, and listeners on ports `80`, `443`, and `3100`. Record n8n's existing containers, volumes, and proxy route. Make no changes to n8n.
-4. Create a dedicated `habitly-deploy` user and a restricted deploy command. Do not give the user an interactive root shell. Docker access is powerful, so the deploy key should be limited to the fixed Habitly deploy command where practical.
-5. Add only the public SSH key to Hostinger. Keep its private key in GitHub Actions secrets or on the user's local machine, never in the repository or chat.
-6. Place the repository under `/opt/habitly`. Create its server-side `.env` from `.env.hostinger.example`, replace all placeholders with generated values, and restrict permissions to the deployment administrator.
-7. Inspect the existing proxy and configure the requested domain to route to Habitly's loopback frontend port or attach Habitly to the existing proxy network. Keep the API and PostgreSQL private.
-8. Start Habitly with the production Compose file, confirm the health checks, then confirm domain routing and HTTPS.
-9. Set up GitHub Actions to call the fixed deploy command only after the deployment SSH key, limited user, and proxy route are ready. A push to `main` is the approval event for automatic production deployment.
-10. Keep the prior image or commit available for rollback. Confirm n8n still responds and its persistent data volume is unchanged.
+Create `.env.production` on the VPS from `env.production.example`, then set permissions to `600`. It contains the SQLite URL and optional Telegram credentials. Never commit the server file or place its secrets in GitHub Actions logs.
 
-## Production Compose commands
+The repository already has the GitHub Actions secret `HABITLY_DEPLOY_PRIVATE_KEY` and variables `HABITLY_SERVER_HOST`, `HABITLY_SERVER_PORT`, and `HABITLY_SERVER_USER`. Before enabling deployment, add the verified VPS host key lines as the secret `HABITLY_SSH_KNOWN_HOSTS`. Keep `HABITLY_DEPLOY_ENABLED` unset or false until all prerequisites below are complete. After the first successful GHCR publish, change both image packages to public in GitHub Packages settings so the VPS can pull without a registry credential.
 
-Run from `/opt/habitly` after the proxy and server-side `.env` are ready:
+## Before enabling deployment
+
+1. Verify the VPS SSH host fingerprint and store its matching known-hosts line in `HABITLY_SSH_KNOWN_HOSTS`.
+2. Confirm the `habitly-deploy` account can write `/opt/habitly`, run Docker Compose, and has the generated deployment public key installed.
+3. Confirm the external Docker network `n8n_default` and Traefik entrypoint `web` exist.
+4. Confirm no Traefik rule already claims `Host(187.77.8.184)` and no global middleware redirects the initial HTTP route to HTTPS.
+5. Create `/opt/habitly/.env.production` with mode `600` and make sure `DATABASE_URL` is exactly `sqlite:////data/habitly.db`.
+6. Enable daily VPS backups after reviewing any additional cost. Verify n8n is healthy before deployment.
+7. Set the GitHub Actions variable `HABITLY_DEPLOY_ENABLED` to `true` only after the account, host key, public packages, environment file, and route are ready.
+
+Do not install Nginx. Do not stop, replace, delete, or reconfigure the existing Traefik or n8n containers, volumes, networks, or routes.
+
+Docker daemon access is effectively host-level access. If the deploy user must be more restricted than Docker socket access allows, install a reviewed root-owned fixed deploy wrapper and adjust the workflow to call only that wrapper before granting the user Docker access.
+
+## First deployment and operations
+
+The workflow copies the tracked production Compose file to `/opt/habitly`, pulls the SHA-tagged images, and runs `docker compose up -d`. The first deployment creates the Habitly containers and SQLite volume. It waits for API and web container health and checks `http://127.0.0.1/health` through Traefik with the Habitly IP host header. If health fails, it restores the last successful image tag. On a failed first deployment it stops only the new Habitly API and web services and leaves the data volume intact.
+
+Run these commands from `/opt/habitly`:
 
 ```sh
-docker compose -f docker-compose.hostinger.yml config
-docker compose -f docker-compose.hostinger.yml up -d --build
-docker compose -f docker-compose.hostinger.yml ps
-docker compose -f docker-compose.hostinger.yml logs --tail=100 api web db
+docker compose config
+docker compose pull
+docker compose up -d
+docker compose ps
+curl -i -H 'Host: 187.77.8.184' http://127.0.0.1/health
 ```
 
-The first database container initialization imports `schema.postgres.sql` into a new named volume. The script is not rerun when the volume already contains a PostgreSQL database.
+Logs:
 
-## Data migration note
+```sh
+docker compose logs --tail=100 api web
+```
 
-The ignored local SQLite database and browser cache are not copied to Hostinger automatically. Before production launch, preserve a local backup. Use Habitly's Settings export/import flow to transfer browser workspace data after the production service is online. Existing local API database accounts may require administrator-assisted export because older accounts without current passwords and token records cannot safely be claimed by email alone.
+Restart Habitly:
 
-## Missing deployment inputs
+```sh
+docker compose restart api web
+```
 
-- Domain/subdomain: not supplied yet.
-- Hostinger deploy username and SSH public key: not provisioned yet.
-- GitHub Actions deploy key and pinned SSH host key: not configured yet.
-- Existing proxy type, container name, Docker network, and active routes: must be read from the VPS before selecting a routing configuration.
-- Production secrets: not generated yet and must be created directly on the VPS.
+Manual rollback to the previous successful image tag:
+
+```sh
+IMAGE_TAG="$(cat .deploy-state.previous)" docker compose pull
+IMAGE_TAG="$(cat .deploy-state.previous)" docker compose up -d
+cp .deploy-state.previous .deploy-state
+```
+
+Rollback changes only the Habitly API and web images. It does not remove the SQLite volume. Before restoring an old image after a database schema change, review compatibility with the current SQLite data.
+
+## Data and backup notes
+
+The SQLite volume persists across container replacement. It is not a substitute for backups. Enable Hostinger daily VPS backups after checking the price, and regularly make an off-server copy of `habitly_habitly_data` before schema changes. The ignored local `backend/habitly.db` is not copied to the VPS; import browser workspace data through Habitly Settings after deployment.
+
+The old `docker-compose.hostinger.yml` remains in the repository for reference. It is not used by this image based deployment.

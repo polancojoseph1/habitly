@@ -11,7 +11,7 @@ Habitly is a behavior change workspace built around the Four Laws of Behavior Ch
 
 ## Architecture and access
 
-The Next.js frontend talks to the FastAPI backend. SQLAlchemy stores relational records for accounts, identities, habits, events, logs, rewards, variations, diagnostics, accountability, and circles. A per-account JSON workspace snapshot also stores UI data that does not have its own relational model. PostgreSQL is the production database; the browser copy is a recovery cache and is not the cross-device source of truth.
+The Next.js frontend talks to the FastAPI backend. SQLAlchemy stores relational records for accounts, identities, habits, events, logs, rewards, variations, diagnostics, accountability, and circles. A per-account JSON workspace snapshot also stores UI data that does not have its own relational model. The current Hostinger deployment uses SQLite in a persistent Docker volume; the browser copy is a recovery cache and is not the cross-device source of truth.
 
 Accounts use email and a password of at least 10 characters. Passwords are stored as PBKDF2 hashes. Each successful sign-in creates a separate random account token; only its SHA-256 digest is stored, so several browser profiles can stay signed in at once. Every account API route requires that token and verifies record ownership. Accountability invitation links are limited capability links for the invited habit activity.
 
@@ -44,44 +44,46 @@ Use any localhost frontend port. The browser defaults to the same-origin API pro
 Docker development is also available:
 
 ```sh
-docker compose up --build
+docker compose -f docker-compose.dev.yml up --build
 ```
 
-This Compose file is for local development. It uses SQLite and starts Next.js in development mode. Do not use it on the VPS.
+This development Compose file uses SQLite, source bind mounts, and the Next.js development server. Do not use it on the VPS.
 
-## Hostinger VPS deployment
+## Production deployment
 
-The production stack is configured separately in `docker-compose.hostinger.yml`. It uses a persistent PostgreSQL volume, a production Next.js container, and a private FastAPI container. Only the frontend is bound to a loopback port, for routing through the VPS reverse proxy.
+`docker-compose.yml` is the production stack. It pulls the `habitly-api` and `habitly-web` images from GHCR, stores SQLite in the persistent `habitly_habitly_data` volume, and routes the web container through Traefik on the external `n8n_default` network. It publishes no application ports. The API is reachable only inside Docker networks and through the frontend's same-origin API proxy.
 
-See [docs/HOSTINGER_DEPLOYMENT.md](docs/HOSTINGER_DEPLOYMENT.md) for the VPS facts, n8n preservation requirements, production commands, backup requirements, missing deployment inputs, and planned GitHub Actions flow. The repository branch is `main`; a push to `main` will become the production approval event only after the restricted deployment user and workflow secrets are configured.
+Copy `env.production.example` to `.env.production` on the VPS and protect it with mode `600`. Keep Telegram credentials in that server-side file. GitHub Actions builds both images and pushes commit SHA and `latest` tags. Deployment remains disabled until `HABITLY_DEPLOY_ENABLED` is set to `true` after SSH host verification and VPS provisioning.
+
+See [docs/HOSTINGER_DEPLOYMENT.md](docs/HOSTINGER_DEPLOYMENT.md) for setup, health checks, rollback, GitHub Actions configuration, and the n8n preservation requirements.
 
 Do not change or stop n8n, its containers, volumes, proxy routes, or firewall configuration while deploying Habitly. Inspect the existing reverse proxy and port use first. Do not expose the API or database directly to the internet.
 
 ## Environment variables
 
-Copy `.env.example` as a local development reference. For the VPS, copy `.env.hostinger.example` to an untracked server-side `.env` and replace the placeholders. Never commit secret values.
+Copy `.env.example` as a local development reference. For the VPS, copy `env.production.example` to an untracked server-side `.env.production`. Never commit secret values.
 
 | Variable | Purpose |
 | --- | --- |
-| `DATABASE_URL` | SQLAlchemy URL. Unset selects local SQLite; production requires PostgreSQL. |
+| `DATABASE_URL` | SQLAlchemy URL. Unset selects local SQLite in development. Production SQLite must use `/data` so it is stored in the Docker volume. |
 | `CORS_ORIGINS` | Comma-separated additional frontend origins. Localhost ports are allowed by default. |
 | `NEXT_PUBLIC_API_URL` | Optional browser API base URL. Blank uses the same-origin API proxy. |
 | `HABITLY_API_INTERNAL_URL` | Next.js server-side proxy destination. Local default is `http://127.0.0.1:8000`; the production image uses `http://api:8000`. |
-| `HABITLY_ENV` | Set to `production` on the VPS. Production mode requires PostgreSQL and rejects SQLite. |
+| `HABITLY_ENV` | Set to `production` in the production Compose stack. SQLite is accepted only at a path below `/data`. |
 | `TELEGRAM_BOT_TOKEN` | Optional Telegram integration token. |
 | `TELEGRAM_WEBHOOK_SECRET` | Optional Telegram webhook verification secret. |
 
-`DATABASE_URL` may use `postgres://` or `postgresql://`; the backend normalizes it for psycopg. No database password is needed for local SQLite development.
+No database password is needed for SQLite. Do not point the production database URL outside `/data`, because only that directory is persisted across container replacement.
 
 ## Schema changes
 
-`schema.postgres.sql` is the PostgreSQL schema source. Local SQLite creates or updates its local-only schema when the backend starts. In production, the Postgres image imports the schema file only when its persistent data volume is initialized for the first time. Application startup and image builds never run PostgreSQL DDL or migrations.
+SQLite schema creation and incremental compatibility updates run when the API starts. Keep a backup of the Docker volume before making schema changes that remove or transform data.
 
-Do not rerun the full create-table file against an existing database. For later changes, add reviewed incremental migration statements, back up first if a change removes or transforms data, and apply only the approved statements to the production database. Do not add automatic PostgreSQL migrations to startup or build steps.
+Review schema changes before release and back up the SQLite volume first if a change removes or transforms data.
 
 ## Backup, restore, import, and export
 
-For local SQLite, stop the local API and copy `backend/habitly.db` to a safe location. Restore by stopping the API and replacing that file with the backup. For the VPS database, create and verify an off-server PostgreSQL backup before accepting live user data. Hostinger daily VPS backups are currently reported as disabled. Review any added backup cost in hPanel before enabling it.
+For local SQLite, stop the local API and copy `backend/habitly.db` to a safe location. For the VPS, back up the `habitly_data` volume and enable Hostinger daily backups before accepting live user data. Review any added backup cost in hPanel first.
 
 To migrate browser data, sign in, choose **Import this browser’s data** in Settings, and wait for the success message. Import is one-time and idempotent: if the account already has server data, Habitly keeps that server copy and will not overwrite it. The import excludes sample habits and carries user habits, logs, events, variations, rewards, diagnostics, profile data, and workspace state. The browser copy is retained after import. If import fails, use **Download local backup** in Settings; it contains the workspace JSON but not the account token. To restore it, sign in to an account with an empty workspace, choose **Restore from backup**, and select that JSON file.
 
