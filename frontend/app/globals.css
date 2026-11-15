@@ -827,7 +827,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media(max-width:600px){
   .today-quick-card-break{
     grid-template-columns:24px minmax(0,1fr);
-    column-gap:10px;
+    column-gap:13px;
     row-gap:8px;
   }
   .today-quick-card-break .today-quick-main{
