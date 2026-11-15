@@ -10,6 +10,9 @@
       "steps": "(1) Map out your daily habits using an awareness inventory. (2) Attach exact times and places to your habit. (3) Designate distinct spaces for distinct activities.",
       "examples": "Placing a water bottle on your desk every morning; leaving a book on your pillow.",
       "breakGuidance": "Make It Invisible. Reduce exposure to temptation by removing the cue from your physical and digital surroundings. Put the TV in a closet, leave your phone in another room, or delete social media apps.",
+      "breakExplanation": "Habits often begin when something in your surroundings reminds you of a familiar reward. A notification, a snack on the counter, or a particular location can trigger an urge before you have decided what to do. Make the cue less visible or less accessible so you encounter fewer reminders and have more opportunities to choose deliberately.",
+      "breakSteps": ["Notice when and where the urge appears, and identify what you see, hear, or encounter just before it.", "Remove or hide that cue from the places and devices you use most often.", "Put a helpful alternative where the old cue used to be, and adjust your surroundings when the cue returns."],
+      "breakExamples": ["Charge your phone outside the bedroom and turn off nonessential notifications.", "Keep snack foods out of sight and place a cup or water bottle on your desk instead."],
       "source": "Chapters 4, 5, 6, and 7; pp. 59–97."
     },
     "craving": {
@@ -21,6 +24,9 @@
       "steps": "(1) Link an action you need to do with an action you want to do. (2) Surround yourself with people who already practice your desired behavior. (3) Build a short routine that puts you into a focused, positive mindset.",
       "examples": "Only watching your favorite show while riding the stationary bike; using a 3-breath smiling ritual before writing.",
       "breakGuidance": "Make It Unattractive. Reframe your internal narrative by focusing on the drawbacks of the bad habit and the tangible benefits of avoiding it. Change \"I have to give this up\" to \"I get to enjoy the freedom of not doing this\".",
+      "breakExplanation": "A habit can feel appealing because attention settles on its immediate payoff while the costs show up later. Reframing brings the full picture into view: what the behavior takes from you and what becomes possible when you choose differently. The aim is to make the alternative personally meaningful, not to shame yourself for having an urge.",
+      "breakSteps": ["Name the immediate benefit you expect from the habit and the need it seems to meet.", "Write down a specific cost of the habit and a benefit of changing it that matters to you.", "Keep a short reminder nearby and practice a more helpful way to meet the same need."],
+      "breakExamples": ["Before late-night scrolling, remind yourself that putting the phone away protects tomorrow’s energy.", "When stress makes snacking appealing, recognize the need for a break and take a short walk or make tea."],
       "source": "Chapters 8, 9, and 10; pp. 101–137."
     },
     "response": {
@@ -32,6 +38,9 @@
       "steps": "(1) Reduce intermediate steps between you and the habit. (2) Scale the habit down to a two-minute entry point. (3) Prepare physical materials ahead of time.",
       "examples": "Laying out workout gear the night before; choosing a gym on the direct path of your daily commute.",
       "breakGuidance": "Make It Difficult. Increase friction by adding physical steps, delays, or obstacles between you and the bad habit. Unplug devices, use app blockers, or reset passwords every week.",
+      "breakExplanation": "When a behavior is quick and convenient, it is easy to repeat without thinking. Adding friction puts time and effort between an urge and the action, creating a pause in which another choice becomes easier. A small obstacle can be useful when it is set up before the moment of temptation.",
+      "breakSteps": ["Identify the easiest path to the behavior and the moment when you usually start it.", "Add a practical obstacle, such as putting an item away, signing out, or scheduling an app blocker.", "Prepare an easier alternative in advance, and adjust the obstacle if it gets in the way of essential tasks."],
+      "breakExamples": ["Charge your phone in another room and use a separate alarm clock.", "Unplug a game console after use and store the controller out of reach."],
       "source": "Chapters 11, 12, 13, and 14; pp. 141–179."
     },
     "reward": {
@@ -43,6 +52,9 @@
       "steps": "(1) Add an immediate sensory or symbolic reward to the end of the behavior. (2) Track your progress visually to create immediate proof of showing up. (3) Ensure rewards reinforce your desired identity.",
       "examples": "Using fresh-mint flavored toothpaste; seeing \\$50 transferred to a vacation fund after skipping takeout; crossing off a calendar day.",
       "breakGuidance": "Make It Unsatisfying. Make the immediate costs of bad behavior painful, visible, and social. Involve an accountability partner or sign a habit contract with real public or financial penalties.",
+      "breakExplanation": "Unwanted habits often offer a quick reward while their costs are delayed. Making the consequence more immediate and visible can help the longer-term tradeoff matter in the moment. Accountability can support this: agree on a constructive check-in or a modest consequence with someone you trust, while treating setbacks as information for your next attempt.",
+      "breakSteps": ["Choose a specific behavior and notice the immediate reward that keeps it appealing.", "Make its cost visible with a simple record or a regular check-in with a supportive person.", "If useful, agree in advance on a reasonable consequence and a plan for getting back on track after a slip."],
+      "breakExamples": ["Tell a friend your screen-time goal and review your usage together each week.", "Agree to a small, affordable donation when you miss a commitment, then adjust your plan if the commitment proves unrealistic."],
       "source": "Chapters 15, 16, and 17; pp. 183–213."
     }
   },
