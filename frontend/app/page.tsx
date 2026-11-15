@@ -259,20 +259,18 @@ export default function Home() {
   const modalOpen = !!(habitToDelete || showBuilder || infoModal || diagnosticOpen || showIdentity);
   useEffect(() => {
     if (!modalOpen) return;
-    const scrollY = window.scrollY;
     const body = document.body;
-    const previous = { position: body.style.position, top: body.style.top, width: body.style.width, overflow: body.style.overflow };
-    body.style.position = 'fixed';
-    body.style.top = `-${scrollY}px`;
-    body.style.width = '100%';
+    const root = document.documentElement;
+    const previousBodyOverflow = body.style.overflow;
+    const previousRootOverflow = root.style.overflow;
+    const previousOverscroll = root.style.overscrollBehavior;
     body.style.overflow = 'hidden';
+    root.style.overflow = 'hidden';
+    root.style.overscrollBehavior = 'none';
     return () => {
-      Object.assign(body.style, previous);
-      const root = document.documentElement;
-      const behavior = root.style.scrollBehavior;
-      root.style.scrollBehavior = 'auto';
-      window.scrollTo(0, scrollY);
-      root.style.scrollBehavior = behavior;
+      body.style.overflow = previousBodyOverflow;
+      root.style.overflow = previousRootOverflow;
+      root.style.overscrollBehavior = previousOverscroll;
     };
   }, [modalOpen]);
 
