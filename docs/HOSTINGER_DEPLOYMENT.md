@@ -8,7 +8,7 @@
 | Branch | `main` |
 | VPS | Ubuntu 24.04 at `187.77.8.184`, SSH port `22` |
 | Deployment directory | `/docker/habitly-prod` |
-| Initial URL | `http://187.77.8.184` |
+| Initial URL | `https://habitly.srv1353882.hstgr.cloud` |
 | Existing proxy | Traefik on ports `80` and `443` |
 | Shared proxy network | `n8n_default` |
 | Existing app to preserve | n8n at `n8n.srv1353882.hstgr.cloud`, internal port `5678` |
@@ -17,29 +17,28 @@ Habitly uses two public GHCR images, `ghcr.io/polancojoseph1/habitly-api` and `g
 
 The API stores its SQLite database at `/data/habitly.db` in the Compose volume `habitly-prod_habitly_data`. Neither the API nor web service publishes a host port. Traefik routes HTTP traffic to the web container on internal port `3000`; the web service proxies API requests to the API on internal port `8000`.
 
-The production route uses Traefik entrypoint `web` and matches the IP host. Confirm that the existing Traefik entrypoint is named `web` and that no global HTTP to HTTPS redirect prevents access by IP. Do not change Traefik or the n8n route to make Habitly work. The current route should be inspected before enabling deployment.
+The VPS hostname `habitly.srv1353882.hstgr.cloud` resolves to the VPS, but does not currently present a trusted certificate. Habitly must use the existing Traefik HTTPS entrypoint and certificate resolver. Inspect the current Traefik labels before setting `HOSTINGER_TRAEFIK_CERT_RESOLVER`; do not change Traefik or the n8n route to make Habitly work.
 
 ## Files and secrets
 
 - `docker-compose.yml`: production image based stack and Traefik labels.
 - `docker-compose.dev.yml`: local development stack with source bind mounts.
 - `backend/Dockerfile` and `frontend/Dockerfile`: non-root production images with health checks.
-- `.github/workflows/deploy.yml`: build and publish images on `main`, then deploy only when explicitly enabled.
+- `.github/workflows/deploy.yml`: run API tests and a web build, publish images on `main`, then deploy through Hostinger's Docker Manager action only when explicitly enabled.
 - `env.production.example`: safe template for the protected server file `/docker/habitly-prod/.env.production`.
 
 Create `.env.production` on the VPS from `env.production.example`, then set permissions to `600`. It contains the SQLite URL and optional Telegram credentials. Never commit the server file or place its secrets in GitHub Actions logs.
 
-The repository already has the GitHub Actions secret `HABITLY_DEPLOY_PRIVATE_KEY` and variables `HABITLY_SERVER_HOST`, `HABITLY_SERVER_PORT`, and `HABITLY_SERVER_USER`. Both GHCR packages were published as public with the first successful workflow run. Before enabling deployment, add the verified VPS host key lines as the secret `HABITLY_SSH_KNOWN_HOSTS`. Keep `HABITLY_DEPLOY_ENABLED` unset or false until all prerequisites below are complete.
+The GitHub Actions workflow uses public GHCR images, so no container registry credentials are needed on the VPS. Hostinger Docker Manager deployment requires the `HOSTINGER_API_KEY` Actions secret. The `HOSTINGER_VM_ID`, `PRODUCTION_DOMAIN`, and `HOSTINGER_TRAEFIK_CERT_RESOLVER` Actions variables must also be set. The Compose file does not depend on a server-side `.env.production` file; optional Telegram credentials default to empty and should be configured in a protected Hostinger environment if needed. Do not enable deployment until the data migration path and HTTPS route have been inspected. The earlier SSH deployment variables are no longer used by this workflow.
 
 ## Before enabling deployment
 
-1. Verify the VPS SSH host fingerprint and store its matching known-hosts line in `HABITLY_SSH_KNOWN_HOSTS`.
-2. Confirm the `habitly-deploy` account can write `/docker/habitly-prod`, run Docker Compose, and has the generated deployment public key installed.
-3. Confirm the external Docker network `n8n_default` and Traefik entrypoint `web` exist.
-4. Confirm no Traefik rule already claims `Host(187.77.8.184)` and no global middleware redirects the initial HTTP route to HTTPS.
-5. Create `/docker/habitly-prod/.env.production` with mode `600` and make sure `DATABASE_URL` is exactly `sqlite:////data/habitly.db`.
-6. Enable daily VPS backups after reviewing any additional cost. Verify n8n is healthy before deployment.
-7. Set the GitHub Actions variable `HABITLY_DEPLOY_ENABLED` to `true` only after the account, host key, public packages, environment file, and route are ready.
+1. Store the Hostinger API key in the GitHub Actions secret `HOSTINGER_API_KEY`; never place it in the repository.
+2. Confirm the Hostinger VM ID, production domain, and existing Traefik certificate resolver.
+3. Inspect the old `habitly` Compose project and locate its SQLite file. Back it up and copy it into the new `habitly-prod_habitly_data` volume before switching traffic.
+4. Confirm the external Docker network `n8n_default` and the Traefik HTTPS entrypoint exist.
+5. Enable daily VPS backups after reviewing any additional cost. Verify n8n is healthy before deployment.
+6. Set `HOSTINGER_DEPLOY_ENABLED` to `true` only after the old database is safely copied and the HTTPS route is configured.
 
 Do not install Nginx. Do not stop, replace, delete, or reconfigure the existing Traefik or n8n containers, volumes, networks, or routes.
 
@@ -47,7 +46,7 @@ Docker daemon access is effectively host-level access. If the deploy user must b
 
 ## First deployment and operations
 
-The workflow copies the tracked production Compose file to `/docker/habitly-prod`, pulls the SHA-tagged images, and runs `docker compose up -d` as the separate `habitly-prod` project. The first deployment creates production containers and a SQLite volume without changing the existing `habitly` project. It waits for API and web container health and checks `http://127.0.0.1/health` through Traefik with the Habitly IP host header. If health fails, it restores the last successful image tag. On a failed first deployment it stops only the new production API and web services and leaves the data volume intact.
+The workflow publishes SHA-tagged images and calls Hostinger's Docker Manager action for the separate `habitly-prod` project. It checks the HTTPS health route and, on a failed push deployment, requests deployment of the previous commit's image tag. A first deployment has no prior commit rollback. The new named volume must be populated from the old SQLite data before traffic is switched. The existing `habitly` Compose project remains in place.
 
 Run these commands from `/docker/habitly-prod`:
 

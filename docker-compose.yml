@@ -4,11 +4,13 @@ services:
   api:
     image: ghcr.io/polancojoseph1/habitly-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
-    env_file:
-      - .env.production
     environment:
       HABITLY_ENV: production
       PYTHONUNBUFFERED: "1"
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/habitly.db}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
     volumes:
       - habitly_data:/data
     networks:
@@ -38,8 +40,10 @@ services:
     labels:
       traefik.enable: "true"
       traefik.docker.network: n8n_default
-      traefik.http.routers.habitly-prod.rule: Host(`187.77.8.184`)
-      traefik.http.routers.habitly-prod.entrypoints: web
+      traefik.http.routers.habitly-prod.rule: Host(`${PRODUCTION_DOMAIN}`)
+      traefik.http.routers.habitly-prod.entrypoints: websecure
+      traefik.http.routers.habitly-prod.tls: "true"
+      traefik.http.routers.habitly-prod.tls.certresolver: ${HOSTINGER_TRAEFIK_CERT_RESOLVER}
       traefik.http.routers.habitly-prod.service: habitly-prod-web
       traefik.http.services.habitly-prod-web.loadbalancer.server.port: "3000"
     healthcheck:
