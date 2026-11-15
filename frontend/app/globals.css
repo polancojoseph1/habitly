@@ -736,6 +736,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media(max-width:600px) { .palette-options { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 /* Keep the Today greeting calm and place its main action beside the habit list. */
 .today-page-heading{margin-bottom:24px}
+.today-greeting{width:100%;min-width:0}
+.today-greeting-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.today-greeting-top .eyebrow{margin-bottom:0}
 .today-page-heading h1{font-size:clamp(30px,2.7vw,36px);line-height:1.15;letter-spacing:-1.2px}
 .today-section-heading{gap:12px}
 .today-add-button{min-height:44px;height:44px;padding:0 11px;border:1px solid color-mix(in srgb,var(--accent-ink) 24%,var(--line));border-radius:10px;box-shadow:none;font-size:14px;font-weight:700;gap:6px;color:var(--accent-ink);background:var(--accent-soft);white-space:nowrap;transition:background-color .16s,border-color .16s,transform .16s}
@@ -747,7 +750,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .today-section-heading h2{font-size:clamp(17px,5vw,20px)}
   .today-add-button{padding:0 10px;font-size:13px}
 }
-@media(max-width:360px){.today-section-heading{align-items:flex-start;flex-direction:column}.today-add-button{align-self:flex-end}}
+@media(max-width:360px){.today-section-heading{gap:8px}}
 
 .today-heading-actions{display:flex;align-items:center;gap:18px}
 .today-heading-actions a{display:inline-flex;align-items:center;gap:6px;color:var(--accent-ink);font-size:12px;font-weight:700;text-decoration:none}
@@ -813,7 +816,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .today-quick-card .today-law-details{grid-column:1/-1}
   .today-quick-card .today-law-details summary{margin-left:34px}
   .today-law-details>.today-law-list{grid-template-columns:minmax(0,1fr)}
-  .today-section-heading{align-items:flex-start}
+  .today-section-heading{align-items:center}
   .today-list-actions{align-items:flex-end;flex-direction:column;gap:7px}
   .today-quick-break-actions{justify-content:flex-start}
   .today-quick-side{justify-items:start;flex-wrap:wrap;gap:7px 10px}
