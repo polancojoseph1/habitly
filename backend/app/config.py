@@ -11,11 +11,14 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+runtime_environment = os.environ.get("HABITLY_ENV", "development").lower()
 if not settings.database_url:
-    if os.environ.get("REPL_ID"):
-        raise RuntimeError("Replit requires its managed PostgreSQL DATABASE_URL; filesystem SQLite is disabled.")
+    if runtime_environment == "production":
+        raise RuntimeError("Production requires DATABASE_URL; filesystem SQLite is disabled.")
     from pathlib import Path
     settings.database_url = f"sqlite:///{Path(__file__).resolve().parents[1] / 'habitly.db'}"
+if runtime_environment == "production" and settings.database_url.startswith("sqlite"):
+    raise RuntimeError("Production requires PostgreSQL; SQLite is for local development only.")
 if settings.database_url.startswith("postgres://"):
     settings.database_url = settings.database_url.replace("postgres://", "postgresql+psycopg://", 1)
 elif settings.database_url.startswith("postgresql://") and "+psycopg" not in settings.database_url:

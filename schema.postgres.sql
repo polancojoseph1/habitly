@@ -1,4 +1,5 @@
--- Habitly PostgreSQL schema source. Apply to Replit development DB, then use Publish to promote.
+-- Habitly PostgreSQL schema source for initializing a new production database.
+-- Existing databases require reviewed incremental migration statements.
 
 CREATE TABLE community_circles (
 	id VARCHAR(36) NOT NULL,

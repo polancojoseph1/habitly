@@ -27,7 +27,7 @@ from .streaks import calculate_streak
 if settings.database_url.startswith("sqlite"):
     Base.metadata.create_all(bind=engine)
     # Local-only compatibility for existing Codex SQLite files. Production PostgreSQL
-    # schema changes are deliberately applied through Replit's schema workflow.
+    # schema changes are deliberately applied through the deployment's reviewed schema workflow.
     with engine.begin() as connection:
         inspector = inspect(connection)
         local_additions = {
