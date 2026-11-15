@@ -744,3 +744,46 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .today-add-button{padding:0 10px;font-size:13px}
 }
 @media(max-width:360px){.today-section-heading{align-items:flex-start;flex-direction:column}.today-add-button{align-self:flex-end}}
+
+.today-heading-actions{display:flex;align-items:center;gap:18px}
+.today-heading-actions a{display:inline-flex;align-items:center;gap:6px;color:var(--accent-ink);font-size:12px;font-weight:700;text-decoration:none}
+.today-quick-card{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:start;gap:13px;width:100%;padding:15px 16px;border:1px solid var(--line);border-radius:13px;background:var(--surface-raised);box-shadow:var(--shadow)}
+.today-quick-card-done{background:color-mix(in srgb,var(--surface-raised) 88%,var(--accent-soft))}
+.today-quick-check{display:grid;place-items:center;width:23px;height:23px;margin-top:2px;border:1.5px solid var(--line);border-radius:7px;background:transparent;color:#fff;cursor:pointer}
+.today-quick-check.checked{border-color:#6256c8;background:#6256c8}
+.today-quick-main{min-width:0}
+.today-quick-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.today-quick-title h3{margin:0;color:var(--ink);font:700 15px/1.35 'Manrope',sans-serif}
+.today-quick-cue,.today-quick-action{display:flex;align-items:flex-start;gap:6px;margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+.today-quick-cue svg{flex:0 0 auto;margin-top:2px;color:var(--accent-ink)}
+.today-quick-action{color:var(--muted)}
+.today-quick-action span{flex:0 0 auto;color:var(--accent-ink);font-size:9px;font-weight:800;letter-spacing:.07em}
+.today-quick-side{display:grid;justify-items:end;gap:7px}
+.today-quick-side>span{display:flex;align-items:center;gap:4px;color:var(--muted);font-size:10px;white-space:nowrap}
+.today-quick-side>span svg{color:#c6945e}
+.today-law-details{margin-top:8px}
+.today-law-details summary{display:flex;align-items:center;gap:7px;width:max-content;color:var(--accent-ink);font-size:11px;font-weight:700;cursor:pointer;list-style:none}
+.today-law-details summary::-webkit-details-marker{display:none}
+.today-law-details summary:after{content:'+';font-size:14px}
+.today-law-details[open] summary:after{content:'−'}
+.today-law-details summary span{color:var(--muted);font-weight:500}
+.today-law-details>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 15px;margin-top:9px;padding:10px 12px;border-radius:10px;background:var(--surface-soft)}
+.today-law-details p{display:grid;gap:3px;margin:0;color:var(--muted);font-size:11px;line-height:1.45}
+.today-law-details p b{color:var(--accent-ink);font-size:10px}
+.showcase-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 18px;padding:10px 13px;border:1px solid color-mix(in srgb,#6256c8 30%,var(--line));border-radius:11px;background:var(--surface-soft);color:var(--muted);font-size:11px}
+.showcase-notice b{color:var(--accent-ink)}
+.showcase-notice label{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.showcase-notice select{padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);color:var(--ink);font:inherit}
+.showcase-notice>a{color:var(--accent-ink);font-weight:700;text-decoration:none;white-space:nowrap}
+.today-change-list{display:grid;gap:10px}
+.today-change-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;padding:14px 16px;border:1px solid var(--line);border-radius:13px;background:var(--surface-raised);box-shadow:var(--shadow)}
+.today-change-main h3{margin:4px 0;color:var(--ink);font:700 14px/1.4 'Manrope',sans-serif}
+.today-change-main>.eyebrow{font-size:9px}
+.today-change-main>p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.today-change-actions{display:grid;justify-items:end;align-content:center;gap:7px}
+.today-change-actions>span{color:var(--muted);font-size:10px;white-space:nowrap}
+.today-change-actions>div{display:flex;gap:6px}
+.today-change-actions button{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface-soft);color:var(--accent-ink);font-size:10px;font-weight:700;cursor:pointer}
+.today-change-actions button:hover{border-color:var(--accent-ink)}
+@media(max-width:600px){.today-heading-actions{gap:10px}.today-heading-actions a{font-size:0}.today-heading-actions a svg{width:17px;height:17px}.today-quick-card{grid-template-columns:22px minmax(0,1fr);gap:9px;padding:13px 12px}.today-quick-side{grid-column:2;display:flex;justify-content:space-between;align-items:center}.today-law-details>div{grid-template-columns:1fr}.showcase-notice{align-items:flex-start;flex-wrap:wrap}.showcase-notice label{order:3;width:100%;justify-content:space-between}}
+@media(max-width:600px){.today-change-card{grid-template-columns:1fr;gap:10px}.today-change-actions{justify-items:start}.today-change-actions>div{width:100%}.today-change-actions button{flex:1}}
