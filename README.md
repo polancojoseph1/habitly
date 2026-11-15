@@ -51,7 +51,7 @@ This development Compose file uses SQLite, source bind mounts, and the Next.js d
 
 ## Production deployment
 
-`docker-compose.yml` is the production stack. It pulls the `habitly-api` and `habitly-web` images from GHCR, stores SQLite in the persistent `habitly_habitly_data` volume, and routes the web container through Traefik on the external `n8n_default` network. It publishes no application ports. The API is reachable only inside Docker networks and through the frontend's same-origin API proxy.
+`docker-compose.yml` is the production stack. It pulls the `habitly-api` and `habitly-web` images from GHCR, stores SQLite in the persistent `habitly-prod_habitly_data` volume, and routes the web container through Traefik on the external `n8n_default` network. It publishes no application ports. The API is reachable only inside Docker networks and through the frontend's same-origin API proxy. On the VPS it runs as the separate `habitly-prod` Compose project.
 
 Copy `env.production.example` to `.env.production` on the VPS and protect it with mode `600`. Keep Telegram credentials in that server-side file. GitHub Actions builds both images and pushes commit SHA and `latest` tags. Deployment remains disabled until `HABITLY_DEPLOY_ENABLED` is set to `true` after SSH host verification and VPS provisioning.
 

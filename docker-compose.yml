@@ -1,4 +1,4 @@
-name: habitly
+name: habitly-prod
 
 services:
   api:
@@ -38,10 +38,10 @@ services:
     labels:
       traefik.enable: "true"
       traefik.docker.network: n8n_default
-      traefik.http.routers.habitly.rule: Host(`187.77.8.184`)
-      traefik.http.routers.habitly.entrypoints: web
-      traefik.http.routers.habitly.service: habitly-web
-      traefik.http.services.habitly-web.loadbalancer.server.port: "3000"
+      traefik.http.routers.habitly-prod.rule: Host(`187.77.8.184`)
+      traefik.http.routers.habitly-prod.entrypoints: web
+      traefik.http.routers.habitly-prod.service: habitly-prod-web
+      traefik.http.services.habitly-prod-web.loadbalancer.server.port: "3000"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 15s

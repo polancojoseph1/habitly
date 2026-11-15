@@ -83,7 +83,7 @@ jobs:
         run: |
           set -eu
           scp -P "$SERVER_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
-            docker-compose.yml "$SERVER_USER@$SERVER_HOST:/opt/habitly/docker-compose.yml.incoming"
+            docker-compose.yml "$SERVER_USER@$SERVER_HOST:/docker/habitly-prod/docker-compose.yml.incoming"
 
       - name: Deploy and roll back on failed health check
         env:
@@ -96,7 +96,7 @@ jobs:
           ssh -p "$SERVER_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
             "$SERVER_USER@$SERVER_HOST" "IMAGE_TAG=$DEPLOY_TAG sh -s" <<'REMOTE'
           set -eu
-          cd /opt/habitly
+          cd /docker/habitly-prod
           test -f .env.production || { echo 'Missing protected .env.production' >&2; exit 1; }
           docker network inspect n8n_default >/dev/null
           mv docker-compose.yml.incoming docker-compose.yml
