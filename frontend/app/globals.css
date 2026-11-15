@@ -784,8 +784,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-section-heading>div{min-width:0}
 .today-section-heading .today-add-button{flex:0 0 auto;margin-right:4px}
 .today-list-actions{display:flex;align-items:center;gap:12px}
-.habit-arrange-button{display:grid;place-items:center;width:40px;height:40px;border:1px solid color-mix(in srgb,var(--accent-ink) 38%,var(--line));border-radius:10px;background:var(--surface-soft);color:var(--accent-ink);cursor:pointer;transition:background .2s,border-color .2s}
-.habit-arrange-button:hover,.habit-arrange-button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent-ink)}
+.today-list-actions .today-add-button{order:1}
+.habit-arrange-button{position:relative;order:2;display:grid;place-items:center;width:40px;height:40px;padding:0;border:0;background:transparent;color:color-mix(in srgb,var(--accent-ink) 80%,var(--muted));cursor:pointer}
+.habit-arrange-button::before{content:'';position:absolute;inset:4px;border:1px solid var(--line);border-radius:8px;background:var(--surface-soft);transition:background .2s,border-color .2s}
+.habit-arrange-button svg{position:relative;width:16px;height:16px}
+.habit-arrange-button:hover::before,.habit-arrange-button[aria-pressed="true"]::before{background:var(--accent-soft);border-color:var(--accent-ink)}
 .today-order-item{min-width:0}
 .habit-order-controls{display:flex;align-items:center;justify-content:flex-end;gap:7px;padding:8px 2px 0;color:var(--muted);font-size:12px}
 .habit-order-controls span{margin-right:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
