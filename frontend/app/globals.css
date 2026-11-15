@@ -373,6 +373,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .form-kind-tabs button.selected,.cue-tabs button.cue-tab-selected { border-color: #b9b2f0; background: var(--accent-soft); color: var(--accent-ink); }
 .form-note { color: var(--muted); }
 .toast-message { max-width: min(420px, calc(100vw - 28px)); overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .toast-message:not(.toast-habit-added) { width: min(420px, calc(100vw - 32px)); padding: 10px 14px; line-height: 1.4; }
+  .toast-message .toast-star { flex: 0 0 auto; }
+}
 .toast-message.toast-habit-added { width: min(560px, calc(100vw - 32px)); min-height: 112px; justify-content: center; padding: 24px 32px; border-radius: 20px; font-size: 20px; }
 
 :root[data-theme="dark"] body { background: var(--paper); color: var(--ink); }
