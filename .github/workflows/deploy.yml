@@ -83,40 +83,51 @@ jobs:
             ghcr.io/polancojoseph1/habitly-web:latest
 
   deploy:
-    if: >-
-      github.ref == 'refs/heads/main' &&
-      vars.HOSTINGER_DEPLOY_ENABLED == 'true' &&
-      vars.HOSTINGER_VM_ID != '' &&
-      vars.PRODUCTION_DOMAIN != '' &&
-      vars.HOSTINGER_TRAEFIK_CERT_RESOLVER != ''
+    if: github.ref == 'refs/heads/main' && vars.HABITLY_DEPLOY_ENABLED == 'true'
     needs: build-and-push
+    concurrency:
+      group: habitly-prod-deploy
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
-      - name: Check out deployment Compose file
-        uses: actions/checkout@v4
+      - name: Install SSH credentials and verified host key
+        env:
+          DEPLOY_KEY: ${{ secrets.HABITLY_DEPLOY_PRIVATE_KEY }}
+          VERIFIED_KNOWN_HOSTS: ${{ secrets.HABITLY_SSH_KNOWN_HOSTS }}
+        run: |
+          set -eu
+          test -n "$DEPLOY_KEY"
+          test -n "$VERIFIED_KNOWN_HOSTS"
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+          printf '%s\n' "$VERIFIED_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$DEPLOY_KEY" | ssh-add -
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
 
-      - name: Deploy Habitly production project
+      - name: Deploy the SHA-tagged image through the restricted wrapper
         id: deploy
         continue-on-error: true
-        uses: hostinger/deploy-on-vps@v2
-        with:
-          api-key: ${{ secrets.HOSTINGER_API_KEY }}
-          virtual-machine: ${{ vars.HOSTINGER_VM_ID }}
-          project-name: habitly-prod
-          docker-compose-path: docker-compose.yml
-          environment-variables: |
-            IMAGE_TAG=${{ github.sha }}
-            PRODUCTION_DOMAIN=${{ vars.PRODUCTION_DOMAIN }}
-            HOSTINGER_TRAEFIK_CERT_RESOLVER=${{ vars.HOSTINGER_TRAEFIK_CERT_RESOLVER }}
-            DATABASE_URL=sqlite:////data/habitly.db
-            CORS_ORIGINS=https://${{ vars.PRODUCTION_DOMAIN }}
+        env:
+          SERVER_HOST: ${{ vars.HABITLY_SERVER_HOST }}
+          SERVER_PORT: ${{ vars.HABITLY_SERVER_PORT }}
+          SERVER_USER: ${{ vars.HABITLY_SERVER_USER }}
+          DEPLOY_TAG: ${{ github.sha }}
+        run: |
+          set -eu
+          printf '%s\n' "$DEPLOY_TAG" | ssh -p "$SERVER_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$SERVER_USER@$SERVER_HOST" 'umask 077; cat > "$HOME/.habitly-deploy-request.incoming"; mv "$HOME/.habitly-deploy-request.incoming" "$HOME/.habitly-deploy-request"'
+          ssh -p "$SERVER_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$SERVER_USER@$SERVER_HOST" 'sudo -n /usr/local/sbin/habitly-deploy'
 
-      - name: Check public health route
+      - name: Check the public HTTPS health route
         id: health
         if: steps.deploy.outcome == 'success'
         continue-on-error: true
         env:
-          PRODUCTION_DOMAIN: ${{ vars.PRODUCTION_DOMAIN }}
+          PRODUCTION_DOMAIN: habitly.srv1353882.hstgr.cloud
         run: |
           set -eu
           attempt=0
@@ -132,35 +143,44 @@ jobs:
           echo "Habitly did not become healthy at https://${PRODUCTION_DOMAIN}/health" >&2
           exit 1
 
-      - name: Roll back to the previous commit image
+      - name: Roll back if the external health check fails
         id: rollback
-        if: >-
-          (steps.deploy.outcome == 'failure' || steps.health.outcome == 'failure') &&
-          github.event_name == 'push' &&
-          github.event.before != '' &&
-          github.event.before != '0000000000000000000000000000000000000000'
+        if: steps.health.outcome == 'failure'
         continue-on-error: true
-        uses: hostinger/deploy-on-vps@v2
-        with:
-          api-key: ${{ secrets.HOSTINGER_API_KEY }}
-          virtual-machine: ${{ vars.HOSTINGER_VM_ID }}
-          project-name: habitly-prod
-          docker-compose-path: docker-compose.yml
-          environment-variables: |
-            IMAGE_TAG=${{ github.event.before }}
-            PRODUCTION_DOMAIN=${{ vars.PRODUCTION_DOMAIN }}
-            HOSTINGER_TRAEFIK_CERT_RESOLVER=${{ vars.HOSTINGER_TRAEFIK_CERT_RESOLVER }}
-            DATABASE_URL=sqlite:////data/habitly.db
-            CORS_ORIGINS=https://${{ vars.PRODUCTION_DOMAIN }}
+        env:
+          SERVER_HOST: ${{ vars.HABITLY_SERVER_HOST }}
+          SERVER_PORT: ${{ vars.HABITLY_SERVER_PORT }}
+          SERVER_USER: ${{ vars.HABITLY_SERVER_USER }}
+        run: |
+          set -eu
+          printf '%s\n' rollback | ssh -p "$SERVER_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$SERVER_USER@$SERVER_HOST" 'umask 077; cat > "$HOME/.habitly-deploy-request.incoming"; mv "$HOME/.habitly-deploy-request.incoming" "$HOME/.habitly-deploy-request"'
+          ssh -p "$SERVER_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$SERVER_USER@$SERVER_HOST" 'sudo -n /usr/local/sbin/habitly-deploy'
 
-      - name: Fail if deployment or rollback failed
+      - name: Stop the old API after production passes health checks
+        id: retire_old_api
+        if: steps.health.outcome == 'success'
+        env:
+          SERVER_HOST: ${{ vars.HABITLY_SERVER_HOST }}
+          SERVER_PORT: ${{ vars.HABITLY_SERVER_PORT }}
+          SERVER_USER: ${{ vars.HABITLY_SERVER_USER }}
+        run: |
+          set -eu
+          printf '%s\n' retire-old-api | ssh -p "$SERVER_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$SERVER_USER@$SERVER_HOST" 'umask 077; cat > "$HOME/.habitly-deploy-request.incoming"; mv "$HOME/.habitly-deploy-request.incoming" "$HOME/.habitly-deploy-request"'
+          ssh -p "$SERVER_PORT" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+            "$SERVER_USER@$SERVER_HOST" 'sudo -n /usr/local/sbin/habitly-deploy'
+
+      - name: Fail if deployment or health check failed
         if: always()
         env:
           DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
           HEALTH_OUTCOME: ${{ steps.health.outcome }}
           ROLLBACK_OUTCOME: ${{ steps.rollback.outcome }}
+          RETIRE_OUTCOME: ${{ steps.retire_old_api.outcome }}
         run: |
-          if [ "$DEPLOY_OUTCOME" = failure ] || [ "$HEALTH_OUTCOME" = failure ]; then
-            echo "Deployment did not pass its health check. Rollback result: ${ROLLBACK_OUTCOME:-not available}." >&2
+          if [ "$DEPLOY_OUTCOME" = failure ] || [ "$HEALTH_OUTCOME" = failure ] || [ "$RETIRE_OUTCOME" = failure ]; then
+            echo "Deployment or post-deployment checks failed. Rollback result: ${ROLLBACK_OUTCOME:-not required}." >&2
             exit 1
           fi

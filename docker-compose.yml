@@ -2,13 +2,13 @@ name: habitly-prod
 
 services:
   api:
-    image: ghcr.io/polancojoseph1/habitly-api:${IMAGE_TAG:-latest}
+    image: ghcr.io/polancojoseph1/habitly-api:${IMAGE_TAG:?IMAGE_TAG is required}
     restart: unless-stopped
     environment:
       HABITLY_ENV: production
       PYTHONUNBUFFERED: "1"
-      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/habitly.db}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      DATABASE_URL: sqlite:////data/habitly.db
+      CORS_ORIGINS: https://habitly.srv1353882.hstgr.cloud
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
     volumes:
@@ -26,7 +26,7 @@ services:
       start_period: 20s
 
   web:
-    image: ghcr.io/polancojoseph1/habitly-web:${IMAGE_TAG:-latest}
+    image: ghcr.io/polancojoseph1/habitly-web:${IMAGE_TAG:?IMAGE_TAG is required}
     restart: unless-stopped
     environment:
       HABITLY_API_INTERNAL_URL: http://api:8000
@@ -40,10 +40,10 @@ services:
     labels:
       traefik.enable: "true"
       traefik.docker.network: n8n_default
-      traefik.http.routers.habitly-prod.rule: Host(`${PRODUCTION_DOMAIN}`)
+      traefik.http.routers.habitly-prod.rule: Host(`habitly.srv1353882.hstgr.cloud`)
       traefik.http.routers.habitly-prod.entrypoints: websecure
       traefik.http.routers.habitly-prod.tls: "true"
-      traefik.http.routers.habitly-prod.tls.certresolver: ${HOSTINGER_TRAEFIK_CERT_RESOLVER}
+      traefik.http.routers.habitly-prod.tls.certresolver: mytlschallenge
       traefik.http.routers.habitly-prod.service: habitly-prod-web
       traefik.http.services.habitly-prod-web.loadbalancer.server.port: "3000"
     healthcheck:
