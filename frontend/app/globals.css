@@ -730,3 +730,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .palette-swatches i { display:block; width:18px; height:18px; border:2px solid var(--surface-raised); border-radius:50%; margin-left:-4px; box-shadow:0 0 0 1px rgba(30,29,43,.08); }
 .palette-swatches i:first-child { margin-left:0; }
 @media(max-width:600px) { .palette-options { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+/* Keep the Today greeting calm and place its main action beside the habit list. */
+.today-page-heading{margin-bottom:24px}
+.today-page-heading h1{font-size:clamp(30px,2.7vw,36px);line-height:1.15;letter-spacing:-1.2px}
+.today-section-heading{gap:12px}
+.today-section-actions{display:flex;align-items:center;gap:12px;flex:0 0 auto}
+.today-add-button{min-height:36px;height:36px;padding:0 11px;border-radius:10px;box-shadow:none;font-size:13px;gap:6px}
+@media(max-width:600px){
+  .today-page-heading{margin-bottom:22px}
+  .today-page-heading h1{font-size:clamp(27px,6.8vw,31px);letter-spacing:-1px}
+  .today-section-heading{gap:8px}
+  .today-section-heading h2{font-size:clamp(17px,5vw,20px)}
+  .today-section-actions{gap:8px}
+  .today-add-button{min-height:34px;height:34px;padding:0 9px;font-size:12px}
+  .today-section-heading .text-button{gap:4px;font-size:13px;white-space:nowrap}
+}
+@media(max-width:360px){.today-section-heading{align-items:flex-start;flex-direction:column}.today-section-actions{align-self:flex-end}}
