@@ -756,8 +756,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-quick-title h3{margin:0;color:var(--ink);font:700 15px/1.35 'Manrope',sans-serif}
 .today-quick-cue,.today-quick-action{display:flex;align-items:flex-start;gap:6px;margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
 .today-quick-cue svg{flex:0 0 auto;margin-top:2px;color:var(--accent-ink)}
-.today-quick-action{color:var(--muted)}
-.today-quick-action span{flex:0 0 auto;color:var(--accent-ink);font-size:9px;font-weight:800;letter-spacing:.07em}
+.today-quick-action{display:grid;grid-template-columns:72px minmax(0,1fr);gap:0 6px;color:var(--muted)}
+.today-quick-action span{width:72px;color:var(--accent-ink);font-size:9px;font-weight:800;letter-spacing:.07em}
 .today-quick-side{display:grid;justify-items:end;gap:7px}
 .today-quick-side>span{display:flex;align-items:center;gap:4px;color:var(--muted);font-size:10px;white-space:nowrap}
 .today-quick-side>span svg{color:#c6945e}
