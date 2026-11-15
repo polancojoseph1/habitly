@@ -96,6 +96,7 @@ class HabitEvent(Base):
     event_type: Mapped[str] = mapped_column(String(24))
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actual_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     strategy: Mapped[str | None] = mapped_column(String(300), nullable=True)
     variation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     variation_name: Mapped[str | None] = mapped_column(String(160), nullable=True)

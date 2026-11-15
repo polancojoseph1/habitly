@@ -137,6 +137,7 @@ class HabitLogOut(BaseModel):
 class HabitEventCreate(BaseModel):
     event_type: Literal["ACTION_COMPLETED", "URGE_PASSED", "REPLACEMENT_USED", "OLD_HABIT"]
     note: str | None = Field(default=None, max_length=500)
+    actual_minutes: int | None = Field(default=None, ge=1, le=1440)
     strategy: str | None = Field(default=None, max_length=300)
     variation_id: str | None = None
     variation_name: str | None = Field(default=None, max_length=160)
@@ -149,6 +150,7 @@ class HabitEventOut(BaseModel):
     event_type: str
     occurred_at: datetime
     note: str | None
+    actual_minutes: int | None
     strategy: str | None
     variation_id: str | None
     variation_name: str | None

@@ -687,3 +687,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .law-choice > summary { min-height: 54px; padding: 8px 11px; }
   .law-choice-body { padding: 10px; }
 }
+.duration-tracker { display: grid; gap: 12px; margin: 12px 0; padding: 15px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
+.duration-tracker-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.duration-tracker-heading b { color: var(--ink); font-size: 15px; }
+.duration-tracker-heading p { margin: 3px 0 0; color: var(--muted); font-size: 13px; }
+.duration-tracker-heading > span { color: var(--accent-ink); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.duration-tracker-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 9px; }
+.duration-tracker-controls label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.duration-tracker-controls input { width: 110px; height: 38px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); color: var(--ink); }
+.duration-tracker-controls .secondary-button { height: 38px; }
+.duration-tracker > small { color: var(--muted); font-size: 12px; }
+@media (max-width: 520px) { .duration-tracker-controls { align-items: stretch; } .duration-tracker-controls label { flex: 1 1 100%; } .duration-tracker-controls input { width: 100%; } .duration-tracker-controls .text-button { justify-content: flex-start; } }
+.cue-tabs button { min-height: 48px; justify-content: space-between; color: var(--muted); transition: background .16s, border-color .16s, color .16s, box-shadow .16s; }
+.cue-tabs button.cue-tab-selected { border: 2px solid var(--accent-ink); background: var(--accent-soft); color: var(--accent-ink); font-weight: 700; box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-ink) 20%, transparent); }
+:root[data-theme="dark"] .cue-tabs button { background: var(--surface-soft); border-color: var(--line); color: var(--muted); }
+:root[data-theme="dark"] .cue-tabs button.cue-tab-selected { background: #403a65; border-color: #bcb2ff; color: #fff; box-shadow: 0 0 0 2px rgba(188, 178, 255, .25); }

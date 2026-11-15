@@ -149,6 +149,7 @@ CREATE TABLE habit_events (
 	event_type VARCHAR(24) NOT NULL,
 	occurred_at TIMESTAMP WITH TIME ZONE NOT NULL,
 	note TEXT,
+	actual_minutes INTEGER,
 	strategy VARCHAR(300),
 	variation_id VARCHAR(36),
 	variation_name VARCHAR(160),

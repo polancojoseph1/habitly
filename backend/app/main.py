@@ -34,7 +34,7 @@ if settings.database_url.startswith("sqlite"):
             "users": {"password_hash": "VARCHAR(256)", "api_token_hash": "VARCHAR(64)", "telegram_chat_id": "VARCHAR(64)"},
             "habits": {"gateway_minutes": "INTEGER NOT NULL DEFAULT 2", "cue_to_hide": "VARCHAR(300)", "friction_strategy": "VARCHAR(300)", "habit_contract": "VARCHAR(300)", "motivation_ritual": "VARCHAR(300)", "shaping_milestones": "VARCHAR(1200)", "shaping_current_step": "INTEGER NOT NULL DEFAULT 0", "accountability_partner": "VARCHAR(200)", "accountability_cost": "VARCHAR(300)", "accountability_partner_email": "VARCHAR(320)", "alternative_routine": "VARCHAR(300)", "aversion_reminder": "VARCHAR(300)", "friction_votes": "INTEGER NOT NULL DEFAULT 0", "technique_ids": "JSON", "technique_notes": "JSON", "baseline_daily": "INTEGER"},
             "habit_logs": {"environment_prepped": "BOOLEAN NOT NULL DEFAULT FALSE"},
-            "habit_events": {"strategy": "VARCHAR(300)", "variation_id": "VARCHAR(36)", "variation_name": "VARCHAR(160)"},
+            "habit_events": {"actual_minutes": "INTEGER", "strategy": "VARCHAR(300)", "variation_id": "VARCHAR(36)", "variation_name": "VARCHAR(160)"},
             "workspace_states": {"revision": "INTEGER NOT NULL DEFAULT 1"},
         }
         for table, columns in local_additions.items():
@@ -220,7 +220,7 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
             if log.logged_date == date.today() and log.environment_prepped:
                 prep[habit.id] = True
         for event in db.scalars(select(HabitEvent).where(HabitEvent.habit_id == habit.id).order_by(HabitEvent.occurred_at.desc())):
-            events.append({"id": event.id, "habitId": habit.id, "type": event.event_type, "at": event.occurred_at.isoformat(), "note": event.note, "strategy": event.strategy, "variationId": event.variation_id, "variationName": event.variation_name})
+            events.append({"id": event.id, "habitId": habit.id, "type": event.event_type, "at": event.occurred_at.isoformat(), "note": event.note, "actualMinutes": event.actual_minutes, "strategy": event.strategy, "variationId": event.variation_id, "variationName": event.variation_name})
         for variation in db.scalars(select(HabitVariation).where(HabitVariation.habit_id == habit.id).order_by(HabitVariation.created_at.desc())):
             variations.append({"id": variation.id, "habitId": habit.id, "law": variation.law, "name": variation.name, "techniqueId": variation.technique_id, "setup": variation.setup, "isActive": variation.is_active, "triedAt": variation.tried_at.isoformat() if variation.tried_at else None, "helped": variation.helped, "outcomeNote": variation.outcome_note, "createdAt": variation.created_at.isoformat()})
     data["history"] = history
@@ -330,7 +330,7 @@ def import_workspace(payload: dict, request: Request, db: Session = Depends(get_
                 db.add(HabitLog(habit_id=habit_id, logged_date=date.today(), status="PREPPED", completed_via="WEB", environment_prepped=True))
     for row in clean.get("habitEvents", []):
         if row.get("habitId") in habit_ids:
-            db.add(HabitEvent(id=row.get("id") or new_id(), habit_id=row["habitId"], event_type=row.get("type", "ACTION_COMPLETED"), occurred_at=datetime.fromisoformat(row["at"].replace("Z", "+00:00")) if row.get("at") else datetime.now(timezone.utc), note=row.get("note"), strategy=row.get("strategy"), variation_id=row.get("variationId"), variation_name=row.get("variationName")))
+            db.add(HabitEvent(id=row.get("id") or new_id(), habit_id=row["habitId"], event_type=row.get("type", "ACTION_COMPLETED"), occurred_at=datetime.fromisoformat(row["at"].replace("Z", "+00:00")) if row.get("at") else datetime.now(timezone.utc), note=row.get("note"), actual_minutes=row.get("actualMinutes"), strategy=row.get("strategy"), variation_id=row.get("variationId"), variation_name=row.get("variationName")))
     for row in clean.get("variations", []):
         if row.get("habitId") in habit_ids:
             db.add(HabitVariation(id=row.get("id") or new_id(), habit_id=row["habitId"], law=row.get("law", "response"), name=row.get("name", "Variation"), technique_id=row.get("techniqueId"), setup=row.get("setup", ""), is_active=bool(row.get("isActive")), tried_at=datetime.fromisoformat(row["triedAt"].replace("Z", "+00:00")) if row.get("triedAt") else None, helped=row.get("helped"), outcome_note=row.get("outcomeNote"), created_at=datetime.fromisoformat(row["createdAt"].replace("Z", "+00:00")) if row.get("createdAt") else datetime.now(timezone.utc)))
