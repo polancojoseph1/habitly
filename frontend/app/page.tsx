@@ -196,7 +196,7 @@ export default function Home() {
   const [toast, setToast] = useState('');
   const [showBuilder, setShowBuilder] = useState(false);
   const [builderReturnTo, setBuilderReturnTo] = useState<Tab>('Today');
-  const [infoModal, setInfoModal] = useState<{ type: 'law'; law: Law } | { type: 'technique'; id: string } | { type: 'suggested'; index: number } | null>(null);
+  const [infoModal, setInfoModal] = useState<{ type: 'law'; law: Law; mode?: 'BUILD' | 'BREAK' } | { type: 'technique'; id: string; mode?: 'BUILD' | 'BREAK' } | { type: 'suggested'; index: number } | null>(null);
   const [editingHabitId, setEditingHabitId] = useState('');
   const [habitToDelete, setHabitToDelete] = useState<Habit | null>(null);
   const [deletingHabit, setDeletingHabit] = useState(false);
@@ -806,10 +806,10 @@ export default function Home() {
           ? { cue: cueLine, craving: [habit.motive, habit.ritual].filter(Boolean).join(' · '), response: [habit.gateway, habit.prep && `Setup: ${habit.prep}`].filter(Boolean).join(' · '), reward: habit.reward }
           : { cue: habit.hideCue || '', craving: habit.aversionReminder || '', response: [habit.friction, habit.alternativeRoutine && `Instead: ${habit.alternativeRoutine}`].filter(Boolean).join(' · '), reward: habit.contract || '' };
         const selected = (habit.techniqueIds ?? []).map(id => techniqueMap[id]).filter(item => item?.laws.includes(law.id));
-        const methods = selected.map(item => ({ name: item.name, note: techniqueNoteFor(habit.techniqueNotes ?? {}, item.id, law.id) }));
+        const methods = selected.map(item => ({ id: item.id, name: item.name, note: techniqueNoteFor(habit.techniqueNotes ?? {}, item.id, law.id) }));
         const setup = configured[law.id] ?? '';
         return setup || methods.length ? { law, setup, methods } : null;
-      }).filter((item): item is { law: typeof lawGroups[number]; setup: string; methods: { name: string; note: string }[] } => !!item);
+      }).filter((item): item is { law: typeof lawGroups[number]; setup: string; methods: { id: string; name: string; note: string }[] } => !!item);
       const isBuild = habit.kind === 'BUILD';
       const actionSummary = isBuild ? habit.gateway : (habit.alternativeRoutine || habit.gateway);
       const helpfulChoices = events.filter(event => event.type === 'URGE_PASSED' || event.type === 'REPLACEMENT_USED').length;
@@ -824,7 +824,7 @@ export default function Home() {
             ? <><span><Icon name="flame" size={13}/>{streak.hasHistory ? streak.count : habit.streak} day chain</span><button type="button" className="today-quick-complete" onClick={() => completeHabit(habit)}>{habit.completed ? 'Done' : 'I did it'}</button></>
             : <><span>{helpfulChoices} helpful choice{helpfulChoices === 1 ? '' : 's'}</span><div className="today-quick-break-actions"><button type="button" onClick={() => void recordHabitEvent(habit, 'URGE_PASSED')}>Urge passed</button><button type="button" onClick={() => void recordHabitEvent(habit, 'REPLACEMENT_USED')}>Used replacement</button></div></>}
         </div>
-        {laws.length > 0 && <details className="today-law-details"><summary>Plan details <span>{laws.length} strategies</span></summary><div className="today-law-list">{laws.map(({ law, setup, methods }) => <section className="today-law-row" key={law.id}><b>{isBuild ? law.build : law.break}</b>{setup && <p>{setup}</p>}{methods.length > 0 && <div className="today-law-methods"><small>Your techniques</small><div>{methods.map(method => <span className="chosen-technique" key={`${law.id}:${method.name}`}><Icon name="check" size={12}/>{method.name}</span>)}</div>{methods.filter(method => method.note).map(method => <p className="technique-note" key={`${law.id}:${method.name}:note`}>{method.note}</p>)}</div>}</section>)}</div></details>}
+        {laws.length > 0 && <details className="today-law-details"><summary>Plan details <span>{laws.length} strategies</span></summary><div className="today-law-list">{laws.map(({ law, setup, methods }) => <section className="today-law-row" key={law.id}><b>{isBuild ? law.build : law.break}</b>{setup && <p>{setup}</p>}{methods.length > 0 && <div className="today-law-methods"><small>Your techniques</small><div>{methods.map(method => <button type="button" className="chosen-technique" key={`${law.id}:${method.id}`} onClick={() => setInfoModal({ type: 'technique', id: method.id, mode: habit.kind })} aria-label={`Learn about ${method.name}`}><Icon name="check" size={12}/>{method.name}</button>)}</div>{methods.filter(method => method.note).map(method => <p className="technique-note" key={`${law.id}:${method.name}:note`}>{method.note}</p>)}</div>}</section>)}</div></details>}
       </article>;
     }
     return <article key={habit.id} className={`habit-card ${habit.completed ? 'habit-card-done' : ''}`}>
@@ -904,10 +904,10 @@ export default function Home() {
     return value.split(/;\s*|(?=\(\d+\)\s*)/).map(item => item.replace(/^\(\d+\)\s*/, '').trim()).filter(Boolean);
   }
 
-  function getNotebookTechnique(id: string) {
+  function getNotebookTechnique(id: string, mode: 'BUILD' | 'BREAK' = habitType) {
     const aliases: Record<string, string> = { 'stacking-bundling': 'Habit Stacking + Temptation Bundling', 'stacking-tracking': 'Habit Stacking + Habit Tracking' };
     const name = aliases[id] ?? techniqueMap[id]?.name;
-    return notebookLMContent.techniques.find(item => item.name === name && item.mode === habitType) ?? notebookLMContent.techniques.find(item => item.name === name);
+    return notebookLMContent.techniques.find(item => item.name === name && item.mode === mode) ?? notebookLMContent.techniques.find(item => item.name === name);
   }
 
   function renderPlaybook() {
@@ -1015,21 +1015,21 @@ export default function Home() {
       <section className="builder-modal learning-modal" role="dialog" aria-modal="true" aria-labelledby="learning-title">
         <header className="modal-header"><div>
           <span className="eyebrow">{infoModal.type === 'law' ? 'FOUR LAWS GUIDE' : infoModal.type === 'technique' ? 'TECHNIQUE GUIDE' : 'ADDITIONAL NOTEBOOKLM IDEA'}</span>
-          <h2 id="learning-title">{infoModal.type === 'law' ? (habitType === 'BUILD' ? notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]?.buildName : notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]?.breakName) : infoModal.type === 'technique' ? techniqueMap[infoModal.id]?.name : notebookLMContent.suggestedTechniques[infoModal.index]?.name}</h2>
-          <p>{infoModal.type === 'law' ? (habitType === 'BUILD' ? notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]?.cardText : notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]?.breakName) : infoModal.type === 'technique' ? techniqueMap[infoModal.id]?.description : notebookLMContent.suggestedTechniques[infoModal.index]?.assignment}</p>
+          <h2 id="learning-title">{infoModal.type === 'law' ? ((infoModal.mode ?? habitType) === 'BUILD' ? notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]?.buildName : notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]?.breakName) : infoModal.type === 'technique' ? techniqueMap[infoModal.id]?.name : notebookLMContent.suggestedTechniques[infoModal.index]?.name}</h2>
+          <p>{infoModal.type === 'law' ? ((infoModal.mode ?? habitType) === 'BUILD' ? notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]?.cardText : notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]?.breakName) : infoModal.type === 'technique' ? techniqueMap[infoModal.id]?.description : notebookLMContent.suggestedTechniques[infoModal.index]?.assignment}</p>
         </div><button className="modal-close" onClick={() => setInfoModal(null)} aria-label="Close"><Icon name="x"/></button></header>
         {infoModal.type === 'law' && notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws] ? (() => { const guide = notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]; return <div className="learning-content">
-          <h3>What this law means</h3><p>{habitType === 'BREAK' ? guide.breakGuidance : guide.explanation}</p>
+          <h3>What this law means</h3><p>{(infoModal.mode ?? habitType) === 'BREAK' ? guide.breakGuidance : guide.explanation}</p>
           <h3>Practical steps</h3><ol>{guideList(guide.steps).map((step, index) => <li key={index}>{step}</li>)}</ol>
           <h3>Examples</h3><ul className="learning-example-list">{guideList(guide.examples).map((example, index) => <li key={index}>{example}</li>)}</ul>
           <div className="learning-inversion"><b>{guide.breakName}</b><p>{guide.breakGuidance}</p></div>
           <p className="learning-source">Source: <i>Atomic Habits</i>, {guide.source}</p>
-        </div>; })() : infoModal.type === 'technique' && techniqueMap[infoModal.id] ? (() => { const item = techniqueMap[infoModal.id]; const guide = getNotebookTechnique(infoModal.id); const suggestedNames: Record<string, string> = { 'habits-scorecard': 'The Habits Scorecard', 'activity-zones': 'One Space', 'group-norms': 'Imitating the Close', 'active-practice': 'Action vs. Motion', 'goldilocks-rule': 'The Goldilocks Rule', 'paper-clips': 'The Paper Clip Strategy', 'nonscale-victories': 'Nonscale Victories Tracking' }; const suggestion = notebookLMContent.suggestedTechniques.find(entry => entry.name.includes(suggestedNames[infoModal.id] ?? '\u0000')); return <div className="learning-content">
+        </div>; })() : infoModal.type === 'technique' && techniqueMap[infoModal.id] ? (() => { const item = techniqueMap[infoModal.id]; const guide = getNotebookTechnique(infoModal.id, infoModal.mode ?? habitType); const suggestedNames: Record<string, string> = { 'habits-scorecard': 'The Habits Scorecard', 'activity-zones': 'One Space', 'group-norms': 'Imitating the Close', 'active-practice': 'Action vs. Motion', 'goldilocks-rule': 'The Goldilocks Rule', 'paper-clips': 'The Paper Clip Strategy', 'nonscale-victories': 'Nonscale Victories Tracking' }; const suggestion = notebookLMContent.suggestedTechniques.find(entry => entry.name.includes(suggestedNames[infoModal.id] ?? '\u0000')); return <div className="learning-content">
           {guide?.cardText && <div className="learning-example"><b>Technique at a glance</b><p>{guide.cardText}</p></div>}
           <h3>How it works</h3><p>{guide?.explanation ?? suggestion?.rationale ?? item.description}</p>
           <h3>Practical steps</h3><ol>{guideList(guide?.steps ?? suggestion?.rationale ?? item.description).map((step, index) => <li key={index}>{step}</li>)}</ol>
-          <h3>Examples for {habitType === 'BUILD' ? 'building a habit' : 'changing a habit'}</h3><ul className="learning-example-list">{(guide?.examples.length ? guide.examples : [item.example]).map((example, index) => <li key={index}>{example}</li>)}</ul>
-          <h3>Related laws</h3><div className="learning-related-laws">{item.laws.filter(id => lawGroups.some(law => law.id === id)).map(id => <button type="button" key={id} onClick={() => setInfoModal({ type: 'law', law: id })}>{habitType === 'BUILD' ? lawGroups.find(law => law.id === id)?.build : lawGroups.find(law => law.id === id)?.break} <span aria-hidden="true">↗</span></button>)}</div>
+          <h3>Examples for {(infoModal.mode ?? habitType) === 'BUILD' ? 'building a habit' : 'changing a habit'}</h3><ul className="learning-example-list">{(guide?.examples.length ? guide.examples : [item.example]).map((example, index) => <li key={index}>{example}</li>)}</ul>
+          <h3>Related laws</h3><div className="learning-related-laws">{item.laws.filter(id => lawGroups.some(law => law.id === id)).map(id => <button type="button" key={id} onClick={() => setInfoModal({ type: 'law', law: id, mode: infoModal.mode })}>{(infoModal.mode ?? habitType) === 'BUILD' ? lawGroups.find(law => law.id === id)?.build : lawGroups.find(law => law.id === id)?.break} <span aria-hidden="true">↗</span></button>)}</div>
           {guide?.sources.length ? <p className="learning-source">Source: <i>Atomic Habits</i>, {guide.sources.join(' ')}</p> : suggestion ? <p className="learning-source">Source: <i>Atomic Habits</i>, {suggestion.source}</p> : <p className="learning-source">Example from Habitly’s technique guide.</p>}
         </div>; })() : infoModal.type === 'suggested' ? (() => { const idea = notebookLMContent.suggestedTechniques[infoModal.index]; return <div className="learning-content"><div className="learning-example"><b>Suggested placement</b><p>{idea.assignment}</p></div><h3>Why it fits</h3><p>{idea.rationale}</p><p className="learning-source">Source reference: <i>Atomic Habits</i>, {idea.source}</p></div>; })() : null}
       </section>
