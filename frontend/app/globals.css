@@ -859,3 +859,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
   .today-quick-card-break .today-law-details>summary{min-height:36px}
 }
+@media(max-width:370px){
+  .today-quick-card-break .today-quick-side{grid-row:3;justify-self:start}
+}
