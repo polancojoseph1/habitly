@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import notebookLMContent from './notebooklm-content.json';
 import { lawGroups, techniques, techniqueMap } from './techniques';
 import type { ChangeMode, Law } from './techniques';
@@ -254,6 +255,26 @@ export default function Home() {
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
   const [palette, setPalette] = useState<Palette>('lavender');
+
+  const modalOpen = !!(habitToDelete || showBuilder || infoModal || diagnosticOpen || showIdentity);
+  useEffect(() => {
+    if (!modalOpen) return;
+    const scrollY = window.scrollY;
+    const body = document.body;
+    const previous = { position: body.style.position, top: body.style.top, width: body.style.width, overflow: body.style.overflow };
+    body.style.position = 'fixed';
+    body.style.top = `-${scrollY}px`;
+    body.style.width = '100%';
+    body.style.overflow = 'hidden';
+    return () => {
+      Object.assign(body.style, previous);
+      const root = document.documentElement;
+      const behavior = root.style.scrollBehavior;
+      root.style.scrollBehavior = 'auto';
+      window.scrollTo(0, scrollY);
+      root.style.scrollBehavior = behavior;
+    };
+  }, [modalOpen]);
 
   useEffect(() => {
     try {
@@ -1008,6 +1029,7 @@ export default function Home() {
       <footer className="main-footer"><span>Made of small things.</span><span>Consistency over intensity <i><Icon name="spark" size={15}/></i></span></footer>
     </main>
 
+    {hydrated && createPortal(<>
     {habitToDelete && <div className="modal-backdrop delete-habit-backdrop" onMouseDown={e => { if (e.target === e.currentTarget && !deletingHabit) setHabitToDelete(null); }}><section className="identity-modal delete-habit-modal" role="dialog" aria-modal="true" aria-labelledby="delete-habit-title"><h2 id="delete-habit-title">Delete this habit?</h2><p>“{habitToDelete.name}” will be removed from your active habits. Past activity is retained.</p><div className="delete-habit-actions"><button type="button" className="secondary-button" disabled={deletingHabit} onClick={() => setHabitToDelete(null)}>Cancel</button><button type="button" className="delete-confirm-button" disabled={deletingHabit} onClick={() => void deleteHabit(habitToDelete)}>{deletingHabit ? 'Deleting…' : 'Delete habit'}</button></div></section></div>}
 
     {showBuilder && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setShowBuilder(false); }}><section className="builder-modal habit-builder" role="dialog" aria-modal="true" aria-labelledby="builder-title">
@@ -1031,13 +1053,13 @@ export default function Home() {
       <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowBuilder(false)}>Cancel</button><button className="primary-button" type="button" onClick={e => { for (const field of Array.from(e.currentTarget.closest('.builder-form')?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input[required], textarea[required]') ?? [])) if (!field.reportValidity()) return; void createHabit(); }}>{editingHabitId ? 'Save changes' : habitType === 'BREAK' ? 'Save change plan' : 'Add my habit'} <Icon name="arrow" size={16}/></button></div></div></section></div>}
 
     {infoModal && <div className="modal-backdrop info-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setInfoModal(null); }}>
-      <section className="builder-modal learning-modal" role="dialog" aria-modal="true" aria-labelledby="learning-title">
+      <section key={infoModal.type === 'law' ? `law-${infoModal.law}` : infoModal.type === 'technique' ? `technique-${infoModal.id}` : `suggested-${infoModal.index}`} className="builder-modal learning-modal" role="dialog" aria-modal="true" aria-labelledby="learning-title">
         <header className="modal-header"><div>
           <span className="eyebrow">{infoModal.type === 'law' ? 'FOUR LAWS GUIDE' : infoModal.type === 'technique' ? 'TECHNIQUE GUIDE' : 'ADDITIONAL NOTEBOOKLM IDEA'}</span>
           <h2 id="learning-title">{infoModal.type === 'law' ? ((infoModal.mode ?? habitType) === 'BUILD' ? notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]?.buildName : notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]?.breakName) : infoModal.type === 'technique' ? techniqueMap[infoModal.id]?.name : notebookLMContent.suggestedTechniques[infoModal.index]?.name}</h2>
           <p>{infoModal.type === 'law' ? ((infoModal.mode ?? habitType) === 'BUILD' ? notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]?.cardText : notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]?.breakName) : infoModal.type === 'technique' ? techniqueMap[infoModal.id]?.description : notebookLMContent.suggestedTechniques[infoModal.index]?.assignment}</p>
         </div><button className="modal-close" onClick={() => setInfoModal(null)} aria-label="Close"><Icon name="x"/></button></header>
-        {infoModal.type === 'law' && notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws] ? (() => { const guide = notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]; return <div className="learning-content">
+        <div className="learning-modal-body">{infoModal.type === 'law' && notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws] ? (() => { const guide = notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]; return <div className="learning-content">
           <h3>What this law means</h3><p>{(infoModal.mode ?? habitType) === 'BREAK' ? guide.breakGuidance : guide.explanation}</p>
           {(infoModal.mode ?? habitType) === 'BUILD' && <><h3>Practical steps</h3><ol>{guideList(guide.steps).map((step, index) => <li key={index}>{step}</li>)}</ol>
           <h3>Examples</h3><ul className="learning-example-list">{guideList(guide.examples).map((example, index) => <li key={index}>{example}</li>)}</ul>
@@ -1050,12 +1072,13 @@ export default function Home() {
           <h3>Examples for {(infoModal.mode ?? habitType) === 'BUILD' ? 'building a habit' : 'changing a habit'}</h3><ul className="learning-example-list">{(guide?.examples.length ? guide.examples : [item.example]).map((example, index) => <li key={index}>{example}</li>)}</ul>
           <h3>Related laws</h3><div className="learning-related-laws">{item.laws.filter(id => lawGroups.some(law => law.id === id)).map(id => <button type="button" key={id} onClick={() => setInfoModal({ type: 'law', law: id, mode: infoModal.mode })}>{(infoModal.mode ?? habitType) === 'BUILD' ? lawGroups.find(law => law.id === id)?.build : lawGroups.find(law => law.id === id)?.break} <Icon name="arrow-up-right" size={14}/></button>)}</div>
           {guide?.sources.length ? <p className="learning-source">Source: <i>Atomic Habits</i>, {guide.sources.join(' ')}</p> : suggestion ? <p className="learning-source">Source: <i>Atomic Habits</i>, {suggestion.source}</p> : <p className="learning-source">Example from Habitly’s technique guide.</p>}
-        </div>; })() : infoModal.type === 'suggested' ? (() => { const idea = notebookLMContent.suggestedTechniques[infoModal.index]; return <div className="learning-content"><div className="learning-example"><b>Suggested placement</b><p>{idea.assignment}</p></div><h3>Why it fits</h3><p>{idea.rationale}</p><p className="learning-source">Source reference: <i>Atomic Habits</i>, {idea.source}</p></div>; })() : null}
+        </div>; })() : infoModal.type === 'suggested' ? (() => { const idea = notebookLMContent.suggestedTechniques[infoModal.index]; return <div className="learning-content"><div className="learning-example"><b>Suggested placement</b><p>{idea.assignment}</p></div><h3>Why it fits</h3><p>{idea.rationale}</p><p className="learning-source">Source reference: <i>Atomic Habits</i>, {idea.source}</p></div>; })() : null}</div>
       </section>
     </div>}
     {diagnosticOpen && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setDiagnosticOpen(false); }}><section className="builder-modal diagnostic-modal" role="dialog" aria-modal="true" aria-labelledby="diagnostic-title"><header className="modal-header"><div><span className="eyebrow">ROUTINE DIAGNOSTIC · STEP {diagnosticStep + 1} OF 4</span><h2 id="diagnostic-title">Understand the loop</h2><p>Observe the behavior with curiosity before you try to change it.</p></div><button className="modal-close" onClick={() => setDiagnosticOpen(false)} aria-label="Close"><Icon name="x"/></button></header><form className="builder-form" onSubmit={saveDiagnostic}><div hidden={diagnosticStep !== 0} data-diagnostic-step="0"><label className="field-label">1. IDENTIFY THE ROUTINE<input value={diagnosticDraft.routine} onChange={e => setDiagnosticDraft(d => ({ ...d, routine: e.target.value }))} placeholder="What do you do, step by step?" required/></label><p className="form-note">Describe the action as it happens, without judging yourself.</p></div><div hidden={diagnosticStep !== 1} data-diagnostic-step="1"><label className="field-label">2. WHAT CRAVING MIGHT IT SATISFY?<input value={diagnosticDraft.craving} onChange={e => setDiagnosticDraft(d => ({ ...d, craving: e.target.value }))} placeholder="Relief, connection, stimulation, rest…" required/></label><label className="field-label">EXPERIMENT WITH THE REWARD<input value={diagnosticDraft.rewardExperiment} onChange={e => setDiagnosticDraft(d => ({ ...d, rewardExperiment: e.target.value }))} placeholder="What quick reward could meet that need?" required/></label></div><div hidden={diagnosticStep !== 2} data-diagnostic-step="2"><p className="form-note">3. ISOLATE THE CUE. What was happening just before the routine?</p><div className="field-two"><label className="field-label">TIME<input value={diagnosticDraft.cueTime} onChange={e => setDiagnosticDraft(d => ({ ...d, cueTime: e.target.value }))} placeholder="e.g. 3 PM"/></label><label className="field-label">LOCATION<input value={diagnosticDraft.cueLocation} onChange={e => setDiagnosticDraft(d => ({ ...d, cueLocation: e.target.value }))} placeholder="e.g. at my desk"/></label><label className="field-label">EMOTION<input value={diagnosticDraft.cueEmotion} onChange={e => setDiagnosticDraft(d => ({ ...d, cueEmotion: e.target.value }))} placeholder="e.g. bored or stressed"/></label><label className="field-label">PEOPLE<input value={diagnosticDraft.cuePeople} onChange={e => setDiagnosticDraft(d => ({ ...d, cuePeople: e.target.value }))} placeholder="Who was around?"/></label></div><p className="form-note">Leave any cue blank if you have not noticed it yet.</p></div><div hidden={diagnosticStep !== 3} data-diagnostic-step="3"><label className="field-label">4. MAKE A PLAN<input value={diagnosticDraft.plan} onChange={e => setDiagnosticDraft(d => ({ ...d, plan: e.target.value }))} placeholder="When I notice the cue, I’ll try…" required/></label><p className="form-note">Choose one small experiment for the next time the cue appears.</p></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => diagnosticStep ? setDiagnosticStep(diagnosticStep - 1) : setDiagnosticOpen(false)}>{diagnosticStep ? 'Back' : 'Cancel'}</button>{diagnosticStep < 3 ? <button type="button" className="primary-button" onClick={e => { const section = e.currentTarget.closest('form')?.querySelector(`[data-diagnostic-step="${diagnosticStep}"]`); const fields = section?.querySelectorAll<HTMLInputElement>('input[required]'); for (const field of Array.from(fields ?? [])) if (!field.reportValidity()) return; setDiagnosticStep(diagnosticStep + 1); }}>Continue <Icon name="arrow" size={16}/></button> : <button className="primary-button" type="submit">Save diagnostic <Icon name="arrow" size={16}/></button>}</div></form></section></div>}
     {showIdentity && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setShowIdentity(false); }}><section className="identity-modal" role="dialog" aria-modal="true" aria-labelledby="identity-title"><button className="modal-close" onClick={() => setShowIdentity(false)} aria-label="Close"><Icon name="x"/></button><span className="identity-modal-star"><Icon name="spark" size={18}/></span><span className="eyebrow">IDENTITY BEFORE OUTCOME</span><h2 id="identity-title">Who do you want to become?</h2><p>An outcome tells you what you want. An identity gives you a direction to practice.</p><form onSubmit={saveIdentity}><label className="field-label">WHAT’S THE OUTCOME YOU’RE AFTER?<input value={goal} onChange={e => { setGoal(e.target.value); const reframe = reframeGoal(e.target.value); if (reframe) setIdentity(reframe); }} placeholder="e.g. write a book"/></label><div className="reframe-card"><span>TO MOVE TOWARD THAT, PRACTICE BEING…</span><input value={identity} onChange={e => setIdentity(e.target.value)} placeholder="e.g. The Writer"/><small>Every small action becomes a vote for this person.</small></div><button className="primary-button identity-save" type="submit">Save my identity <Icon name="arrow" size={16}/></button></form></section></div>}
     {celebrating && <div className="celebration-overlay" aria-hidden="true"><div className="celebration-spark"><Icon name="spark" size={18}/></div><div className="celebration-copy"><span>A VOTE CAST</span><b>That’s how you become<br/>{identity.toLowerCase()}.</b><small>One small action matters.</small></div><i className="confetti confetti-one"/><i className="confetti confetti-two"/><i className="confetti confetti-three"/><i className="confetti confetti-four"/><i className="confetti confetti-five"/><i className="confetti confetti-six"/></div>}
     {toast && <div className={`toast-message${toast === 'Your new habit plan is ready.' ? ' toast-habit-added' : ''}`} role="status"><span className="toast-star"><Icon name="spark" size={18}/></span>{toast}</div>}
+    </>, document.body)}
   </div>;
 }

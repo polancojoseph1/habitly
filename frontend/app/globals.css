@@ -862,3 +862,31 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media(max-width:370px){
   .today-quick-card-break .today-quick-side{grid-row:3;justify-self:start}
 }
+
+/* Modal overlays live at the document root so scrolling the page cannot move them. */
+.modal-backdrop{
+  inset:0;
+  height:100vh;
+  height:100dvh;
+  align-items:flex-start;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+.modal-backdrop>.builder-modal,.modal-backdrop>.identity-modal{
+  flex-shrink:0;
+  margin:auto 0;
+  max-height:calc(100vh - 32px);
+  max-height:calc(100dvh - 32px);
+  overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
+}
+.info-modal-backdrop .learning-modal{
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  max-height:calc(100vh - 64px);
+  max-height:calc(100dvh - 64px);
+}
+.learning-modal>.modal-header{flex:0 0 auto}
+.learning-modal-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-top:14px}
+@media(max-width:600px){.info-modal-backdrop .learning-modal{max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px)}}
