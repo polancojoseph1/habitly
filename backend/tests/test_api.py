@@ -5,6 +5,7 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -104,6 +105,20 @@ def test_account_data_isolation_and_workspace_import_restart(client):
     assert client.get("/api/workspace").json() == {"data": {}, "revision": 0}
     assert client.get("/api/account", headers={"Authorization": ""}).status_code == 401
     restarted_engine.dispose()
+
+
+def test_health_checks_database_connectivity(client, monkeypatch):
+    response = client.get("/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "database": "ok"}
+
+    def unavailable():
+        raise SQLAlchemyError("database unavailable")
+
+    monkeypatch.setattr("app.main.engine.connect", unavailable)
+    response = client.get("/health")
+    assert response.status_code == 503
+    assert response.json() == {"status": "error", "database": "unavailable"}
 
 
 def create_habit(client: TestClient, identity_id: str, **overrides):

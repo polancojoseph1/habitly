@@ -6,7 +6,7 @@ import os
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, inspect, select, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from .config import settings
@@ -361,7 +361,16 @@ def import_workspace(payload: dict, request: Request, db: Session = Depends(get_
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        return Response(
+            '{"status":"error","database":"unavailable"}',
+            status_code=503,
+            media_type="application/json",
+        )
+    return {"status": "ok", "database": "ok"}
 
 
 @app.post("/api/users", response_model=UserOut, status_code=201)
