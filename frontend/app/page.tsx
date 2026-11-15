@@ -24,6 +24,7 @@ type Circle = { id: string; name: string; category: string; members: number; det
 type Reward = { id: string; name: string; habitId: string; detail: string };
 type Tab = 'Today' | 'My habits' | 'Habit scorecard' | 'Community' | 'Recovery' | 'Reward vault' | 'Habit to break' | 'Playbook' | 'Settings';
 type Palette = 'lavender' | 'ocean' | 'rose' | 'amber' | 'sage';
+type HabitSort = 'default' | 'name' | 'progress' | 'streak';
 const palettes: { id: Palette; name: string; colors: [string, string, string] }[] = [
   { id: 'lavender', name: 'Lavender', colors: ['#6256c8', '#b8adff', '#efedff'] },
   { id: 'ocean', name: 'Ocean', colors: ['#287c9b', '#77c2d5', '#e3f5f8'] },
@@ -66,26 +67,6 @@ const demoHabits: Habit[] = [
   { id: 'demo-snack', name: 'Stress snacking at my desk', target: 'Pause before eating', gateway: 'Take three breaths and make tea', gatewayMinutes: 0, cueType: 'STACK', cue: 'I notice work stress', motive: '', reward: '', prep: '', completed: false, missedYesterday: false, streak: 0, kind: 'BREAK', hideCue: 'Keep snacks in a cupboard, not on my desk', friction: 'Walk to the kitchen before choosing', aversionReminder: 'A short pause helps me check what I need', alternativeRoutine: 'Make tea and step away from the screen', contract: 'Mark each pause on my calendar', techniqueIds: ['increase-friction', 'habit-tracking'] },
 ];
 const demoRewards: Reward[] = [{ id: 'reward-show', name: 'One episode, guilt-free', habitId: 'demo-move', detail: 'Unlocked after you move your body' }];
-const showcaseScenarios: Record<string, { label: string; habits: Habit[]; events?: HabitEvent[] }> = {
-  building: { label: 'Building habits', habits: [
-    demoHabits[0],
-    { id: 'demo-water', name: 'Drink water after waking', target: 'Drink a full glass of water', gateway: 'Fill my water glass', gatewayMinutes: 1, cueType: 'STACK', cue: 'I turn off my alarm', motive: 'Feel clear and energized', reward: 'Enjoy a cold glass with lemon', prep: 'Fill the glass before bed', completed: false, missedYesterday: false, streak: 2, kind: 'BUILD', techniqueIds: ['habit-stacking', 'prime-environment', 'habit-tracking'] },
-    { id: 'demo-study', name: 'Practice Spanish', target: 'Practice for 20 minutes', gateway: 'Open my lesson and say one phrase', gatewayMinutes: 2, cueType: 'TIME_LOCATION', cue: '6:30 PM', time: '6:30 PM', location: 'At my kitchen table', motive: 'Connect with my family language', reward: 'Watch one favorite Spanish clip', prep: 'Leave headphones by the table', ritual: 'Make tea before the lesson', completed: false, missedYesterday: false, streak: 4, kind: 'BUILD', techniqueIds: ['stacking-bundling', 'two-minute-rule', 'immediate-reinforcement'] },
-  ] },
-  changing: { label: 'Changing habits', habits: [
-    { id: 'demo-scroll', name: 'Late night scrolling', target: 'Stop scrolling in bed', gateway: 'Put my phone on the charger outside the bedroom', gatewayMinutes: 0, cueType: 'TIME_LOCATION', cue: '10:30 PM', time: '10:30 PM', location: 'Bedroom', motive: '', reward: '', prep: '', completed: false, missedYesterday: false, streak: 0, kind: 'BREAK', hideCue: 'Keep the phone out of the bedroom', friction: 'Charge it in the kitchen', contract: 'Notice how much better I sleep', aversionReminder: 'Scrolling steals the rest I need', alternativeRoutine: 'Read one page when I want to reach for my phone', techniqueIds: ['increase-friction', 'activity-zones', 'enjoy-restraint'], techniqueNotes: { 'increase-friction': 'The charger stays outside the bedroom.' } },
-    { id: 'demo-snack', name: 'Stress snacking at my desk', target: 'Pause before eating', gateway: 'Take three breaths and make tea', gatewayMinutes: 0, cueType: 'STACK', cue: 'I notice work stress', motive: '', reward: '', prep: '', completed: false, missedYesterday: false, streak: 0, kind: 'BREAK', hideCue: 'Keep snacks in a cupboard, not on my desk', friction: 'Walk to the kitchen before choosing', aversionReminder: 'A short pause helps me check what I need', alternativeRoutine: 'Make tea and step away from the screen', contract: 'Mark each pause on my calendar', techniqueIds: ['reduce-friction', 'habit-tracking'] },
-  ], events: [
-    { id: 'demo-event-scroll', habitId: 'demo-scroll', type: 'URGE_PASSED', at: new Date().toISOString(), strategy: 'Read one page' },
-    { id: 'demo-event-snack', habitId: 'demo-snack', type: 'REPLACEMENT_USED', at: new Date().toISOString(), strategy: 'Made tea' },
-  ] },
-  mixed: { label: 'A mixed day', habits: [
-    { ...demoHabits[1], completed: false, missedYesterday: false, name: 'Morning walk', gateway: 'Put on my walking shoes', cue: 'After I make coffee', cueType: 'STACK', motive: 'Start the day with fresh air', reward: 'Listen to a favorite podcast', techniqueIds: ['habit-stacking', 'two-minute-rule', 'immediate-reinforcement'] },
-    { ...demoHabits[2], completed: true, missedYesterday: false },
-    { id: 'demo-meditate', name: 'Take three calm breaths', target: 'Meditate for 10 minutes', gateway: 'Sit down and take three breaths', gatewayMinutes: 2, cueType: 'TIME_LOCATION', cue: '12:15 PM', time: '12:15 PM', location: 'At my desk', motive: 'Respond to stress with more patience', reward: 'Pause for a cup of tea', prep: 'Keep a note on my monitor', completed: false, missedYesterday: true, streak: 6, kind: 'BUILD', techniqueIds: ['prime-environment', 'two-minute-rule', 'habit-tracking'] },
-    { id: 'demo-email', name: 'Check email before bed', target: 'Leave work email closed at night', gateway: 'Close the laptop after dinner', gatewayMinutes: 0, cueType: 'TIME_LOCATION', cue: '8:00 PM', time: '8:00 PM', location: 'Living room', motive: '', reward: '', prep: '', completed: false, missedYesterday: false, streak: 0, kind: 'BREAK', hideCue: 'Log out of work email on my phone', friction: 'Keep the laptop in my office', aversionReminder: 'I want evenings to feel like mine', alternativeRoutine: 'Read a chapter after dinner', contract: 'Track screen-free evenings', techniqueIds: ['increase-friction', 'habit-tracking'] },
-  ] },
-};
 const tribes = [
   { id: 'morning-movers', name: 'Morning Movers', category: 'Movement', members: 128, detail: 'Make a little movement part of the morning.' },
   { id: 'daily-readers', name: 'The Daily Readers', category: 'Reading', members: 94, detail: 'A page a day, shared with people who love books.' },
@@ -163,20 +144,6 @@ function suggestStarter(action: string) {
   if (/study|learn|practice/.test(text)) return 'Open the lesson and do the first two minutes';
   return `Start ${action.trim() ? `with the first two minutes of ${action.toLowerCase()}` : 'with one tiny step'}`;
 }
-function habitTimeMinutes(habit: Habit) {
-  if (habit.cueType === 'STACK') return -1;
-  const match = (habit.time ?? habit.cue ?? '').trim().match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
-  if (!match) return Number.MAX_SAFE_INTEGER;
-  let hour = Number(match[1]);
-  if (match[3]) hour = (hour % 12) + (match[3].toUpperCase() === 'PM' ? 12 : 0);
-  return hour * 60 + Number(match[2]);
-}
-function habitDaypart(habit: Habit) {
-  if (habit.cueType === 'STACK') return 'Anchored routines';
-  const minutes = habitTimeMinutes(habit);
-  if (minutes === Number.MAX_SAFE_INTEGER) return 'Unscheduled';
-  return minutes < 12 * 60 ? 'Morning' : minutes < 17 * 60 ? 'Afternoon' : 'Evening';
-}
 function reframeGoal(outcome: string) {
   const text = outcome.toLowerCase();
   if (/read|book/.test(text)) return 'The Reader';
@@ -199,8 +166,7 @@ function techniqueNoteFor(notes: Record<string, string>, id: string, law?: Law) 
 export default function Home() {
   const [active, setActive] = useState<Tab>('Today');
   const [habits, setHabits] = useState<Habit[]>(demoHabits);
-  const [previewMode, setPreviewMode] = useState(false);
-  const [previewScenario, setPreviewScenario] = useState('building');
+  const [habitSort, setHabitSort] = useState<HabitSort>('default');
   const [scorecard, setScorecard] = useState<ScorecardEntry[]>([]);
   const [scorecardDraft, setScorecardDraft] = useState('');
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
@@ -285,16 +251,6 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      const requestedPreview = new URLSearchParams(window.location.search).get('showcase');
-      if (requestedPreview && showcaseScenarios[requestedPreview]) {
-        const scenario = showcaseScenarios[requestedPreview];
-        setPreviewMode(true); setPreviewScenario(requestedPreview); setHabits(scenario.habits);
-        setHabitEvents(scenario.events ?? []); setHistory(demoHistory());
-        setIdentity('A person who follows through'); setGoal('Practice small actions consistently');
-        setVotes(18); setRemoteToken(''); setRemoteIdentityId(''); setRemoteUserId('');
-        setHydrated(true);
-        return;
-      }
       const saved = localStorage.getItem(STORAGE);
       if (saved) {
         const data = JSON.parse(saved);
@@ -339,12 +295,12 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (!hydrated || previewMode) return;
+    if (!hydrated) return;
     try { localStorage.setItem(STORAGE, JSON.stringify({ habits, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, dayKey: todayKey(), apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand })); } catch { setConnectionError('Browser storage is unavailable. Export your local data before continuing.'); }
-  }, [hydrated, previewMode, habits, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand]);
+  }, [hydrated, habits, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand]);
 
   useEffect(() => {
-    if (!hydrated || previewMode || !workspaceReady || !apiUrl || !remoteToken) return;
+    if (!hydrated || !workspaceReady || !apiUrl || !remoteToken) return;
     const payload = { habits, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, dayKey: todayKey() };
     const timer = window.setTimeout(async () => {
       try {
@@ -355,10 +311,10 @@ export default function Home() {
       } catch (error) { setConnectionError(error instanceof Error && error.message.includes('409') ? 'Another browser saved newer data. Reconnect to load the server copy before editing here. Your local backup is still available.' : 'Could not save to the server. Your device copy remains available; retry the connection before switching devices.'); }
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [hydrated, previewMode, workspaceReady, apiUrl, remoteToken, habits, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, workspaceRevision]);
+  }, [hydrated, workspaceReady, apiUrl, remoteToken, habits, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, workspaceRevision]);
 
   useEffect(() => {
-    if (!hydrated || previewMode || !apiUrl || !remoteToken) return;
+    if (!hydrated || !apiUrl || !remoteToken) return;
     const base = apiUrl.replace(/\/$/, '');
     let live = true;
     async function syncFromApi() {
@@ -389,7 +345,7 @@ export default function Home() {
     }
     syncFromApi();
     return () => { live = false; };
-  }, [hydrated, previewMode, apiUrl, remoteIdentityId, remoteToken]);
+  }, [hydrated, apiUrl, remoteIdentityId, remoteToken]);
 
   useEffect(() => {
     if (!toast) return;
@@ -398,7 +354,7 @@ export default function Home() {
   }, [toast]);
 
   useEffect(() => {
-    if (!hydrated || previewMode || !apiUrl) return;
+    if (!hydrated || !apiUrl) return;
     const base = apiUrl.replace(/\/$/, '');
     if (active === 'Community') {
       const query = remoteIdentityId ? `?identity_id=${encodeURIComponent(remoteIdentityId)}` : '';
@@ -410,7 +366,7 @@ export default function Home() {
     }
     const token = new URLSearchParams(window.location.search).get('accountability');
     if (token) apiFetch(`${base}/api/accountability-invites/${encodeURIComponent(token)}`).then(response => response.ok ? response.json() : null).then(setAccountabilityInvite).catch(() => {});
-  }, [hydrated, previewMode, apiUrl, remoteIdentityId, active]);
+  }, [hydrated, apiUrl, remoteIdentityId, active]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -421,10 +377,15 @@ export default function Home() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  const todayHabits = habits.filter(h => h.kind === 'BUILD').sort((a, b) => habitTimeMinutes(a) - habitTimeMinutes(b));
-  const completed = todayHabits.filter(h => h.completed).length;
-  const breakHabits = habits.filter(h => h.kind === 'BREAK');
-  const progress = todayHabits.length ? Math.round((completed / todayHabits.length) * 100) : 0;
+  const buildHabits = habits.filter(h => h.kind === 'BUILD');
+  const todayHabits = [...habits].sort((a, b) => {
+    if (habitSort === 'name') return a.name.localeCompare(b.name);
+    if (habitSort === 'progress') return Number(b.completed) - Number(a.completed) || a.name.localeCompare(b.name);
+    if (habitSort === 'streak') return (b.streak || 0) - (a.streak || 0) || a.name.localeCompare(b.name);
+    return (a.kind === 'BUILD' ? 0 : 1) - (b.kind === 'BUILD' ? 0 : 1);
+  });
+  const completed = buildHabits.filter(h => h.completed).length;
+  const progress = buildHabits.length ? Math.round((completed / buildHabits.length) * 100) : 0;
   const unlockedRewards = useMemo(() => rewards.filter(r => habits.find(h => h.id === r.habitId)?.completed), [rewards, habits]);
   const needRecovery = habits.some(h => h.missedYesterday && !h.completed);
   const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -849,17 +810,21 @@ export default function Home() {
         const setup = configured[law.id] ?? '';
         return setup || methods.length ? { law, setup, methods } : null;
       }).filter((item): item is { law: typeof lawGroups[number]; setup: string; methods: { name: string; note: string }[] } => !!item);
-      const cueSummary = habit.kind === 'BUILD' ? cueLine : (habit.hideCue || cueLine);
-      const actionSummary = habit.kind === 'BUILD' ? habit.gateway : (habit.alternativeRoutine || habit.gateway);
-      return <article key={habit.id} className={`today-quick-card ${habit.completed ? 'today-quick-card-done' : ''}`}>
-        <button type="button" className={`today-quick-check ${habit.completed ? 'checked' : ''}`} onClick={() => completeHabit(habit)} aria-label={`${habit.completed ? 'Mark' : 'Complete'} ${habit.name} ${habit.completed ? 'incomplete' : ''}`}>{habit.completed ? <Icon name="check" size={17}/> : null}</button>
+      const isBuild = habit.kind === 'BUILD';
+      const actionSummary = isBuild ? habit.gateway : (habit.alternativeRoutine || habit.gateway);
+      const helpfulChoices = events.filter(event => event.type === 'URGE_PASSED' || event.type === 'REPLACEMENT_USED').length;
+      return <article key={habit.id} className={`today-quick-card ${habit.completed ? 'today-quick-card-done' : ''} ${isBuild ? '' : 'today-quick-card-break'}`}>
+        <span className={`today-quick-mark ${isBuild && habit.completed ? 'checked' : ''}`} aria-hidden="true">{isBuild && habit.completed ? <Icon name="check" size={15}/> : <Icon name="spark" size={15}/>}</span>
         <div className="today-quick-main">
           <div className="today-quick-title"><h3>{habit.name}</h3>{habit.missedYesterday && !habit.completed && <span className="recovery-pill">Recovery day</span>}</div>
-          <p className="today-quick-cue"><Icon name={habit.cueType === 'STACK' ? 'spark' : 'clock'} size={13}/>{cueSummary}</p>
-          <p className="today-quick-action"><span>{habit.kind === 'BUILD' ? `${habit.gatewayMinutes || 2}-MIN START` : 'YOUR RESPONSE'}</span>{actionSummary}</p>
-          {laws.length > 0 && <details className="today-law-details"><summary>The Four Laws <span>{laws.length} in this plan</span></summary><div className="today-law-list">{laws.map(({ law, setup, methods }) => <section className="today-law-row" key={law.id}><b>{habit.kind === 'BUILD' ? law.build : law.break}</b>{setup && <p>{setup}</p>}{methods.length > 0 && <div className="today-law-methods"><small>Your techniques</small><div>{methods.map(method => <span className="chosen-technique" key={`${law.id}:${method.name}`}><Icon name="check" size={12}/>{method.name}</span>)}</div>{methods.some(method => method.note) && methods.filter(method => method.note).map(method => <p className="technique-note" key={`${law.id}:${method.name}:note`}>{method.note}</p>)}</div>}</section>)}</div></details>}
+          <p className="today-quick-action"><span>{isBuild ? `${habit.gatewayMinutes || 2}-MIN START` : 'TRY INSTEAD'}</span>{actionSummary}</p>
+          {laws.length > 0 && <details className="today-law-details"><summary>Plan details <span>{laws.length} strategies</span></summary><div className="today-law-list">{laws.map(({ law, setup, methods }) => <section className="today-law-row" key={law.id}><b>{isBuild ? law.build : law.break}</b>{setup && <p>{setup}</p>}{methods.length > 0 && <div className="today-law-methods"><small>Your techniques</small><div>{methods.map(method => <span className="chosen-technique" key={`${law.id}:${method.name}`}><Icon name="check" size={12}/>{method.name}</span>)}</div>{methods.filter(method => method.note).map(method => <p className="technique-note" key={`${law.id}:${method.name}:note`}>{method.note}</p>)}</div>}</section>)}</div></details>}
         </div>
-        <div className="today-quick-side"><span><Icon name="flame" size={13}/>{streak.hasHistory ? streak.count : habit.streak} day chain</span></div>
+        <div className="today-quick-side">
+          {isBuild
+            ? <><span><Icon name="flame" size={13}/>{streak.hasHistory ? streak.count : habit.streak} day chain</span><button type="button" className="today-quick-complete" onClick={() => completeHabit(habit)}>{habit.completed ? 'Done' : 'I did it'}</button></>
+            : <><span>{helpfulChoices} helpful choice{helpfulChoices === 1 ? '' : 's'}</span><div className="today-quick-break-actions"><button type="button" onClick={() => void recordHabitEvent(habit, 'URGE_PASSED')}>Urge passed</button><button type="button" onClick={() => void recordHabitEvent(habit, 'REPLACEMENT_USED')}>Used replacement</button></div></>}
+        </div>
       </article>;
     }
     return <article key={habit.id} className={`habit-card ${habit.completed ? 'habit-card-done' : ''}`}>
@@ -901,12 +866,8 @@ export default function Home() {
 
   function renderToday() {
     return <>
-      {previewMode && <div className="showcase-notice"><span><b>Sample preview</b> · Interactions stay in this tab and are never saved to an account.</span><label>Example set<select aria-label="Choose a sample data set" value={previewScenario} onChange={event => { window.location.search = `?showcase=${encodeURIComponent(event.target.value)}`; }}>{Object.entries(showcaseScenarios).map(([id, scenario]) => <option key={id} value={id}>{scenario.label}</option>)}</select></label><a href="/">Exit preview</a></div>}
       <div className="page-heading-row today-page-heading"><div><div className="eyebrow">{currentDate}</div><h1>{greeting()}, Joseph<span className="heading-period">.</span></h1></div></div>
-      {!previewMode && <details className="sample-data-entry"><summary>View sample data sets</summary><div><a href="/?showcase=building" target="_blank" rel="noreferrer">Building habits</a><a href="/?showcase=changing" target="_blank" rel="noreferrer">Changing habits</a><a href="/?showcase=mixed" target="_blank" rel="noreferrer">A mixed day</a></div></details>}
-      <section className="today-section"><div className="section-heading today-section-heading"><div><span className="eyebrow">YOUR SMALL PROMISES</span><h2>Today’s habits <span className="soft-count">{completed}/{todayHabits.length}</span></h2></div><button className="text-button today-add-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus" size={15}/> Add habit</button></div><div className="habit-list">{todayHabits.length ? todayHabits.map((habit, i) => { const group = habitDaypart(habit); const previous = i ? todayHabits[i - 1] : undefined; const previousGroup = previous ? habitDaypart(previous) : ''; return <div className="habit-group-block" key={habit.id}>{group !== previousGroup && <div className="habit-group-label">{group}<i/></div>}{renderHabitCard(habit, i)}</div>; }) : <div className="empty-card"><div className="empty-flower">✳</div><h3>Start with one tiny promise.</h3><p>Choose a cue, make the action easy, and give your future self a clear path.</p><button className="primary-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus"/> Create your first habit</button></div>}</div></section>
-      {breakHabits.length > 0 && <section className="today-section change-today-section"><div className="section-heading"><div><span className="eyebrow">YOUR CHANGE PLANS</span><h2>When an urge shows up <span className="soft-count">{breakHabits.length}</span></h2></div><button className="text-button" onClick={() => setActive('Habit to break')}>Manage plans <Icon name="arrow" size={15}/></button></div><div className="today-change-list">{breakHabits.map(h => { const todayEvents = habitEvents.filter(item => item.habitId === h.id && new Date(item.at).toDateString() === new Date().toDateString()); const activeVariation = variations.find(v => v.habitId === h.id && v.isActive); const planRows = lawGroups.map(law => { const setup = law.id === 'cue' ? h.hideCue : law.id === 'craving' ? h.aversionReminder : law.id === 'response' ? h.friction : h.contract; const methods = (h.techniqueIds ?? []).map(id => techniqueMap[id]).filter(item => item?.laws.includes(law.id)).map(item => ({ name: item.name, note: techniqueNoteFor(h.techniqueNotes ?? {}, item.id, law.id) })); return { law, setup: setup || '', methods }; }).filter(item => item.setup || item.methods.length); return <article className="today-change-card" key={h.id}><div className="today-change-main"><span className="eyebrow">{h.cueType === 'STACK' ? `WHEN ${h.cue}` : `${h.time || h.cue}${h.location ? ` · ${h.location}` : ''}`}</span><h3>{h.name}</h3><p>{activeVariation ? `${activeVariation.name}: ${activeVariation.setup}` : h.alternativeRoutine || h.gateway || 'Choose a small replacement that meets the same need.'}</p><details className="today-law-details"><summary>The Four Anti Laws <span>{planRows.length} in this plan</span></summary><div className="today-law-list">{planRows.map(({ law, setup, methods }) => <section className="today-law-row" key={law.id}><b>{law.break}</b>{setup && <p>{setup}</p>}{methods.length > 0 && <div className="today-law-methods"><small>Your techniques</small><div>{methods.map(method => <span className="chosen-technique" key={`${law.id}:${method.name}`}><Icon name="check" size={12}/>{method.name}</span>)}</div>{methods.filter(method => method.note).map(method => <p className="technique-note" key={`${law.id}:${method.name}:note`}>{method.note}</p>)}</div>}</section>)}</div></details></div><div className="today-change-actions"><span>{todayEvents.filter(item => item.type === 'URGE_PASSED' || item.type === 'REPLACEMENT_USED').length} helpful choice{todayEvents.filter(item => item.type === 'URGE_PASSED' || item.type === 'REPLACEMENT_USED').length === 1 ? '' : 's'} today</span><div><button type="button" onClick={() => void recordHabitEvent(h, 'URGE_PASSED')}>Urge passed</button><button type="button" onClick={() => void recordHabitEvent(h, 'REPLACEMENT_USED')}>Used replacement</button></div></div></article>; })}</div></section>}
-      <section className="bottom-grid"><div className="prep-card"><div className="prep-art">☼</div><div><span className="eyebrow">A GIFT TO TOMORROW YOU</span><h3>Prime your environment</h3><p>Set out one thing tonight that makes tomorrow easier.</p><label className="prep-check-row"><input type="checkbox" checked={prepped} onChange={e => setPrepped(e.target.checked)}/><span>{prepped ? 'All set for tomorrow' : 'I’ve prepared for tomorrow'}</span></label></div></div></section>
+      <section className="today-section"><div className="section-heading today-section-heading"><div><span className="eyebrow">YOUR SMALL PROMISES</span><h2>Today’s habits <span className="soft-count">{todayHabits.length}</span></h2><p className="today-progress-note">{completed} of {buildHabits.length} build habits completed</p></div><div className="today-list-actions"><label className="habit-sort-label">Sort<select aria-label="Sort habits" value={habitSort} onChange={event => setHabitSort(event.target.value as HabitSort)}><option value="default">Build first</option><option value="name">Name</option><option value="progress">Completed first</option><option value="streak">Longest streak</option></select></label><button className="text-button today-add-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus" size={15}/> Add habit</button></div></div><div className="habit-list">{todayHabits.length ? todayHabits.map((habit, i) => renderHabitCard(habit, i)) : <div className="empty-card"><div className="empty-flower">✳</div><h3>Start with one tiny promise.</h3><p>Choose a cue, make the action easy, and give your future self a clear path.</p><button className="primary-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus"/> Create your first habit</button></div>}</div></section>
     </>;
   }
 
