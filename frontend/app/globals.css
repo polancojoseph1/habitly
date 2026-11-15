@@ -795,3 +795,44 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .today-quick-side{justify-items:start;flex-wrap:wrap;gap:7px 10px}
   .today-quick-side>span{white-space:normal}
 }
+
+/* Keep break-habit cards readable on narrow screens. */
+@media(max-width:600px){
+  .today-quick-card-break{
+    grid-template-columns:24px minmax(0,1fr);
+    column-gap:10px;
+    row-gap:8px;
+  }
+  .today-quick-card-break .today-quick-main{
+    grid-column:2;
+    min-width:0;
+  }
+  .today-quick-card-break .today-quick-action{
+    grid-template-columns:auto minmax(0,1fr);
+    gap:0 8px;
+    font-size:14px;
+    line-height:1.45;
+  }
+  .today-quick-card-break .today-quick-action span{
+    width:auto;
+    white-space:nowrap;
+  }
+  .today-quick-card-break .today-quick-side{
+    grid-column:2;
+    display:grid;
+    justify-items:start;
+    gap:7px;
+    min-width:0;
+  }
+  .today-quick-card-break .today-quick-side>span{
+    flex:0 0 auto;
+    white-space:nowrap;
+  }
+  .today-quick-card-break .today-quick-break-actions{
+    justify-content:flex-start;
+    gap:6px;
+  }
+  .today-quick-card-break .today-quick-break-actions button{
+    padding-inline:8px;
+  }
+}
