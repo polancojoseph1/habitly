@@ -767,14 +767,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-law-details summary:after{content:'+';font-size:14px}
 .today-law-details[open] summary:after{content:'−'}
 .today-law-details summary span{color:var(--muted);font-weight:500}
-.today-law-details>.today-law-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 15px;margin-top:9px;padding:10px 12px;border-radius:10px;background:var(--surface-soft)}
-.today-law-row{display:flex;flex-direction:column;align-items:stretch;gap:5px;min-width:0}
-.today-law-row>b{color:var(--accent-ink);font-size:10px}
-.today-law-row>p,.today-law-methods .technique-note{display:block;margin:0;color:var(--muted);font-size:11px;line-height:1.45}
-.today-law-methods{display:grid;gap:5px;margin-top:auto}
+.today-law-details>.today-law-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+.today-law-row{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:0;padding:14px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft)}
+.today-law-row>b{color:var(--accent-ink);font-size:12px;line-height:1.35}
+.today-law-row>p,.today-law-methods .technique-note{display:block;margin:0;color:var(--muted);font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.today-law-methods{display:grid;gap:6px;margin-top:3px;max-width:100%}
 .today-law-methods>small{color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
 .today-law-methods>div{display:flex;flex-wrap:wrap;gap:5px}
-.chosen-technique{display:inline-flex;align-items:center;gap:6px;width:min(100%,220px);min-height:38px;padding:6px 10px;border:1px solid color-mix(in srgb,var(--accent-ink) 42%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--accent-ink) 17%,var(--surface-raised));color:var(--accent-ink);font-size:11px;font-weight:700;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
+.chosen-technique{display:inline-flex;align-items:center;gap:5px;max-width:100%;min-height:28px;padding:5px 9px;border:1px solid color-mix(in srgb,var(--accent-ink) 30%,var(--line));border-radius:8px;background:color-mix(in srgb,var(--accent-ink) 12%,var(--surface-raised));color:var(--accent-ink);font-size:11px;font-weight:700;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
 .chosen-technique svg{flex:0 0 auto}
 .today-law-methods .technique-note{padding-left:2px}
 .today-section-heading>div{min-width:0}
@@ -789,6 +789,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-quick-complete:hover,.today-quick-break-actions button:hover{border-color:var(--accent-ink);background:var(--accent-soft)}
 .today-quick-break-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
 @media(max-width:600px){
+  .today-law-details>.today-law-list{grid-template-columns:minmax(0,1fr)}
   .today-section-heading{align-items:flex-start}
   .today-list-actions{align-items:flex-end;flex-direction:column;gap:7px}
   .today-quick-break-actions{justify-content:flex-start}
