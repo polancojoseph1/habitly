@@ -1039,9 +1039,9 @@ export default function Home() {
         </div><button className="modal-close" onClick={() => setInfoModal(null)} aria-label="Close"><Icon name="x"/></button></header>
         {infoModal.type === 'law' && notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws] ? (() => { const guide = notebookLMContent.laws[infoModal.law as keyof typeof notebookLMContent.laws]; return <div className="learning-content">
           <h3>What this law means</h3><p>{(infoModal.mode ?? habitType) === 'BREAK' ? guide.breakGuidance : guide.explanation}</p>
-          <h3>Practical steps</h3><ol>{guideList(guide.steps).map((step, index) => <li key={index}>{step}</li>)}</ol>
+          {(infoModal.mode ?? habitType) === 'BUILD' && <><h3>Practical steps</h3><ol>{guideList(guide.steps).map((step, index) => <li key={index}>{step}</li>)}</ol>
           <h3>Examples</h3><ul className="learning-example-list">{guideList(guide.examples).map((example, index) => <li key={index}>{example}</li>)}</ul>
-          <div className="learning-inversion"><b>{guide.breakName}</b><p>{guide.breakGuidance}</p></div>
+          <div className="learning-inversion"><b>{guide.breakName}</b><p>{guide.breakGuidance}</p></div></>}
           <p className="learning-source">Source: <i>Atomic Habits</i>, {guide.source}</p>
         </div>; })() : infoModal.type === 'technique' && techniqueMap[infoModal.id] ? (() => { const item = techniqueMap[infoModal.id]; const guide = getNotebookTechnique(infoModal.id, infoModal.mode ?? habitType); const suggestedNames: Record<string, string> = { 'habits-scorecard': 'The Habits Scorecard', 'activity-zones': 'One Space', 'group-norms': 'Imitating the Close', 'active-practice': 'Action vs. Motion', 'goldilocks-rule': 'The Goldilocks Rule', 'paper-clips': 'The Paper Clip Strategy', 'nonscale-victories': 'Nonscale Victories Tracking' }; const suggestion = notebookLMContent.suggestedTechniques.find(entry => entry.name.includes(suggestedNames[infoModal.id] ?? '\u0000')); return <div className="learning-content">
           {guide?.cardText && <div className="learning-example"><b>Technique at a glance</b><p>{guide.cardText}</p></div>}
