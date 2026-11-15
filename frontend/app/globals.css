@@ -758,10 +758,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-quick-cue svg{flex:0 0 auto;margin-top:2px;color:var(--accent-ink)}
 .today-quick-action{display:grid;grid-template-columns:72px minmax(0,1fr);gap:0 6px;color:var(--muted)}
 .today-quick-action span{width:72px;color:var(--accent-ink);font-size:9px;font-weight:800;letter-spacing:.07em}
-.today-quick-side{display:grid;justify-items:end;gap:7px}
+.today-quick-side{display:grid;grid-column:3;grid-row:1;justify-items:end;gap:7px}
 .today-quick-side>span{display:flex;align-items:center;gap:4px;color:var(--muted);font-size:10px;white-space:nowrap}
 .today-quick-side>span svg{color:#c6945e}
-.today-law-details{margin-top:8px}
+.today-law-details{grid-column:2/-1;grid-row:2;min-width:0;margin-top:0}
 .today-law-details summary{display:flex;align-items:center;gap:7px;width:max-content;color:var(--accent-ink);font-size:11px;font-weight:700;cursor:pointer;list-style:none}
 .today-law-details summary::-webkit-details-marker{display:none}
 .today-law-details summary:after{content:'+';font-size:14px}
@@ -774,7 +774,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-law-methods{display:grid;gap:5px;margin-top:2px}
 .today-law-methods>small{color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
 .today-law-methods>div{display:flex;flex-wrap:wrap;gap:5px}
-.chosen-technique{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:4px 7px;border:1px solid color-mix(in srgb,var(--accent-ink) 42%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--accent-ink) 17%,var(--surface-raised));color:var(--accent-ink);font-size:10px;font-weight:700;line-height:1.3}
+.chosen-technique{display:inline-flex;align-items:center;gap:6px;width:min(100%,220px);min-height:38px;padding:6px 10px;border:1px solid color-mix(in srgb,var(--accent-ink) 42%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--accent-ink) 17%,var(--surface-raised));color:var(--accent-ink);font-size:11px;font-weight:700;line-height:1.35;white-space:normal;overflow-wrap:anywhere}
 .chosen-technique svg{flex:0 0 auto}
 .today-law-methods .technique-note{padding-left:2px}
 .today-section-heading>div{min-width:0}
@@ -819,6 +819,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
   .today-quick-card-break .today-quick-side{
     grid-column:2;
+    grid-row:3;
     display:grid;
     justify-items:start;
     gap:7px;
@@ -834,5 +835,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   }
   .today-quick-card-break .today-quick-break-actions button{
     padding-inline:8px;
+  }
+  .today-quick-card-break .today-law-details{
+    grid-column:2;
+    grid-row:2;
   }
 }

@@ -818,13 +818,13 @@ export default function Home() {
         <div className="today-quick-main">
           <div className="today-quick-title"><h3>{habit.name}</h3>{habit.missedYesterday && !habit.completed && <span className="recovery-pill">Recovery day</span>}</div>
           <p className="today-quick-action"><span>{isBuild ? `${habit.gatewayMinutes || 2}-MIN START` : 'TRY INSTEAD'}</span>{actionSummary}</p>
-          {laws.length > 0 && <details className="today-law-details"><summary>Plan details <span>{laws.length} strategies</span></summary><div className="today-law-list">{laws.map(({ law, setup, methods }) => <section className="today-law-row" key={law.id}><b>{isBuild ? law.build : law.break}</b>{setup && <p>{setup}</p>}{methods.length > 0 && <div className="today-law-methods"><small>Your techniques</small><div>{methods.map(method => <span className="chosen-technique" key={`${law.id}:${method.name}`}><Icon name="check" size={12}/>{method.name}</span>)}</div>{methods.filter(method => method.note).map(method => <p className="technique-note" key={`${law.id}:${method.name}:note`}>{method.note}</p>)}</div>}</section>)}</div></details>}
         </div>
         <div className="today-quick-side">
           {isBuild
             ? <><span><Icon name="flame" size={13}/>{streak.hasHistory ? streak.count : habit.streak} day chain</span><button type="button" className="today-quick-complete" onClick={() => completeHabit(habit)}>{habit.completed ? 'Done' : 'I did it'}</button></>
             : <><span>{helpfulChoices} helpful choice{helpfulChoices === 1 ? '' : 's'}</span><div className="today-quick-break-actions"><button type="button" onClick={() => void recordHabitEvent(habit, 'URGE_PASSED')}>Urge passed</button><button type="button" onClick={() => void recordHabitEvent(habit, 'REPLACEMENT_USED')}>Used replacement</button></div></>}
         </div>
+        {laws.length > 0 && <details className="today-law-details"><summary>Plan details <span>{laws.length} strategies</span></summary><div className="today-law-list">{laws.map(({ law, setup, methods }) => <section className="today-law-row" key={law.id}><b>{isBuild ? law.build : law.break}</b>{setup && <p>{setup}</p>}{methods.length > 0 && <div className="today-law-methods"><small>Your techniques</small><div>{methods.map(method => <span className="chosen-technique" key={`${law.id}:${method.name}`}><Icon name="check" size={12}/>{method.name}</span>)}</div>{methods.filter(method => method.note).map(method => <p className="technique-note" key={`${law.id}:${method.name}:note`}>{method.note}</p>)}</div>}</section>)}</div></details>}
       </article>;
     }
     return <article key={habit.id} className={`habit-card ${habit.completed ? 'habit-card-done' : ''}`}>
