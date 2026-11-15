@@ -767,9 +767,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-law-details summary:after{content:'+';font-size:14px}
 .today-law-details[open] summary:after{content:'−'}
 .today-law-details summary span{color:var(--muted);font-weight:500}
-.today-law-details>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 15px;margin-top:9px;padding:10px 12px;border-radius:10px;background:var(--surface-soft)}
-.today-law-details p{display:grid;gap:3px;margin:0;color:var(--muted);font-size:11px;line-height:1.45}
-.today-law-details p b{color:var(--accent-ink);font-size:10px}
+.today-law-details>.today-law-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 15px;margin-top:9px;padding:10px 12px;border-radius:10px;background:var(--surface-soft)}
+.today-law-row{display:grid;align-content:start;gap:5px;min-width:0}
+.today-law-row>b{color:var(--accent-ink);font-size:10px}
+.today-law-row>p,.today-law-methods .technique-note{display:block;margin:0;color:var(--muted);font-size:11px;line-height:1.45}
+.today-law-methods{display:grid;gap:5px;margin-top:2px}
+.today-law-methods>small{color:var(--muted);font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.today-law-methods>div{display:flex;flex-wrap:wrap;gap:5px}
+.chosen-technique{display:inline-flex;align-items:center;gap:4px;max-width:100%;padding:4px 7px;border:1px solid color-mix(in srgb,var(--accent-ink) 42%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--accent-ink) 17%,var(--surface-raised));color:var(--accent-ink);font-size:10px;font-weight:700;line-height:1.3}
+.chosen-technique svg{flex:0 0 auto}
+.today-law-methods .technique-note{padding-left:2px}
 .showcase-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 18px;padding:10px 13px;border:1px solid color-mix(in srgb,#6256c8 30%,var(--line));border-radius:11px;background:var(--surface-soft);color:var(--muted);font-size:11px}
 .showcase-notice b{color:var(--accent-ink)}
 .showcase-notice label{display:flex;align-items:center;gap:8px;white-space:nowrap}
@@ -785,7 +792,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-change-actions>div{display:flex;gap:6px}
 .today-change-actions button{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface-soft);color:var(--accent-ink);font-size:10px;font-weight:700;cursor:pointer}
 .today-change-actions button:hover{border-color:var(--accent-ink)}
-@media(max-width:600px){.today-heading-actions{gap:10px}.today-heading-actions a{font-size:0}.today-heading-actions a svg{width:17px;height:17px}.today-quick-card{grid-template-columns:22px minmax(0,1fr);gap:9px;padding:13px 12px}.today-quick-side{grid-column:2;display:flex;justify-content:space-between;align-items:center}.today-law-details>div{grid-template-columns:1fr}.showcase-notice{align-items:flex-start;flex-wrap:wrap}.showcase-notice label{order:3;width:100%;justify-content:space-between}}
+@media(max-width:600px){.today-heading-actions{gap:10px}.today-heading-actions a{font-size:0}.today-heading-actions a svg{width:17px;height:17px}.today-quick-card{grid-template-columns:22px minmax(0,1fr);gap:9px;padding:13px 12px}.today-quick-side{grid-column:2;display:flex;justify-content:space-between;align-items:center}.today-law-details>.today-law-list{grid-template-columns:1fr}.showcase-notice{align-items:flex-start;flex-wrap:wrap}.showcase-notice label{order:3;width:100%;justify-content:space-between}}
 @media(max-width:600px){.today-change-card{grid-template-columns:1fr;gap:10px}.today-change-actions{justify-items:start}.today-change-actions>div{width:100%}.today-change-actions button{flex:1}}
 .sample-data-entry{margin:-10px 0 21px}
 .sample-data-entry summary{display:flex;align-items:center;gap:8px;width:max-content;max-width:100%;min-height:34px;padding:0 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);color:var(--accent-ink);font-size:11px;font-weight:700;cursor:pointer;list-style:none}
