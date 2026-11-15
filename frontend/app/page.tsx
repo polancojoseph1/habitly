@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import notebookLMContent from './notebooklm-content.json';
 import { lawGroups, techniques, techniqueMap } from './techniques';
 import type { ChangeMode, Law } from './techniques';
@@ -167,6 +167,8 @@ export default function Home() {
   const [habits, setHabits] = useState<Habit[]>(demoHabits);
   const [habitOrder, setHabitOrder] = useState<string[]>([]);
   const [reorderingHabits, setReorderingHabits] = useState(false);
+  const [dragState, setDragState] = useState<{ id: string; offset: number; target: number } | null>(null);
+  const dragStart = useRef<{ id: string; y: number; target: number } | null>(null);
   const [scorecard, setScorecard] = useState<ScorecardEntry[]>([]);
   const [scorecardDraft, setScorecardDraft] = useState('');
   const [diagnostics, setDiagnostics] = useState<Diagnostic[]>([]);
@@ -385,12 +387,16 @@ export default function Home() {
     const ai = orderedIds.indexOf(a.id), bi = orderedIds.indexOf(b.id);
     return (ai < 0 ? orderedIds.length : ai) - (bi < 0 ? orderedIds.length : bi);
   });
-  function moveHabit(index: number, direction: -1 | 1) {
+  function moveHabit(from: number, to: number) {
     const next = todayHabits.map(habit => habit.id);
-    const target = index + direction;
-    if (target < 0 || target >= next.length) return;
-    [next[index], next[target]] = [next[target], next[index]];
+    if (from < 0 || to < 0 || to >= next.length || from === to) return;
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
     setHabitOrder(next);
+  }
+  function dragTarget(y: number) {
+    const items = Array.from(document.querySelectorAll<HTMLElement>('.today-order-item:not(.is-dragging)'));
+    return items.filter(item => y >= item.getBoundingClientRect().top + item.getBoundingClientRect().height / 2).length;
   }
   const completed = buildHabits.filter(h => h.completed).length;
   const progress = buildHabits.length ? Math.round((completed / buildHabits.length) * 100) : 0;
@@ -876,7 +882,7 @@ export default function Home() {
   function renderToday() {
     return <>
       <div className="page-heading-row today-page-heading"><div><div className="eyebrow">{currentDate}</div><h1>{greeting()}, Joseph<span className="heading-period">.</span></h1></div></div>
-      <section className="today-section"><div className="section-heading today-section-heading"><div><span className="eyebrow">YOUR SMALL PROMISES</span><h2>Today’s habits <span className="soft-count">{todayHabits.length}</span></h2><p className="today-progress-note">{completed} of {buildHabits.length} build habits completed</p></div><div className="today-list-actions"><button type="button" className="habit-arrange-button" aria-label={reorderingHabits ? 'Done arranging habits' : 'Arrange habits'} title={reorderingHabits ? 'Done arranging' : 'Arrange habits'} aria-pressed={reorderingHabits} onClick={() => setReorderingHabits(value => !value)}>{reorderingHabits ? <Icon name="check" size={18}/> : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 4v16M5 7l3-3 3 3M16 20V4m-3 13 3 3 3-3"/></svg>}</button><button className="text-button today-add-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus" size={15}/> Add habit</button></div></div><div className="habit-list">{todayHabits.length ? todayHabits.map((habit, i) => <div className="today-order-item" key={habit.id}>{renderHabitCard(habit, i)}{reorderingHabits && <div className="habit-order-controls" aria-label={`Arrange ${habit.name}`}><span>Move {habit.name}</span><button type="button" disabled={i === 0} aria-label={`Move ${habit.name} up`} onClick={() => moveHabit(i, -1)}>↑</button><button type="button" disabled={i === todayHabits.length - 1} aria-label={`Move ${habit.name} down`} onClick={() => moveHabit(i, 1)}>↓</button></div>}</div>) : <div className="empty-card"><div className="empty-flower">✳</div><h3>Start with one tiny promise.</h3><p>Choose a cue, make the action easy, and give your future self a clear path.</p><button className="primary-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus"/> Create your first habit</button></div>}</div></section>
+      <section className="today-section"><div className="section-heading today-section-heading"><div><span className="eyebrow">YOUR SMALL PROMISES</span><h2>Today’s habits <span className="soft-count">{todayHabits.length}</span></h2><p className="today-progress-note">{completed} of {buildHabits.length} build habits completed</p></div><div className="today-list-actions"><button type="button" className="habit-arrange-button" aria-label={reorderingHabits ? 'Done arranging habits' : 'Arrange habits'} title={reorderingHabits ? 'Done arranging' : 'Arrange habits'} aria-pressed={reorderingHabits} onClick={() => setReorderingHabits(value => !value)}>{reorderingHabits ? <Icon name="check" size={18}/> : <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="5" r="1.6"/><circle cx="16" cy="5" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg>}</button><button className="text-button today-add-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus" size={15}/> Add habit</button></div></div><div className="habit-list">{todayHabits.length ? todayHabits.map((habit, i) => <div className={`today-order-item${dragState?.id === habit.id ? ' is-dragging' : ''}${dragState && dragState.id !== habit.id && dragState.target === i ? ' is-drop-target' : ''}`} key={habit.id} style={dragState?.id === habit.id ? { transform: `translateY(${dragState.offset}px)` } : undefined}>{renderHabitCard(habit, i)}{reorderingHabits && <button type="button" className="habit-drag-handle" aria-label={`Drag to move ${habit.name}. Use up or down arrow keys to reorder.`} onPointerDown={event => { if (event.button !== 0) return; event.currentTarget.setPointerCapture(event.pointerId); dragStart.current = { id: habit.id, y: event.clientY, target: i }; setDragState({ id: habit.id, offset: 0, target: i }); }} onPointerMove={event => { const drag = dragStart.current; if (!drag || drag.id !== habit.id) return; const target = dragTarget(event.clientY); drag.target = target; setDragState({ id: drag.id, offset: event.clientY - drag.y, target }); if (event.clientY < 70) window.scrollBy(0, -14); else if (event.clientY > window.innerHeight - 70) window.scrollBy(0, 14); }} onPointerUp={event => { const drag = dragStart.current; if (drag?.id === habit.id) moveHabit(i, drag.target); dragStart.current = null; setDragState(null); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} onPointerCancel={() => { dragStart.current = null; setDragState(null); }} onKeyDown={event => { if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); moveHabit(i, i + (event.key === 'ArrowUp' ? -1 : 1)); } }}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="5" r="1.6"/><circle cx="16" cy="5" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg><span>Drag to reorder</span></button>}</div>) : <div className="empty-card"><div className="empty-flower">✳</div><h3>Start with one tiny promise.</h3><p>Choose a cue, make the action easy, and give your future self a clear path.</p><button className="primary-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus"/> Create your first habit</button></div>}</div></section>
     </>;
   }
 

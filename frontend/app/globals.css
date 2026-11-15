@@ -789,11 +789,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .habit-arrange-button::before{content:'';position:absolute;inset:4px;border:1px solid var(--line);border-radius:8px;background:var(--surface-soft);transition:background .2s,border-color .2s}
 .habit-arrange-button svg{position:relative;width:16px;height:16px}
 .habit-arrange-button:hover::before,.habit-arrange-button[aria-pressed="true"]::before{background:var(--accent-soft);border-color:var(--accent-ink)}
-.today-order-item{min-width:0}
-.habit-order-controls{display:flex;align-items:center;justify-content:flex-end;gap:7px;padding:8px 2px 0;color:var(--muted);font-size:12px}
-.habit-order-controls span{margin-right:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.habit-order-controls button{width:40px;height:40px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);color:var(--accent-ink);font-size:20px}
-.habit-order-controls button:disabled{opacity:.35}
+.today-order-item{min-width:0;position:relative}
+.today-order-item.is-dragging{z-index:10;opacity:.92;pointer-events:none}
+.today-order-item.is-drop-target>.today-quick-card{border-color:var(--accent-ink);box-shadow:0 0 0 2px var(--accent-soft)}
+.habit-drag-handle{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;min-height:40px;margin-top:4px;border:1px dashed var(--line);border-radius:9px;background:var(--surface-soft);color:var(--accent-ink);font-size:12px;font-weight:700;cursor:grab;touch-action:none;user-select:none}
+.habit-drag-handle:active{cursor:grabbing}
 .today-progress-note{margin:4px 0 0;color:var(--muted);font-size:12px}
 .habit-sort-label{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px;font-weight:700}
 .habit-sort-label select{min-height:36px;padding:0 28px 0 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-raised);color:var(--ink);font:inherit;font-weight:600}
