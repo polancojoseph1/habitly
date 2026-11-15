@@ -789,6 +789,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-quick-complete:hover,.today-quick-break-actions button:hover{border-color:var(--accent-ink);background:var(--accent-soft)}
 .today-quick-break-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
 @media(max-width:600px){
+  .today-quick-card .today-law-details{grid-column:1/-1}
+  .today-quick-card .today-law-details summary{margin-left:34px}
   .today-law-details>.today-law-list{grid-template-columns:minmax(0,1fr)}
   .today-section-heading{align-items:flex-start}
   .today-list-actions{align-items:flex-end;flex-direction:column;gap:7px}
@@ -838,7 +840,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     padding-inline:8px;
   }
   .today-quick-card-break .today-law-details{
-    grid-column:2;
+    grid-column:1/-1;
     grid-row:2;
   }
 }
