@@ -29,7 +29,7 @@ The production route uses Traefik entrypoint `web` and matches the IP host. Conf
 
 Create `.env.production` on the VPS from `env.production.example`, then set permissions to `600`. It contains the SQLite URL and optional Telegram credentials. Never commit the server file or place its secrets in GitHub Actions logs.
 
-The repository already has the GitHub Actions secret `HABITLY_DEPLOY_PRIVATE_KEY` and variables `HABITLY_SERVER_HOST`, `HABITLY_SERVER_PORT`, and `HABITLY_SERVER_USER`. Before enabling deployment, add the verified VPS host key lines as the secret `HABITLY_SSH_KNOWN_HOSTS`. Keep `HABITLY_DEPLOY_ENABLED` unset or false until all prerequisites below are complete. After the first successful GHCR publish, change both image packages to public in GitHub Packages settings so the VPS can pull without a registry credential.
+The repository already has the GitHub Actions secret `HABITLY_DEPLOY_PRIVATE_KEY` and variables `HABITLY_SERVER_HOST`, `HABITLY_SERVER_PORT`, and `HABITLY_SERVER_USER`. Both GHCR packages were published as public with the first successful workflow run. Before enabling deployment, add the verified VPS host key lines as the secret `HABITLY_SSH_KNOWN_HOSTS`. Keep `HABITLY_DEPLOY_ENABLED` unset or false until all prerequisites below are complete.
 
 ## Before enabling deployment
 
