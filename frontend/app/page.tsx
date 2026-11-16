@@ -39,6 +39,7 @@ const palettes: { id: Palette; name: string; colors: [string, string, string] }[
 ];
 
 const STORAGE = 'habitly-workspace-v2';
+const REFRESH_VIEW_STORAGE = 'habitly-refresh-view-v1';
 function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   let token = '';
   try { token = JSON.parse(localStorage.getItem(STORAGE) ?? '{}').remoteToken ?? ''; } catch { /* no saved account */ }
@@ -324,6 +325,34 @@ export default function Home() {
   const [celebrating, setCelebrating] = useState(false);
   const [palette, setPalette] = useState<Palette>('lavender');
 
+  function refreshApp() {
+    try {
+      sessionStorage.setItem(REFRESH_VIEW_STORAGE, JSON.stringify({
+        active,
+        loggingView,
+        loggingHabitId,
+        insightDays,
+        insightFrom,
+        insightTo,
+        insightLawFilter,
+        insightTriggerFilter,
+        insightIntensityFilter,
+        insightTimingFilter,
+        historyTypeFilter,
+        historyTriggerFilter,
+        historyTechniqueFilter,
+        historyLawFilter,
+        historyOutcomeFilter,
+        historyFrom,
+        historyTo,
+        historyLimit,
+        expandedEpisodes,
+      }));
+    } catch { /* Refresh still works if session storage is unavailable. */ }
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    window.location.reload();
+  }
+
   const modalOpen = !!(habitToDelete || showBuilder || infoModal || diagnosticOpen || showIdentity);
   useEffect(() => {
     if (!modalOpen) return;
@@ -395,6 +424,35 @@ export default function Home() {
       setHistory(demoHistory()); setBehaviorLogs(sampleLogs); setDailyConfirmations(createSampleSmokingConfirmations(sampleLogs));
     }
     if (!apiUrl && !process.env.NEXT_PUBLIC_API_URL) setApiUrl(window.location.origin);
+    try {
+      const savedView = sessionStorage.getItem(REFRESH_VIEW_STORAGE);
+      if (savedView) {
+        sessionStorage.removeItem(REFRESH_VIEW_STORAGE);
+        const view = JSON.parse(savedView) as Record<string, unknown>;
+        if (typeof view.active === 'string' && nav.some(item => item.title === view.active)) setActive(view.active as Tab);
+        if (view.loggingView === 'Log' || view.loggingView === 'Insights' || view.loggingView === 'History') setLoggingView(view.loggingView);
+        if (typeof view.loggingHabitId === 'string') setLoggingHabitId(view.loggingHabitId);
+        if (view.insightDays === '24h' || [7, 14, 30, 90].includes(view.insightDays as number)) setInsightDays(view.insightDays as number | '24h');
+        if (typeof view.insightFrom === 'string') setInsightFrom(view.insightFrom);
+        if (typeof view.insightTo === 'string') setInsightTo(view.insightTo);
+        if (typeof view.insightLawFilter === 'string') setInsightLawFilter(view.insightLawFilter);
+        if (typeof view.insightTriggerFilter === 'string') setInsightTriggerFilter(view.insightTriggerFilter);
+        if (typeof view.insightIntensityFilter === 'string') setInsightIntensityFilter(view.insightIntensityFilter);
+        if (typeof view.insightTimingFilter === 'string') setInsightTimingFilter(view.insightTimingFilter);
+        if (typeof view.historyTypeFilter === 'string') setHistoryTypeFilter(view.historyTypeFilter);
+        if (typeof view.historyTriggerFilter === 'string') setHistoryTriggerFilter(view.historyTriggerFilter);
+        if (typeof view.historyTechniqueFilter === 'string') setHistoryTechniqueFilter(view.historyTechniqueFilter);
+        if (typeof view.historyLawFilter === 'string') setHistoryLawFilter(view.historyLawFilter);
+        if (typeof view.historyOutcomeFilter === 'string') setHistoryOutcomeFilter(view.historyOutcomeFilter);
+        if (typeof view.historyFrom === 'string') setHistoryFrom(view.historyFrom);
+        if (typeof view.historyTo === 'string') setHistoryTo(view.historyTo);
+        if (typeof view.historyLimit === 'number' && Number.isFinite(view.historyLimit)) setHistoryLimit(Math.max(30, Math.min(view.historyLimit, 3000)));
+        if (Array.isArray(view.expandedEpisodes)) setExpandedEpisodes(view.expandedEpisodes.filter((id): id is string => typeof id === 'string').slice(0, 500));
+        window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'instant' }));
+      }
+    } catch {
+      try { sessionStorage.removeItem(REFRESH_VIEW_STORAGE); } catch { /* Ignore unavailable session storage. */ }
+    }
     setHydrated(true);
   }, []);
 
@@ -1651,7 +1709,7 @@ export default function Home() {
     </aside>
     {mobileNav && <button className="nav-backdrop" aria-label="Close navigation" onClick={() => setMobileNav(false)}/>}
     <main className="main-area">
-      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileNav(v => !v)} aria-label={mobileNav ? "Close navigation" : "Open navigation"} aria-expanded={mobileNav} aria-controls="main-navigation"><Icon name={mobileNav ? 'x' : 'menu'}/></button><div className="breadcrumb"><button type="button" className="breadcrumb-home" aria-label="Go to Habitly home" onClick={() => { setActive('Today'); setMobileNav(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Habitly</button><span className="crumb-slash">/</span><b>{active}</b></div><div className="topbar-right"><button className="theme-toggle" onClick={() => setDarkMode(value => !value)} aria-label={`Switch to ${darkMode ? 'light' : 'dark'} theme`} title={`Switch to ${darkMode ? 'light' : 'dark'} theme`}><Icon name={darkMode ? 'sun' : 'moon'} size={16}/></button><button className="theme-toggle" onClick={() => window.location.reload()} aria-label="Refresh app" title="Refresh app"><Icon name="refresh" size={16}/></button></div></header>
+      <header className="topbar"><button className="mobile-menu" onClick={() => setMobileNav(v => !v)} aria-label={mobileNav ? "Close navigation" : "Open navigation"} aria-expanded={mobileNav} aria-controls="main-navigation"><Icon name={mobileNav ? 'x' : 'menu'}/></button><div className="breadcrumb"><button type="button" className="breadcrumb-home" aria-label="Go to Habitly home" onClick={() => { setActive('Today'); setMobileNav(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>Habitly</button><span className="crumb-slash">/</span><b>{active}</b></div><div className="topbar-right"><button className="theme-toggle" onClick={() => setDarkMode(value => !value)} aria-label={`Switch to ${darkMode ? 'light' : 'dark'} theme`} title={`Switch to ${darkMode ? 'light' : 'dark'} theme`}><Icon name={darkMode ? 'sun' : 'moon'} size={16}/></button><button className="theme-toggle" onClick={refreshApp} aria-label="Refresh app" title="Refresh app"><Icon name="refresh" size={16}/></button></div></header>
       <div className="content-wrap">{connectionError && <div className="connection-error" role="alert">{connectionError} <a href={localBackupHref()} download="habitly-local-backup.json">Download local backup</a></div>}{accountabilityInvite && <section className="accountability-invite-banner"><div><span className="eyebrow">ACCOUNTABILITY INVITATION</span><h2>{accountabilityInvite.partner_name || accountabilityInvite.partner_email} was asked to support a habit</h2><p><b>{accountabilityInvite.habit}</b><br/>{accountabilityInvite.agreement} · Commitment: {accountabilityInvite.consequence}</p><small>Recent activity: {(accountabilityInvite.recent_activity ?? []).map((log: any) => `${log.date} ${log.status.toLowerCase()}`).join(' · ') || 'No check-ins logged yet'}</small></div>{accountabilityInvite.status === 'ACCEPTED' ? <span className="connection-badge connected">Accepted</span> : <button className="primary-button" onClick={() => void acceptAccountabilityInvite()}>Accept invitation</button>}</section>}{renderPage()}</div>
       <footer className="main-footer"><span>Made of small things.</span><span>Consistency over intensity <i><Icon name="spark" size={15}/></i></span></footer>
     </main>
