@@ -7,6 +7,7 @@ import { lawGroups, techniques, techniqueMap } from './techniques';
 import type { ChangeMode, Law } from './techniques';
 import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, withoutSampleBehaviorLogs } from './behavioral-logging';
 import type { BehaviorLog, BehaviorType, DailyConfirmation, DailyConfirmationStatus } from './behavioral-logging';
+import { createSampleSmokingConfirmations, createSampleSmokingLogs } from './sample-smoking-data';
 
 type CueType = 'TIME_LOCATION' | 'STACK';
 type Habit = {
@@ -359,8 +360,22 @@ export default function Home() {
           const missedIds = savedHistory[dayOffsetKey(-1)] ?? [];
           setHabits(savedHabits.map(h => ({ ...h, completed: false, missedYesterday: missedIds.includes(`missed:${h.id}`) })));
         } else setHabits(savedHabits);
-        setHistory(savedHistory); setHabitEvents(data.habitEvents ?? []); setBehaviorLogs(withoutSampleBehaviorLogs(data.behaviorLogs ?? [])); setVariations(data.variations ?? []); setPreppedHabits(data.preppedHabits ?? {}); setRewards(data.rewards ?? demoRewards);
-        setDailyConfirmations(data.dailyConfirmations ?? []); setCustomContextTags(data.customContextTags ?? []);
+        const savedBehaviorLogs: BehaviorLog[] = data.behaviorLogs ?? [];
+        const isUnconnectedSmokingSample = !data.remoteToken && isSampleWorkspace && originalHabits.some(habit => habit.id === 'demo-smoking');
+        const hasSmokingSample = savedBehaviorLogs.some(log => log.id.startsWith('sample-log-smoking-'));
+        const sampleSmokingLogs = isUnconnectedSmokingSample
+          ? hasSmokingSample ? savedBehaviorLogs.filter(log => log.id.startsWith('sample-log-smoking-')) : createSampleSmokingLogs()
+          : [];
+        const loadedBehaviorLogs = isUnconnectedSmokingSample
+          ? hasSmokingSample ? savedBehaviorLogs : [...savedBehaviorLogs, ...sampleSmokingLogs]
+          : withoutSampleBehaviorLogs(savedBehaviorLogs);
+        const savedConfirmations: DailyConfirmation[] = data.dailyConfirmations ?? [];
+        const sampleConfirmations = createSampleSmokingConfirmations(sampleSmokingLogs);
+        const confirmationByDate = new Map(sampleConfirmations.map(item => [`${item.habitId}:${item.date}`, item]));
+        savedConfirmations.forEach(item => confirmationByDate.set(`${item.habitId}:${item.date}`, item));
+        const accountConfirmations = savedConfirmations.filter(item => !item.habitId.startsWith('demo-'));
+        setHistory(savedHistory); setHabitEvents(data.habitEvents ?? []); setBehaviorLogs(loadedBehaviorLogs); setVariations(data.variations ?? []); setPreppedHabits(data.preppedHabits ?? {}); setRewards(data.rewards ?? demoRewards);
+        setDailyConfirmations(isUnconnectedSmokingSample ? [...confirmationByDate.values()] : accountConfirmations); setCustomContextTags(data.customContextTags ?? []);
         setIdentity(data.identity ?? 'The Writer'); setGoal(data.goal ?? 'Write a book');
         setVotes(data.votes ?? 45); setPrepped(data.prepped ?? false);
         setScorecard(data.scorecard ?? []); setJoinedTribes(data.joinedTribes ?? []);
@@ -373,7 +388,10 @@ export default function Home() {
         setRemoteToken(data.remoteToken ?? '');
       }
     } catch { /* Start with the guided sample workspace. */ }
-    if (!hasLocalWorkspace) setHistory(demoHistory());
+    if (!hasLocalWorkspace) {
+      const sampleLogs = createSampleSmokingLogs();
+      setHistory(demoHistory()); setBehaviorLogs(sampleLogs); setDailyConfirmations(createSampleSmokingConfirmations(sampleLogs));
+    }
     if (!apiUrl && !process.env.NEXT_PUBLIC_API_URL) setApiUrl(window.location.origin);
     setHydrated(true);
   }, []);
@@ -1133,6 +1151,7 @@ export default function Home() {
   function renderLogging() {
     const selectedHabit = habits.find(habit => habit.id === loggingHabitId) ?? habits.find(habit => habit.kind === 'BREAK') ?? demoHabits[0];
     const logs = behaviorLogs.filter(log => log.habitId === selectedHabit.id).sort((a, b) => b.at.localeCompare(a.at));
+    const hasSampleSmokingData = selectedHabit.id === 'demo-smoking' && logs.some(log => log.id.startsWith('sample-log-smoking-'));
     const today = todayKey();
     const todaySummary = summarizeDay(logs, selectedHabit.id, today, dailyConfirmations);
     const currentConfirmation = dailyConfirmations.find(row => row.habitId === selectedHabit.id && row.date === today);
@@ -1326,6 +1345,7 @@ export default function Home() {
         <div><div className="eyebrow">BEHAVIORAL LOG</div><h1>Notice the pattern<span className="heading-period">.</span></h1></div>
         <label className="logging-habit-picker">HABIT<select aria-label="Select habit to break" value={selectedHabit.id} onChange={event => { setLoggingHabitId(event.target.value); setHistoryLimit(30); }}>{habits.filter(habit => habit.kind === 'BREAK').map(habit => <option key={habit.id} value={habit.id}>{habit.name}</option>)}</select></label>
       </div>
+      {hasSampleSmokingData && <p className="logging-caveat">Sample analytics preview: eight weeks of varied Smoking cravings, outcomes, cigarette counts, triggers, contexts, and technique use. These synthetic records stay in this browser’s sample workspace and are filtered out of account imports.</p>}
       <div className="logging-view-tabs" role="tablist" aria-label="Behavioral logging views">
         {(['Log', 'Insights', 'History'] as const).map(view => <button key={view} type="button" role="tab" id={'logging-tab-' + view.toLowerCase()} aria-selected={loggingView === view} aria-controls="logging-view-panel" className={loggingView === view ? 'selected' : ''} onClick={() => setLoggingView(view)}>{view}{view === 'History' && <span>{logs.length}</span>}</button>)}
       </div>
