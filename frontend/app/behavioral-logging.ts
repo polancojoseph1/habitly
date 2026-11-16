@@ -36,6 +36,11 @@ export type BehaviorLog = {
   note?: string;
 };
 
+export function isRecoveryPrincipleApplication(log: { type: string; technique?: string; techniqueId?: string }): boolean {
+  return log.type === 'technique_applied'
+    && (log.techniqueId === 'never-miss-twice' || log.technique?.trim().toLocaleLowerCase() === 'never miss twice');
+}
+
 export type EpisodeOutcome = 'resisted' | 'smoked' | 'unknown';
 export type DailyConfirmationStatus = 'no_occurrence' | 'occurred_recorded' | 'incomplete' | 'skip';
 export type DailyConfirmation = { habitId: string; date: string; status: DailyConfirmationStatus; updatedAt: string };
@@ -111,7 +116,7 @@ export function summarizeDay(logs: BehaviorLog[], habitId: string, date: string,
     cravings: cravings.length,
     resolvedCravings: resolved.length,
     resistedCravings: resolved.filter(log => outcomeForCraving(logs, log) === 'resisted').length,
-    techniqueApplications: dayLogs.filter(log => log.type === 'technique_applied').length,
+    techniqueApplications: dayLogs.filter(log => log.type === 'technique_applied' && !isRecoveryPrincipleApplication(log)).length,
     confirmation,
     explicitNoOccurrence,
     conflict,

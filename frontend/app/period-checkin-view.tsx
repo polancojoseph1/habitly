@@ -30,7 +30,7 @@ type Props = {
   configuredTechniques: number;
   techniqueApplicationCount: number;
   hasTechniqueFilters: boolean;
-  usedTechniques: Pick<TechniquePractice, 'key' | 'name' | 'total' | 'responsive' | 'preventive' | 'resolved' | 'resisted' | 'engaged' | 'unknown'>[];
+  usedTechniques: Pick<TechniquePractice, 'key' | 'name' | 'detail' | 'total' | 'responsive' | 'preventive' | 'resolved' | 'resisted' | 'engaged' | 'unknown'>[];
   topTrigger?: TriggerStat;
 };
 
@@ -275,7 +275,7 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
                 const notWorkedPercentage = outcomePercentages?.didNotWork;
                 return <li key={item.key}>
                   <article className="period-technique-outcome">
-                    <header><h3>{item.name}</h3><span>{plural(item.total, 'application')}</span></header>
+                    <header><div><h3>{item.name}</h3>{item.detail && <p className="period-technique-action">{item.detail}</p>}</div><span>{plural(item.total, 'application')}</span></header>
                     {workedPercentage === undefined || notWorkedPercentage === undefined
                       ? <p className="period-technique-outcome-empty">No resolved responsive outcomes to calculate percentages for this technique.</p>
                       : <>

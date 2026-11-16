@@ -33,7 +33,7 @@ const techniques = [
   { id: 'increase-friction', name: 'Increase Friction', law: 'response', laws: ['response'] },
   { id: 'reframe-mindset', name: 'Reframe Your Mindset', law: 'craving', laws: ['craving'] },
   { id: 'habit-tracking', name: 'Habit Tracking', law: 'reward', laws: ['reward'] },
-  { id: 'never-miss-twice', name: 'Never Miss Twice', law: 'response', laws: ['response', 'reward'] },
+  { id: 'commitment-device', name: 'Commitment Device', law: 'response', laws: ['response', 'reward'] },
 ];
 const hours = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
 

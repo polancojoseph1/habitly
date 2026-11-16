@@ -106,9 +106,6 @@ THE 4TH LAW: MAKE IT SATISFYING (REWARD)
    Tie measurement directly to completion using this formula:
    "After [CURRENT HABIT], I will [TRACK MY HABIT]."
 
-5. The "Never Miss Twice" Rule
-   If you miss a habit one day because of an emergency or slip-up, get back on track immediately the following day.
-
 INVERSION OF THE 4TH LAW: MAKE IT UNSATISFYING (REWARD)
 
 1. Accountability Partner
@@ -138,3 +135,10 @@ ADVANCED TACTICS
 
    c. Integrity Report
       Conduct a mid-year check-in on core values, identity, and personal standards.
+
+============================================================
+RECOVERY PRINCIPLE (NOT A TECHNIQUE)
+============================================================
+
+Never Miss Twice
+   After a lapse, return to your plan at the next opportunity. One slip does not have to become a pattern.

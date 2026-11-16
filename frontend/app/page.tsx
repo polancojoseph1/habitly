@@ -9,7 +9,7 @@ import { PeriodCheckin } from './period-checkin-view';
 import notebookLMContent from './notebooklm-content.json';
 import { lawGroups, techniques, techniqueMap } from './techniques';
 import type { ChangeMode, Law } from './techniques';
-import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, withoutSampleBehaviorLogs } from './behavioral-logging';
+import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, withoutSampleBehaviorLogs } from './behavioral-logging';
 import type { BehaviorLog, BehaviorType, DailyConfirmation, DailyConfirmationStatus } from './behavioral-logging';
 import { createSampleSmokingConfirmations, createSampleSmokingLogs } from './sample-smoking-data';
 
@@ -61,12 +61,19 @@ function localBackupHref() {
   } catch { return 'data:application/json;charset=utf-8,%7B%7D'; }
 }
 function expandInviteLink(habit: Habit): Habit {
-  return habit.inviteLink?.startsWith('/?') && typeof window !== 'undefined'
-    ? { ...habit, inviteLink: `${window.location.origin}${habit.inviteLink}` }
-    : habit;
+  const demoDefaults = habit.id === 'demo-smoking' ? demoHabits.find(item => item.id === habit.id) : undefined;
+  const normalized = {
+    ...demoDefaults,
+    ...habit,
+    techniqueIds: [...new Set([...(habit.techniqueIds ?? []), ...(demoDefaults?.techniqueIds ?? [])].filter(id => id !== 'never-miss-twice'))],
+    techniqueNotes: { ...(demoDefaults?.techniqueNotes ?? {}), ...(habit.techniqueNotes ?? {}) },
+  };
+  return normalized.inviteLink?.startsWith('/?') && typeof window !== 'undefined'
+    ? { ...normalized, inviteLink: `${window.location.origin}${normalized.inviteLink}` }
+    : normalized;
 }
 const demoHabits: Habit[] = [
-  { id: 'demo-smoking', name: 'Smoking', target: 'Quit smoking', gateway: 'Wait ten minutes and take a short walk', gatewayMinutes: 0, cueType: 'STACK', cue: 'I finish a meal or feel stressed', motive: '', reward: '', prep: 'Keep gum and water nearby', completed: false, missedYesterday: false, streak: 0, kind: 'BREAK', hideCue: 'Keep cigarettes and lighters out of reach', friction: 'Make buying cigarettes inconvenient', alternativeRoutine: 'Walk outside without cigarettes or chew gum', techniqueIds: ['increase-friction', 'reframe-mindset', 'habit-tracking', 'never-miss-twice'], baselineDaily: 12 },
+  { id: 'demo-smoking', name: 'Smoking', target: 'Quit smoking', gateway: 'Wait ten minutes and take a short walk', gatewayMinutes: 0, cueType: 'STACK', cue: 'I finish a meal or feel stressed', motive: '', reward: '', prep: 'Keep gum and water nearby', completed: false, missedYesterday: false, streak: 0, kind: 'BREAK', hideCue: 'Keep cigarettes and lighters out of reach', friction: 'Keep cigarettes and lighters out of the home, and take a route that avoids the shop.', alternativeRoutine: 'Walk outside without cigarettes or chew gum', techniqueIds: ['increase-friction', 'reframe-mindset', 'habit-tracking', 'commitment-device'], techniqueNotes: { 'increase-friction': 'Keep cigarettes and lighters out of the home; take a route that avoids the shop.', 'reframe-mindset': 'When stressed, remind myself that a craving passes without a cigarette.', 'habit-tracking': 'Mark each craving I resist on the calendar right away.', 'commitment-device': 'Set a ten-minute delay before opening cigarette delivery sites.' }, baselineDaily: 12 },
   { id: 'demo-write', name: 'Write one sentence', target: 'Write for 30 minutes', gateway: 'Open my journal and write one sentence', gatewayMinutes: 2, cueType: 'STACK', cue: 'I pour my first coffee', motive: 'Feel like a writer before the day gets loud', reward: 'A fresh coffee and a clear head', prep: 'Leave journal open on the desk', ritual: 'Play my focus playlist', techniqueIds: ['two-minute-rule', 'motivation-ritual', 'immediate-reinforcement'], techniqueNotes: { 'two-minute-rule': 'One sentence is enough to begin.' }, completed: true, missedYesterday: false, streak: 5, kind: 'BUILD' },
   { id: 'demo-move', name: 'Move my body', target: 'Go for a run', gateway: 'Put on my running shoes', gatewayMinutes: 2, cueType: 'TIME_LOCATION', cue: '7:30 AM', time: '7:30 AM', location: 'By the front door', motive: 'Have more energy for the day', reward: 'Play my favorite playlist', prep: 'Lay out running clothes tonight', completed: false, missedYesterday: true, streak: 3, kind: 'BUILD' },
   { id: 'demo-read', name: 'Read one page', target: 'Read a chapter', gateway: 'Open my book to the bookmark', gatewayMinutes: 2, cueType: 'TIME_LOCATION', cue: '9:00 PM', time: '9:00 PM', location: 'In bed', motive: 'Wind down without a screen', reward: 'A quiet end to the day', prep: 'Put book on my pillow', completed: false, missedYesterday: false, streak: 8, kind: 'BUILD' },
@@ -358,9 +365,9 @@ export default function Home() {
         const demoIds = new Set(demoHabits.map(habit => habit.id));
         const isSampleWorkspace = originalHabits.every(habit => habit.id.startsWith('demo-'));
         const savedById = new Map(originalHabits.map(habit => [habit.id, habit]));
-        const savedHabits: Habit[] = isSampleWorkspace
+        const savedHabits: Habit[] = (isSampleWorkspace
           ? [...demoHabits.map(habit => ({ ...habit, ...savedById.get(habit.id) })), ...originalHabits.filter(habit => !demoIds.has(habit.id))]
-          : originalHabits;
+          : originalHabits).map(expandInviteLink);
         const savedHistory: Record<string, string[]> = data.history ?? demoHistory();
         if (data.dayKey && data.dayKey !== todayKey()) {
           const missedIds = savedHistory[dayOffsetKey(-1)] ?? [];
@@ -368,12 +375,12 @@ export default function Home() {
         } else setHabits(savedHabits);
         const savedBehaviorLogs: BehaviorLog[] = data.behaviorLogs ?? [];
         const isUnconnectedSmokingSample = !data.remoteToken && isSampleWorkspace && originalHabits.some(habit => habit.id === 'demo-smoking');
-        const hasSmokingSample = savedBehaviorLogs.some(log => log.id.startsWith('sample-log-smoking-'));
+        const hasCurrentSmokingSample = savedBehaviorLogs.some(log => log.id.startsWith('sample-log-smoking-') && log.techniqueId === 'commitment-device');
         const sampleSmokingLogs = isUnconnectedSmokingSample
-          ? hasSmokingSample ? savedBehaviorLogs.filter(log => log.id.startsWith('sample-log-smoking-')) : createSampleSmokingLogs()
+          ? hasCurrentSmokingSample ? savedBehaviorLogs.filter(log => log.id.startsWith('sample-log-smoking-')) : createSampleSmokingLogs()
           : [];
         const loadedBehaviorLogs = isUnconnectedSmokingSample
-          ? hasSmokingSample ? savedBehaviorLogs : [...savedBehaviorLogs, ...sampleSmokingLogs]
+          ? [...savedBehaviorLogs.filter(log => !log.id.startsWith('sample-log-smoking-')), ...sampleSmokingLogs]
           : withoutSampleBehaviorLogs(savedBehaviorLogs);
         const savedConfirmations: DailyConfirmation[] = data.dailyConfirmations ?? [];
         const sampleConfirmations = createSampleSmokingConfirmations(sampleSmokingLogs);
@@ -579,7 +586,7 @@ export default function Home() {
     if (!apiUrl || !remoteToken) return;
     let local: any = {};
     try { local = backup ?? JSON.parse(localStorage.getItem(STORAGE) ?? '{}'); } catch { setConnectionError('Could not read this browser’s saved data. Export it from browser storage before retrying.'); return; }
-    const importHabits: Habit[] = (local.habits ?? habits).filter((h: Habit) => !h.id.startsWith('demo-'));
+    const importHabits: Habit[] = (local.habits ?? habits).filter((h: Habit) => !h.id.startsWith('demo-')).map(expandInviteLink);
     const importHabitIds = new Set(importHabits.map(habit => habit.id));
     const importLogs: BehaviorLog[] = (local.behaviorLogs ?? behaviorLogs).filter((log: BehaviorLog) => importHabitIds.has(log.habitId) && !log.id.startsWith('sample-log-'));
     const payload = { habits: importHabits, rewards: (local.rewards ?? rewards).filter((r: Reward) => !r.id.startsWith('reward-show') && !r.habitId.startsWith('demo-')), identity: local.identity ?? identity, goal: local.goal ?? goal, votes: local.votes ?? votes, prepped: local.prepped ?? prepped, preppedHabits: local.preppedHabits ?? preppedHabits, history: local.history ?? history, habitEvents: local.habitEvents ?? habitEvents, behaviorLogs: importLogs, dailyConfirmations: (local.dailyConfirmations ?? dailyConfirmations).filter((item: DailyConfirmation) => importHabitIds.has(item.habitId)), customContextTags: local.customContextTags ?? customContextTags, variations: local.variations ?? variations, scorecard: local.scorecard ?? scorecard, joinedTribes: local.joinedTribes ?? joinedTribes, communityCircles: local.communityCircles ?? communityCircles, diagnostics: local.diagnostics ?? diagnostics, darkMode: local.darkMode ?? darkMode, palette: local.palette ?? palette, labs: local.labs ?? labs, telegramCommand: local.telegramCommand ?? telegramCommand, dayKey: local.dayKey ?? todayKey() };
@@ -1205,15 +1212,15 @@ export default function Home() {
     const occurrenceUnit = isSmoke ? 'cigarette' : 'occurrence';
     const getOutcome = (log: BehaviorLog) => log.type === 'habit_occurrence' ? 'smoked' : log.type === 'craving' ? outcomeForCraving(logs, log) : episodeResolvedOutcome(logs, log);
     const allTriggers = [...new Set(logs.map(log => log.trigger).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b));
-    const configured = new Map<string, { key: string; name: string; techniqueId?: string; variationId?: string; laws: string[] }>();
+    const configured = new Map<string, { key: string; name: string; techniqueId?: string; variationId?: string; laws: string[]; detail?: string }>();
     (selectedHabit.techniqueIds ?? []).forEach(id => {
       const item = techniqueMap[id];
-      if (item) configured.set('technique:' + id, { key: 'technique:' + id, name: item.name, techniqueId: item.id, laws: item.laws });
+      if (item) configured.set('technique:' + id, { key: 'technique:' + id, name: item.name, techniqueId: item.id, laws: item.laws, detail: techniqueNoteFor(selectedHabit.techniqueNotes ?? {}, id, item.laws[0]) || undefined });
     });
     variations.filter(item => item.habitId === selectedHabit.id).forEach(item => {
       const definition = item.techniqueId ? techniqueMap[item.techniqueId] : undefined;
       const key = 'variation:' + item.id;
-      configured.set(key, { key, name: item.name || definition?.name || 'Strategy technique', techniqueId: item.techniqueId, variationId: item.id, laws: [item.law] });
+      configured.set(key, { key, name: item.name || definition?.name || 'Strategy technique', techniqueId: item.techniqueId, variationId: item.id, laws: [item.law], detail: item.setup || undefined });
     });
     const techniqueChoices = [...configured.values()];
     const matchesTechniqueChoice = (log: BehaviorLog, choice: { techniqueId?: string; variationId?: string; name: string }) => choice.variationId
@@ -1289,12 +1296,13 @@ export default function Home() {
       const triggerMatch = insightTriggerFilter === 'all' || log.trigger === insightTriggerFilter;
       const intensityMatch = insightIntensityFilter === 'all' || (insightIntensityFilter === 'unknown' ? log.intensity === undefined : insightIntensityFilter === 'low' ? (log.intensity ?? -1) >= 0 && (log.intensity ?? -1) <= 3 : insightIntensityFilter === 'medium' ? (log.intensity ?? -1) >= 4 && (log.intensity ?? -1) <= 6 : (log.intensity ?? -1) >= 7 && (log.intensity ?? -1) <= 10);
       const timingMatch = insightTimingFilter === 'all' || (log.timing ?? 'responsive') === insightTimingFilter;
-      return log.type === 'technique_applied' && lawMatch && triggerMatch && intensityMatch && timingMatch;
+      return log.type === 'technique_applied' && !isRecoveryPrincipleApplication(log) && lawMatch && triggerMatch && intensityMatch && timingMatch;
     });
     const hasTechniqueFilters = insightLawFilter !== 'all' || insightTriggerFilter !== 'all' || insightIntensityFilter !== 'all' || insightTimingFilter !== 'all';
     const insightLaws = lawGroups.slice(0, 4).map(law => ({ ...law, break: law.break.replace(/\b\w/g, letter => letter.toUpperCase()) }));
     const configuredInsightChoices = techniqueChoices.map(choice => ({
       ...choice,
+      detail: choice.detail || (choice.techniqueId ? techniqueMap[choice.techniqueId]?.example : undefined),
       description: choice.techniqueId ? techniqueMap[choice.techniqueId]?.description : undefined,
       example: choice.techniqueId ? techniqueMap[choice.techniqueId]?.example : undefined,
     }));
@@ -1305,6 +1313,7 @@ export default function Home() {
         name: technique.name,
         techniqueId: technique.id,
         laws: technique.laws,
+        detail: technique.example,
         description: technique.description,
         example: technique.example,
       })),
@@ -1378,7 +1387,7 @@ export default function Home() {
         averageIntensity: intensityValues.length ? (intensityValues.reduce((sum, value) => sum + value, 0) / intensityValues.length).toFixed(1) : '—',
         resisted: resolved.filter(log => getOutcome(log) === 'resisted').length,
         resolved: resolved.length,
-        techniques: periodLogs.filter(log => log.type === 'technique_applied').length,
+        techniques: periodLogs.filter(log => log.type === 'technique_applied' && !isRecoveryPrincipleApplication(log)).length,
         noOccurrenceConfirmations: confirmations.filter(item => item.status === 'no_occurrence').length,
         loggedDays: new Set(periodLogs.map(behaviorDayKey)).size,
         confirmations: confirmations.length,
@@ -1395,9 +1404,12 @@ export default function Home() {
     const historyLogs = logs.filter(log => {
       const outcome = getOutcome(log);
       const lawList = chosenLaw(log);
-      return (historyTypeFilter === 'all' || log.type === historyTypeFilter)
+      const recoveryAction = isRecoveryPrincipleApplication(log);
+      const typeMatches = historyTypeFilter === 'all'
+        || (historyTypeFilter === 'recovery' ? recoveryAction : log.type === historyTypeFilter && !recoveryAction);
+      return typeMatches
         && (!historyTriggerFilter || (log.trigger ?? '').toLowerCase().includes(historyTriggerFilter.toLowerCase()))
-        && (!historyTechniqueFilter || (log.technique ?? '').toLowerCase().includes(historyTechniqueFilter.toLowerCase()))
+        && (!historyTechniqueFilter || (!recoveryAction && (log.technique ?? '').toLowerCase().includes(historyTechniqueFilter.toLowerCase())))
         && (historyLawFilter === 'all' || lawList.includes(historyLawFilter))
         && (historyOutcomeFilter === 'all' || outcome === historyOutcomeFilter)
         && (!historyFrom || behaviorDayKey(log) >= historyFrom)
@@ -1417,12 +1429,13 @@ export default function Home() {
       try { return new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: 'numeric', minute: '2-digit' }).format(new Date(value)); }
       catch { return new Date(value).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
     };
-    const eventLabel = (log: BehaviorLog) => log.type === 'craving' ? 'Craving' : log.type === 'habit_occurrence' ? occurrenceActionLabel(selectedHabit) : 'Technique applied';
+    const eventLabel = (log: BehaviorLog) => isRecoveryPrincipleApplication(log) ? 'Recovery action' : log.type === 'craving' ? 'Craving' : log.type === 'habit_occurrence' ? occurrenceActionLabel(selectedHabit) : 'Technique applied';
     const eventDetails = (log: BehaviorLog) => {
       const bits: string[] = [];
       if (log.type === 'craving' && log.intensity !== undefined) bits.push('Intensity ' + log.intensity + '/10');
       if (log.type === 'habit_occurrence') bits.push((log.quantity ?? 1) + ' ' + occurrenceUnit + ((log.quantity ?? 1) === 1 ? '' : 's'));
-      if (log.type === 'technique_applied') {
+      if (isRecoveryPrincipleApplication(log)) bits.push('Return to plan at the next opportunity');
+      else if (log.type === 'technique_applied') {
         bits.push(log.technique || 'Technique');
         if (log.timing) bits.push(log.timing);
         const law = lawGroups.find(item => item.id === (log.law || chosenLaw(log)[0]));
@@ -1522,9 +1535,10 @@ export default function Home() {
                 <span className="eyebrow">Most practiced technique</span>
                 {mostPracticed
                   ? <><b>{mostPracticed.name}</b><p>{mostPracticed.applications} {mostPracticed.applications === 1 ? 'use' : 'uses'} during the selected {periodLabel}.</p>{(() => {
-                      const laws = metadataChoices.find(choice => choice.name === mostPracticed.name)?.laws ?? [];
+                      const choice = metadataChoices.find(candidate => candidate.name === mostPracticed.name);
+                      const laws = choice?.laws ?? [];
                       const label = laws.map(id => insightLaws.find(law => law.id === id)?.break).filter(Boolean).join(', ');
-                      return label ? <small>{label}</small> : null;
+                      return <>{label && <small>{label}</small>}{choice?.detail && <small className="logging-technique-detail">{choice.detail}</small>}</>;
                     })()}</>
                   : <p>No technique applications were recorded during the selected {periodLabel}{hasTechniqueFilters ? ' with these filters' : ''}.</p>}
               </article>
@@ -1572,7 +1586,7 @@ export default function Home() {
                     const triggers = item.triggers;
                     return <details className="logging-technique-card" key={item.key}>
                       <summary>
-                        <span className="logging-technique-card-title"><b>{item.name}</b><small>{lawLabel}</small></span>
+                        <span className="logging-technique-card-title"><b>{item.name}</b><small>{lawLabel}</small>{item.detail && <small className="logging-technique-detail">{item.detail}</small>}</span>
                         <span className="logging-technique-effectiveness"><b>{outcomeText}</b><small>{item.resolved < 5 ? 'Limited evidence' : 'Descriptive association'}</small></span>
                         <Icon name="chevron" size={16}/>
                       </summary>
@@ -1633,7 +1647,7 @@ export default function Home() {
         </div>}
         {loggingView === 'History' && <section className="logging-history-section">
           <div className="logging-section-heading"><div><span className="eyebrow">REVIEW AND CORRECT</span><h2>Behavior history <span className="soft-count">{historyLogs.length}</span></h2></div><span className="logging-chart-note">Grouped by local day and behavioral episode</span></div>
-          <div className="logging-history-filters"><label>TYPE<select value={historyTypeFilter} onChange={event => { setHistoryTypeFilter(event.target.value); setHistoryLimit(30); }}><option value="all">All events</option><option value="craving">Cravings</option><option value="habit_occurrence">Habit occurrences</option><option value="technique_applied">Techniques</option></select></label><label>TRIGGER<input value={historyTriggerFilter} onChange={event => setHistoryTriggerFilter(event.target.value)} list="history-trigger-options" placeholder="All triggers"/><datalist id="history-trigger-options">{allTriggers.map(value => <option key={value} value={value}/>)}</datalist></label><label>TECHNIQUE<input value={historyTechniqueFilter} onChange={event => setHistoryTechniqueFilter(event.target.value)} placeholder="Any technique"/></label><label>LAW<select value={historyLawFilter} onChange={event => setHistoryLawFilter(event.target.value)}><option value="all">All laws</option>{lawGroups.slice(0, 4).map(item => <option key={item.id} value={item.id}>{item.break}</option>)}</select></label><label>OUTCOME<select value={historyOutcomeFilter} onChange={event => setHistoryOutcomeFilter(event.target.value)}><option value="all">All outcomes</option><option value="resisted">Resisted</option><option value="smoked">{isSmoke ? 'Smoked' : 'Engaged'}</option><option value="unknown">Unknown or unresolved</option></select></label><label className="logging-date-field">FROM<input type="date" value={historyFrom} onChange={event => setHistoryFrom(event.target.value)}/></label><label className="logging-date-field">TO<input type="date" value={historyTo} onChange={event => setHistoryTo(event.target.value)}/></label><button type="button" className="text-button logging-clear-filters" onClick={() => { setHistoryTypeFilter('all'); setHistoryTriggerFilter(''); setHistoryTechniqueFilter(''); setHistoryLawFilter('all'); setHistoryOutcomeFilter('all'); setHistoryFrom(''); setHistoryTo(''); }}>Clear filters</button></div>
+          <div className="logging-history-filters"><label>TYPE<select value={historyTypeFilter} onChange={event => { setHistoryTypeFilter(event.target.value); setHistoryLimit(30); }}><option value="all">All events</option><option value="craving">Cravings</option><option value="habit_occurrence">Habit occurrences</option><option value="technique_applied">Techniques</option><option value="recovery">Recovery actions</option></select></label><label>TRIGGER<input value={historyTriggerFilter} onChange={event => setHistoryTriggerFilter(event.target.value)} list="history-trigger-options" placeholder="All triggers"/><datalist id="history-trigger-options">{allTriggers.map(value => <option key={value} value={value}/>)}</datalist></label><label>TECHNIQUE<input value={historyTechniqueFilter} onChange={event => setHistoryTechniqueFilter(event.target.value)} placeholder="Any technique"/></label><label>LAW<select value={historyLawFilter} onChange={event => setHistoryLawFilter(event.target.value)}><option value="all">All laws</option>{lawGroups.slice(0, 4).map(item => <option key={item.id} value={item.id}>{item.break}</option>)}</select></label><label>OUTCOME<select value={historyOutcomeFilter} onChange={event => setHistoryOutcomeFilter(event.target.value)}><option value="all">All outcomes</option><option value="resisted">Resisted</option><option value="smoked">{isSmoke ? 'Smoked' : 'Engaged'}</option><option value="unknown">Unknown or unresolved</option></select></label><label className="logging-date-field">FROM<input type="date" value={historyFrom} onChange={event => setHistoryFrom(event.target.value)}/></label><label className="logging-date-field">TO<input type="date" value={historyTo} onChange={event => setHistoryTo(event.target.value)}/></label><button type="button" className="text-button logging-clear-filters" onClick={() => { setHistoryTypeFilter('all'); setHistoryTriggerFilter(''); setHistoryTechniqueFilter(''); setHistoryLawFilter('all'); setHistoryOutcomeFilter('all'); setHistoryFrom(''); setHistoryTo(''); }}>Clear filters</button></div>
           {timelineGroups.length ? <div className="logging-history-days">{timelineGroups.map(day => <section key={day.day}><h3>{formatDay(day.day)}</h3>{day.episodes.map(episode => { const multi = episode.rows.length > 1; const episodeTitle = multi ? 'Behavioral episode · ' + episode.rows.length + ' linked events' : eventLabel(episode.rows[0]); const outcome = episode.rows.map(getOutcome).find(value => value !== 'unknown') ?? resolvedEpisodeOutcome(logs, episode.id); const expanded = expandedEpisodes.includes(episode.id); return <details key={episode.id} className="logging-episode" open={expanded || undefined} onToggle={event => { const isOpen = event.currentTarget.open; setExpandedEpisodes(current => isOpen ? [...new Set([...current, episode.id])] : current.filter(id => id !== episode.id)); }}><summary><span className="logging-episode-mark"><Icon name={multi ? 'refresh' : episode.rows[0].type === 'craving' ? 'spark' : episode.rows[0].type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={17}/></span><span><b>{episodeTitle}</b><small>{formatTime(episode.rows[0].at, episode.rows[0].timezone)}{episode.rows[0].trigger ? ' · ' + episode.rows[0].trigger : ''}</small></span>{outcome !== 'unknown' && <em className={'behavior-outcome ' + outcome}>{outcomeLabel(outcome)}</em>}<Icon name="chevron" size={16}/></summary><ol className="behavior-timeline">{episode.rows.map(log => <li key={log.id}><span className={'behavior-type-mark ' + log.type}><Icon name={log.type === 'craving' ? 'spark' : log.type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={16}/></span><div className="behavior-log-main"><div className="behavior-log-title"><b>{eventLabel(log)}</b><time>{formatTime(log.at, log.timezone)}</time></div><p>{eventDetails(log)}</p>{log.type === 'craving' && <span className={'behavior-outcome ' + getOutcome(log)}>{outcomeLabel(getOutcome(log))}</span>}{log.context && <small>{[...(log.context.emotions ?? []), ...(log.context.environments ?? []), ...(log.context.activities ?? []), ...(log.context.social ?? []), ...(log.context.tags ?? [])].join(' · ')}</small>}{(log.automaticThought || log.belief || log.reframing) && <small>{[log.automaticThought, log.belief, log.reframing].filter(Boolean).join(' · ')}</small>}{log.note && <small>{log.note}</small>}<div className="behavior-log-actions"><button type="button" onClick={() => editBehaviorLog(log)}>Edit</button><button type="button" onClick={() => deleteBehaviorLog(log.id)}>Remove</button></div></div></li>)}</ol></details>; })}</section>)}</div> : <div className="logging-empty-state"><Icon name="clock" size={23}/><b>No matching events</b><span>Adjust the filters or record a new event in the Log tab.</span><button type="button" className="text-button" onClick={() => setLoggingView('Log')}>Go to Log <Icon name="arrow" size={14}/></button></div>}
           {historyLogs.length > visibleHistory.length && <button type="button" className="secondary-button logging-load-more" onClick={() => setHistoryLimit(value => value + 30)}>Load 30 more events</button>}
         </section>}
@@ -1658,7 +1672,7 @@ export default function Home() {
     const needs = habits.filter(h => h.missedYesterday);
     const circuitBreaker = needs.some(h => getResilientStreak(history, h.id).broken);
     const recentDays = Array.from({ length: 28 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (27 - i)); const key = todayKeyFromDate(d); const statuses = history[key] ?? []; return { key, day: d.getDate(), done: statuses.filter(x => !x.startsWith('missed:')).length, missed: statuses.filter(x => x.startsWith('missed:')).length }; });
-    return <><div className="page-heading-row"><div><div className="eyebrow">THE COMEBACK COUNTS</div><h1>History and recovery<span className="heading-period">.</span></h1><p className="page-subtitle">You never have to be perfect. Just return to the path.</p></div></div><section className="calendar-card"><div className="calendar-heading"><div><span className="eyebrow">PROGRESS YOU CAN SEE</span><h3>Last 28 days</h3></div><div className="calendar-legend"><span><i className="activity-done"/> Showed up</span><span><i className="activity-missed"/> Rest / miss</span></div></div><div className="activity-calendar">{recentDays.map(d => <div key={d.key} title={`${d.key}: ${d.done} votes, ${d.missed} missed`} className={`activity-cell ${d.done ? 'activity-done' : d.missed ? 'activity-missed' : ''}`}><span>{d.day}</span></div>)}</div></section>{needs.length > 0 && <div className={`recovery-hero ${circuitBreaker ? 'recovery-circuit-breaker' : ''}`}><div className="recovery-sun"><Icon name="arrow-up-right" size={24}/></div><span className="overline">{circuitBreaker ? 'CIRCUIT BREAKER · RESET THE ACTION, NOT YOUR IDENTITY' : 'NEVER MISS TWICE'}</span><h2>{circuitBreaker ? 'Two misses are a signal to shrink the next step.' : needs.length ? 'You missed a day. You still belong here.' : 'You’re back in rhythm.'}</h2><p>{circuitBreaker ? 'Make the next action almost impossible to skip. Choose the smallest gateway action and put the cue directly in your path. Your identity votes are still here.' : needs.length ? 'One missed day doesn’t erase the votes you’ve already cast. Choose the smallest version and begin again today.' : 'No recovery needed right now. Keep your next step small and your cues clear.'}</p><div className="recovery-stats"><div><b>{votes}</b><span>identity votes kept</span></div><div><b>{needs.filter(h => h.completed).length}/{needs.length || 0}</b><span>comeback actions</span></div><div><b>1 day</b><span>grace built in</span></div></div></div>}<div className="section-heading space-top"><div><span className="eyebrow">A GENTLE NUDGE</span><h2>{needs.length ? 'Pick one to restart' : 'Your habits today'}</h2></div></div><div className="habit-list">{(needs.length ? needs : todayHabits).map(renderHabitCard)}</div></>;
+    return <><div className="page-heading-row"><div><div className="eyebrow">THE COMEBACK COUNTS</div><h1>History and recovery<span className="heading-period">.</span></h1><p className="page-subtitle">You never have to be perfect. Just return to the path.</p></div></div><section className="calendar-card"><div className="calendar-heading"><div><span className="eyebrow">PROGRESS YOU CAN SEE</span><h3>Last 28 days</h3></div><div className="calendar-legend"><span><i className="activity-done"/> Showed up</span><span><i className="activity-missed"/> Rest / miss</span></div></div><div className="activity-calendar">{recentDays.map(d => <div key={d.key} title={`${d.key}: ${d.done} votes, ${d.missed} missed`} className={`activity-cell ${d.done ? 'activity-done' : d.missed ? 'activity-missed' : ''}`}><span>{d.day}</span></div>)}</div></section>{needs.length > 0 && <div className={`recovery-hero ${circuitBreaker ? 'recovery-circuit-breaker' : ''}`}><div className="recovery-sun"><Icon name="arrow-up-right" size={24}/></div><span className="overline">{circuitBreaker ? 'CIRCUIT BREAKER · RESET THE ACTION, NOT YOUR IDENTITY' : 'RECOVERY RULE · NEVER MISS TWICE'}</span><h2>{circuitBreaker ? 'Two misses are a signal to shrink the next step.' : needs.length ? 'You missed a day. You still belong here.' : 'You’re back in rhythm.'}</h2><p>{circuitBreaker ? 'Make the next action almost impossible to skip. Choose the smallest gateway action and put the cue directly in your path. Your identity votes are still here.' : needs.length ? 'After a lapse, return to your plan at the next opportunity. One slip does not have to become a pattern.' : 'No recovery needed right now. Keep your next step small and your cues clear.'}</p><div className="recovery-stats"><div><b>{votes}</b><span>identity votes kept</span></div><div><b>{needs.filter(h => h.completed).length}/{needs.length || 0}</b><span>comeback actions</span></div><div><b>1 day</b><span>grace built in</span></div></div></div>}<div className="section-heading space-top"><div><span className="eyebrow">A GENTLE NUDGE</span><h2>{needs.length ? 'Pick one to restart' : 'Your habits today'}</h2></div></div><div className="habit-list">{(needs.length ? needs : todayHabits).map(renderHabitCard)}</div></>;
   }
 
   function renderVault() {

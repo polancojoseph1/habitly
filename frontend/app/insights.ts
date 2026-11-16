@@ -1,4 +1,4 @@
-import { behaviorDayKey, episodeKey, episodeResolvedOutcome, type BehaviorLog } from './behavioral-logging.ts';
+import { behaviorDayKey, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, type BehaviorLog } from './behavioral-logging.ts';
 
 export type InsightTechniqueChoice = {
   key: string;
@@ -6,6 +6,7 @@ export type InsightTechniqueChoice = {
   techniqueId?: string;
   variationId?: string;
   laws: string[];
+  detail?: string;
   description?: string;
   example?: string;
 };
@@ -100,7 +101,7 @@ export function summarizeTriggers(logs: BehaviorLog[], allLogs: BehaviorLog[]): 
       episodes: episodes.size,
       unfavorable: outcomes.filter(outcome => outcome === 'smoked').length,
       resolved: outcomes.filter(outcome => outcome !== 'unknown').length,
-      hasTechniqueApplication: logs.some(log => log.type === 'technique_applied' && log.trigger?.trim() === name),
+      hasTechniqueApplication: logs.some(log => log.type === 'technique_applied' && !isRecoveryPrincipleApplication(log) && log.trigger?.trim() === name),
     };
   }).sort((a, b) => b.appearances - a.appearances || stableByName(a, b));
 }
@@ -108,7 +109,7 @@ export function summarizeTriggers(logs: BehaviorLog[], allLogs: BehaviorLog[]): 
 export function mostPracticedTechnique(logs: BehaviorLog[], choices: InsightTechniqueChoice[]) {
   const groups = new Map<string, { name: string; applications: number }>();
   for (const log of logs) {
-    if (log.type !== 'technique_applied') continue;
+    if (log.type !== 'technique_applied' || isRecoveryPrincipleApplication(log)) continue;
     const choice = configuredChoiceFor(log, choices);
     const key = techniqueIdentity(log, choice);
     const name = choice?.name ?? log.technique?.trim() ?? 'Technique';
@@ -128,7 +129,7 @@ export function buildTechniquePracticeStats(
 ): { techniques: TechniquePractice[]; lawCounts: { id: string; count: number }[] } {
   const groups = new Map<string, { choice?: InsightTechniqueChoice; applications: BehaviorLog[] }>();
   for (const log of applicationLogs) {
-    if (log.type !== 'technique_applied') continue;
+    if (log.type !== 'technique_applied' || isRecoveryPrincipleApplication(log)) continue;
     const choice = configuredChoiceFor(log, metadataChoices);
     const key = techniqueIdentity(log, choice);
     const group = groups.get(key) ?? { choice, applications: [] };
@@ -169,6 +170,7 @@ export function buildTechniquePracticeStats(
     return {
       key,
       name: choice?.name ?? applications[0].technique?.trim() ?? 'Technique',
+      detail: choice?.detail ?? choice?.example ?? choice?.description,
       techniqueId: choice?.techniqueId ?? applications.find(log => log.techniqueId)?.techniqueId,
       variationId: choice?.variationId ?? applications.find(log => log.variationId)?.variationId,
       laws,
@@ -257,7 +259,7 @@ export function buildSuggestedExperiment(logs: BehaviorLog[], allLogs: BehaviorL
 
   const relevant = relevantChoices(focus.name, choices);
   const triggerUses = (choice: InsightTechniqueChoice) => logs.filter(log =>
-    log.type === 'technique_applied' && log.trigger?.trim() === focus.name && matchesInsightTechnique(log, choice),
+    log.type === 'technique_applied' && !isRecoveryPrincipleApplication(log) && log.trigger?.trim() === focus.name && matchesInsightTechnique(log, choice),
   ).length;
   const technique = relevant.sort((a, b) => (triggerUses(a) > 0 ? 1 : 0) - (triggerUses(b) > 0 ? 1 : 0)
     || triggerUses(a) - triggerUses(b) || a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }))[0];
@@ -291,7 +293,7 @@ export function buildStrategyGap(
   const missingLaw = laws.find(law => !configuredChoices.some(choice => choice.laws.includes(law.id)));
   if (missingLaw) return { title: 'Strategy gap', description: `No ${missingLaw.break} technique is configured for this habit.` };
 
-  const hasTechniqueUse = logs.some(log => log.type === 'technique_applied');
+  const hasTechniqueUse = logs.some(log => log.type === 'technique_applied' && !isRecoveryPrincipleApplication(log));
   if (configuredChoices.length && !hasTechniqueUse) {
     return { title: 'Practice gap', description: 'No configured technique was recorded as practiced during this period.' };
   }

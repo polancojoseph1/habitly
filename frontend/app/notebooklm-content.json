@@ -1,5 +1,5 @@
 {
-  "flowPlan": "The onboarding/creation funnel is structured into four sequential steps matching the Four Stages of the Habit Loop and the Four Laws of Behavior Change. Tapping any law banner or technique card opens a dedicated detail modal with instructional guidance, practical steps, examples, and source references.\n\n```\n[Step 1: Cue] ──> [Step 2: Craving] ──> [Step 3: Response] ──> [Step 4: Reward]\n```\n\n1. **Step 1: The Cue (Make It Obvious / Inversion: Make It Invisible)**\n   * **Heading:** Step 1: Design Your Cue\n   * **Helper Text:** Every habit starts with a prompt. Specify when and where you will act, or anchor your new habit to an existing routine. If breaking a bad habit, identify how you will cut exposure to the trigger.\n   * **Relevant Techniques:** *Build:* Pointing-and-Calling, Implementation Intentions, Habit Stacking, Environment Design, Habit Stacking + Temptation Bundling, Motivation Ritual, Prime the Environment, Habit Automation, Habit Stacking + Habit Tracking. *Break:* Pointing-and-Calling, Implementation Intentions, Habit Stacking, Reduce Exposure to Cues, Master the Decisive Moment, Habit Automation, Habit Stacking + Habit Tracking.\n   * **User Input Fields:**\n     * Cue Trigger Type selection (Time & Location, Existing Habit, or Environmental Anchor).\n     * Prompt definition: *\"When / After [Trigger], I will...\"*.\n     * Context/Location: Physical space or activity zone.\n     * Bad Habit Inversion toggle: *\"I am cutting out or hiding this cue\"*.\n\n2. **Step 2: The Craving (Make It Attractive / Inversion: Make It Unattractive)**\n   * **Heading:** Step 2: Spark the Craving\n   * **Helper Text:** Habits require motivation and anticipation to take root. Connect your behavior to an anticipated reward, an enjoyable ritual, or a supportive culture. If breaking a habit, highlight the downsides to make it unattractive.\n   * **Relevant Techniques:** *Build:* Temptation Bundling, Habit Stacking + Temptation Bundling, Imitate Group Norms, Motivation Ritual. *Break:* Imitate Group Norms, Reframe Your Mindset.\n   * **User Input Fields:**\n     * \"Habit I Want\" pairing (Temptation bundle).\n     * Pre-game / Motivation ritual selection (e.g., deep breaths, specific music, physical warm-up).\n     * Mindset reframe statement: *\"I don't 'have to'; I 'get to'...\"* or *\"Avoiding this benefits me by...\"*.\n     * Community/Tribe affiliation selection.\n\n3. **Step 3: The Response (Make It Easy / Inversion: Make It Difficult)**\n   * **Heading:** Step 3: Streamline the Action\n   * **Helper Text:** The easier an action is, the less friction there is between you and completion. Downscale your habit to a two-minute entry point to master showing up. If breaking a bad habit, increase friction to make it impractical.\n   * **Relevant Techniques:** *Build:* Habit Stacking, Reduce Friction, Prime the Environment, Master the Decisive Moment, Two-Minute Rule, Habit Shaping, Habit Automation, Commitment Device, Never Miss Twice. *Break:* Habit Stacking, Master the Decisive Moment, Habit Automation, Increase Friction, Commitment Device, Never Miss Twice.\n   * **User Input Fields:**\n     * The Full Habit Description.\n     * The 2-Minute Gateway Habit version (scaled down).\n     * Friction optimization checklist (e.g., layout prep, digital blockers, preset supplies).\n     * Decisive moment fork identification.\n\n4. **Step 4: The Reward (Make It Satisfying / Inversion: Make It Unsatisfying)**\n   * **Heading:** Step 4: Seal with Immediate Satisfaction\n   * **Helper Text:** What is immediately rewarded is repeated. Reinforce your success instantly with visual progress or identity-aligned treats. If breaking a habit, create immediate costs or accountability.\n   * **Relevant Techniques:** *Build:* Temptation Bundling, Commitment Device, Immediate Reinforcement, Habit Tracking, Habit Stacking + Habit Tracking, Never Miss Twice, Accountability Partner, Habit Contract. *Break:* Commitment Device, Make Restraint Enjoyable, Habit Tracking, Habit Stacking + Habit Tracking, Never Miss Twice, Accountability Partner, Habit Contract.\n   * **User Input Fields:**\n     * Immediate Reinforcement reward (aligned with desired identity).\n     * Habit Tracker setup toggle (Calendar streak, visual counter).\n     * Accountability partner contact / Habit Contract terms & penalty.\n     * \"Avoidance Account\" rule (for breaking habits).\n\n---",
+  "flowPlan": "The onboarding/creation funnel is structured into four sequential steps matching the Four Stages of the Habit Loop and the Four Laws of Behavior Change. Tapping any law banner or technique card opens a dedicated detail modal with instructional guidance, practical steps, examples, and source references.\n\n```\n[Step 1: Cue] ──> [Step 2: Craving] ──> [Step 3: Response] ──> [Step 4: Reward]\n```\n\n1. **Step 1: The Cue (Make It Obvious / Inversion: Make It Invisible)**\n   * **Heading:** Step 1: Design Your Cue\n   * **Helper Text:** Every habit starts with a prompt. Specify when and where you will act, or anchor your new habit to an existing routine. If breaking a bad habit, identify how you will cut exposure to the trigger.\n   * **Relevant Techniques:** *Build:* Pointing-and-Calling, Implementation Intentions, Habit Stacking, Environment Design, Habit Stacking + Temptation Bundling, Motivation Ritual, Prime the Environment, Habit Automation, Habit Stacking + Habit Tracking. *Break:* Pointing-and-Calling, Implementation Intentions, Habit Stacking, Reduce Exposure to Cues, Master the Decisive Moment, Habit Automation, Habit Stacking + Habit Tracking.\n   * **User Input Fields:**\n     * Cue Trigger Type selection (Time & Location, Existing Habit, or Environmental Anchor).\n     * Prompt definition: *\"When / After [Trigger], I will...\"*.\n     * Context/Location: Physical space or activity zone.\n     * Bad Habit Inversion toggle: *\"I am cutting out or hiding this cue\"*.\n\n2. **Step 2: The Craving (Make It Attractive / Inversion: Make It Unattractive)**\n   * **Heading:** Step 2: Spark the Craving\n   * **Helper Text:** Habits require motivation and anticipation to take root. Connect your behavior to an anticipated reward, an enjoyable ritual, or a supportive culture. If breaking a habit, highlight the downsides to make it unattractive.\n   * **Relevant Techniques:** *Build:* Temptation Bundling, Habit Stacking + Temptation Bundling, Imitate Group Norms, Motivation Ritual. *Break:* Imitate Group Norms, Reframe Your Mindset.\n   * **User Input Fields:**\n     * \"Habit I Want\" pairing (Temptation bundle).\n     * Pre-game / Motivation ritual selection (e.g., deep breaths, specific music, physical warm-up).\n     * Mindset reframe statement: *\"I don't 'have to'; I 'get to'...\"* or *\"Avoiding this benefits me by...\"*.\n     * Community/Tribe affiliation selection.\n\n3. **Step 3: The Response (Make It Easy / Inversion: Make It Difficult)**\n   * **Heading:** Step 3: Streamline the Action\n   * **Helper Text:** The easier an action is, the less friction there is between you and completion. Downscale your habit to a two-minute entry point to master showing up. If breaking a bad habit, increase friction to make it impractical.\n   * **Relevant Techniques:** *Build:* Habit Stacking, Reduce Friction, Prime the Environment, Master the Decisive Moment, Two-Minute Rule, Habit Shaping, Habit Automation, Commitment Device. *Break:* Habit Stacking, Master the Decisive Moment, Habit Automation, Increase Friction, Commitment Device.\n   * **User Input Fields:**\n     * The Full Habit Description.\n     * The 2-Minute Gateway Habit version (scaled down).\n     * Friction optimization checklist (e.g., layout prep, digital blockers, preset supplies).\n     * Decisive moment fork identification.\n\n4. **Step 4: The Reward (Make It Satisfying / Inversion: Make It Unsatisfying)**\n   * **Heading:** Step 4: Seal with Immediate Satisfaction\n   * **Helper Text:** What is immediately rewarded is repeated. Reinforce your success instantly with visual progress or identity-aligned treats. If breaking a habit, create immediate costs or accountability.\n   * **Relevant Techniques:** *Build:* Temptation Bundling, Commitment Device, Immediate Reinforcement, Habit Tracking, Habit Stacking + Habit Tracking, Accountability Partner, Habit Contract. *Break:* Commitment Device, Make Restraint Enjoyable, Habit Tracking, Habit Stacking + Habit Tracking, Accountability Partner, Habit Contract.\n   * **User Input Fields:**\n     * Immediate Reinforcement reward (aligned with desired identity).\n     * Habit Tracker setup toggle (Calendar streak, visual counter).\n     * Accountability partner contact / Habit Contract terms & penalty.\n     * \"Avoidance Account\" rule (for breaking habits).\n\nRecovery principle: “Never Miss Twice” is a reminder to return to your plan at the next opportunity after a lapse; it is not a technique.\n\n---",
   "laws": {
     "cue": {
       "number": 1,
@@ -559,27 +559,6 @@
       ]
     },
     {
-      "name": "Never Miss Twice",
-      "law": "response",
-      "mode": "BUILD",
-      "cardText": "When an emergency breaks your routine, ensure you show up the very next time.",
-      "explanation": "Missing once is an accident, but missing twice is the start of a new, unwanted habit.",
-      "steps": "If you miss a day, do a scaled-down 2-minute version the next day to keep the identity alive.",
-      "example": "Doing five push-ups the morning after a missed workout to protect the streak.",
-      "source": "Chapter 16, pp. 200–202.",
-      "laws": [
-        "response",
-        "reward"
-      ],
-      "examples": [
-        "Doing five push-ups the morning after a missed workout to protect the streak.",
-        "Working out on Monday after missing Sunday, preserving your streak mindset."
-      ],
-      "sources": [
-        "Chapter 16, pp. 200–202."
-      ]
-    },
-    {
       "name": "Increase Friction",
       "law": "response",
       "mode": "BREAK",
@@ -617,27 +596,6 @@
       ],
       "sources": [
         "Chapter 14, pp. 170–171."
-      ]
-    },
-    {
-      "name": "Never Miss Twice",
-      "law": "response",
-      "mode": "BREAK",
-      "cardText": "If you succumb to a bad habit, ensure you rebound immediately on the next occasion.",
-      "explanation": "The first mistake never ruins you; it is the spiral of repeated errors that entrenches a bad habit.",
-      "steps": "Do not judge or condemn yourself; immediately re-establish your baseline routine.",
-      "example": "Eating a balanced, healthy breakfast immediately following an evening binge.",
-      "source": "Chapter 16, pp. 200–202.",
-      "laws": [
-        "response",
-        "reward"
-      ],
-      "examples": [
-        "Eating a balanced, healthy breakfast immediately following an evening binge.",
-        "Returning to your eating plan the very next meal after overindulging."
-      ],
-      "sources": [
-        "Chapter 16, pp. 200–202."
       ]
     },
     {

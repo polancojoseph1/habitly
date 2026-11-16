@@ -1,3 +1,5 @@
+import { isRecoveryPrincipleApplication } from './behavioral-logging';
+
 type DayConfirmation = { status: 'no_occurrence' | 'occurred_recorded' | 'incomplete' | 'skip' };
 
 export type OccurrenceDayEvidence = {
@@ -47,12 +49,12 @@ export function techniquePracticeNote(configuredTechniques: number, distinctTech
     : 'No technique applications recorded in this period.';
 }
 
-export type TechniqueUseRecord = { type: string; technique?: string };
+export type TechniqueUseRecord = { type: string; technique?: string; techniqueId?: string };
 
 export function techniqueApplicationsByName(logs: TechniqueUseRecord[]): [string, number][] {
   const counts = new Map<string, number>();
   logs.forEach(log => {
-    if (log.type !== 'technique_applied') return;
+    if (log.type !== 'technique_applied' || isRecoveryPrincipleApplication(log)) return;
     const name = log.technique || 'Technique';
     counts.set(name, (counts.get(name) ?? 0) + 1);
   });

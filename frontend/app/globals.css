@@ -341,7 +341,9 @@
 .period-technique-outcome-list>li{min-width:0}
 .period-technique-outcome{display:grid;gap:10px;min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-soft)}
 .period-technique-outcome>header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-width:0}
+.period-technique-outcome>header>div{display:grid;gap:4px;min-width:0}
 .period-technique-outcome>header h3{min-width:0;margin:0;color:var(--ink);font:700 14px/1.35 'Manrope',sans-serif;overflow-wrap:anywhere}
+.period-technique-action{margin:0;color:var(--muted);font-size:10px;line-height:1.45;overflow-wrap:anywhere}
 .period-technique-outcome>header>span{flex:0 0 auto;color:var(--muted);font-size:10px;text-align:right}
 .period-technique-outcome-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-width:0}
 .period-technique-outcome-grid>div{display:grid;gap:3px;min-width:0;padding:9px;border:1px solid var(--line);border-radius:9px;background:var(--surface-raised)}
@@ -1238,17 +1240,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 /* Analytics reading order and responsive detail cards. */
 .logging-insight-grid{grid-template-columns:minmax(0,1fr)}
-.logging-insight-toolbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px;padding:9px 11px;border:1px solid var(--line);border-radius:13px;background:var(--surface-raised)}
+.logging-insight-toolbar{position:relative;z-index:1;display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px;padding:9px 11px;border:1px solid var(--line);border-radius:13px;background:var(--surface-raised)}
 .logging-period-picker{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.7px}
 .logging-period-picker select{min-width:130px;min-height:40px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);color:var(--ink);font:inherit;font-size:12px;letter-spacing:normal}
 .logging-insight-filter-disclosure{flex:0 1 auto;min-width:0}
 .logging-insight-filter-disclosure>summary{display:flex;align-items:center;gap:6px;min-height:40px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);color:var(--ink);font-size:11px;font-weight:750;cursor:pointer;list-style:none}
 .logging-insight-filter-disclosure>summary::-webkit-details-marker{display:none}
 .logging-insight-filter-disclosure>summary span{color:var(--muted);font-size:9px;font-weight:600}
-.logging-insight-filter-disclosure[open]{flex-basis:100%}
-.logging-insight-filter-disclosure[open]>summary{width:100%}
 .logging-insight-filter-disclosure[open]>summary svg{transform:rotate(180deg)}
-.logging-insight-filter-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:8px;padding:11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-soft)}
+.logging-insight-filter-fields{position:absolute;z-index:30;top:calc(100% + 8px);left:0;right:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:0;padding:11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-soft);box-shadow:0 12px 32px rgba(0,0,0,.16)}
 .logging-filter-scope{grid-column:1/-1;margin:0;color:var(--muted);font-size:10px;line-height:1.45}
 .logging-insight-filter-fields label{display:grid;gap:5px;min-width:0;color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.7px}
 .logging-insight-filter-fields input,.logging-insight-filter-fields select{box-sizing:border-box;width:100%;min-width:0;max-width:100%;min-height:40px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);color:var(--ink);font:inherit;font-size:11px;letter-spacing:normal}
@@ -1271,9 +1271,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .logging-law-overview-grid>div>span{min-width:0;color:var(--muted);font-size:9px;line-height:1.3;overflow-wrap:anywhere}
 .logging-law-overview-grid>div>b{grid-column:2;grid-row:1/3;color:var(--accent-ink);font-size:18px;font-family:'Manrope',sans-serif}
 .logging-law-overview-grid>div>small{grid-column:1;color:var(--muted);font-size:8px;line-height:1.25}
-.logging-method-note{display:flex;justify-content:flex-end;margin:6px 0 2px}
-.logging-method-note details{min-width:0;color:var(--muted);font-size:9px}
-.logging-method-note summary{cursor:pointer;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--muted) 45%,transparent);text-underline-offset:2px}
+.logging-method-note{display:block;margin:6px 0 2px;text-align:right}
+.logging-method-note details{width:100%;min-width:0;color:var(--muted);font-size:9px}
+.logging-method-note summary{display:inline-flex;align-items:center;gap:4px;cursor:pointer;list-style:none;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--muted) 45%,transparent);text-underline-offset:2px}
+.logging-method-note summary::-webkit-details-marker{display:none}
+.logging-method-note summary::before{content:'▸';text-decoration:none}
+.logging-method-note details[open]>summary::before{content:'▾'}
 .logging-method-note p{max-width:560px;margin:6px 0 0 auto;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);font-size:10px;line-height:1.5}
 .logging-technique-cards{display:grid;gap:7px;margin:8px 0}
 .logging-technique-card{min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:12px;background:var(--surface-soft)}
@@ -1285,6 +1288,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .logging-technique-card-title,.logging-technique-effectiveness{display:grid;gap:3px;min-width:0}
 .logging-technique-card-title b{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
 .logging-technique-card-title small,.logging-technique-effectiveness small{color:var(--muted);font-size:9px;line-height:1.35;overflow-wrap:anywhere}
+.logging-technique-card-title .logging-technique-detail{color:var(--ink);font-size:10px;font-weight:500;line-height:1.4}
 .logging-technique-effectiveness{text-align:right}
 .logging-technique-effectiveness b{color:var(--ink);font-size:10px;line-height:1.4;overflow-wrap:anywhere}
 .logging-technique-card-body{display:grid;gap:10px;padding:11px 12px}
