@@ -639,8 +639,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .complete-button { flex: 0 0 auto; min-height: 36px; height: auto; border-radius: 10px; background: var(--accent-soft); border-color: transparent; color: var(--accent-ink); font-size: 12px; }
 .complete-button:hover { background: #dedaff; }
 .complete-button-done { background: #e8e6f3; color: #615c85; }
-.habit-card-foot { width: 100%; min-width: 0; display: flex; flex-wrap: wrap; gap: 8px 13px; margin-top: 14px; padding: 11px 0; border-color: var(--line); }
+.habit-card-foot { width: 100%; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 13px; margin-top: 14px; padding: 11px 0; border-color: var(--line); }
 .habit-card-foot>span:first-child { max-width: 100%; color: var(--muted); font-size: 11px; white-space: normal; }
+.habit-card-foot>.complete-button { margin-left: auto; }
+.habit-card-foot>.quiet-button { margin-left: 0; }
 .habit-why { min-width: 0; flex: 1 1 150px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 .quiet-button { flex: 0 0 auto; color: var(--muted); font-size: 11px; }
 .prep-inline { min-width: 0; width: 100%; margin: 0 0 12px; padding: 10px; background: var(--surface-soft); color: var(--muted); font-size: 11px; }
@@ -1059,21 +1061,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 
 .today-heading-actions{display:flex;align-items:center;gap:18px}
 .today-heading-actions a{display:inline-flex;align-items:center;gap:6px;color:var(--accent-ink);font-size:12px;font-weight:700;text-decoration:none}
-.today-quick-card{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:start;gap:13px;width:100%;padding:15px 16px;border:1px solid var(--line);border-radius:13px;background:var(--surface-raised);box-shadow:var(--shadow)}
+.today-quick-card{display:grid;grid-template-columns:24px minmax(0,1fr) 36px;align-items:start;gap:13px;width:100%;padding:15px 16px;border:1px solid var(--line);border-radius:13px;background:var(--surface-raised);box-shadow:var(--shadow)}
 .today-quick-card-done{background:color-mix(in srgb,var(--surface-raised) 88%,var(--accent-soft))}
 .today-quick-check{display:grid;place-items:center;width:23px;height:23px;margin-top:2px;border:1.5px solid var(--line);border-radius:7px;background:transparent;color:#fff;cursor:pointer}
 .today-quick-check.checked{border-color:#6256c8;background:#6256c8}
-.today-quick-main{min-width:0}
+.today-quick-main{grid-column:2;grid-row:1;min-width:0}
 .today-quick-title{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .today-quick-title h3{margin:0;color:var(--ink);font:700 15px/1.35 'Manrope',sans-serif}
 .today-quick-cue,.today-quick-action{display:flex;align-items:flex-start;gap:6px;margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
 .today-quick-cue svg{flex:0 0 auto;margin-top:2px;color:var(--accent-ink)}
 .today-quick-action{display:grid;grid-template-columns:72px minmax(0,1fr);gap:0 6px;color:var(--muted)}
 .today-quick-action span{align-self:center;width:72px;color:var(--accent-ink);font-size:9px;font-weight:800;letter-spacing:.07em}
-.today-quick-side{display:grid;grid-column:3;grid-row:1;justify-items:end;gap:7px}
+.today-quick-side{display:flex;grid-column:2/-1;grid-row:2;align-items:center;justify-content:space-between;gap:10px;min-width:0;margin-top:4px}
 .today-quick-side>span{display:flex;align-items:center;gap:4px;color:var(--muted);font-size:10px;white-space:nowrap}
 .today-quick-side>span svg{color:#c6945e}
-.today-law-details{grid-column:2/-1;grid-row:2;min-width:0;margin-top:0}
+.today-law-details{grid-column:2/-1;grid-row:3;min-width:0;margin-top:0}
 .today-law-details summary{display:flex;align-items:center;gap:7px;width:max-content;color:var(--accent-ink);font-size:11px;font-weight:700;cursor:pointer;list-style:none}
 .today-law-details summary::-webkit-details-marker{display:none}
 .today-law-details summary:after{content:'+';font-size:14px}
@@ -1109,6 +1111,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .habit-sort-label select{min-height:36px;padding:0 28px 0 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-raised);color:var(--ink);font:inherit;font-weight:600}
 .today-quick-mark{display:grid;place-items:center;width:23px;height:23px;margin-top:2px;border:1px solid var(--line);border-radius:7px;color:var(--accent-ink);background:var(--surface-soft)}
 .today-quick-mark.checked{border-color:var(--accent-ink);background:var(--accent-ink);color:#fff}
+.today-quick-card>.today-quick-mark{grid-column:1;grid-row:1}
+.today-quick-card>.habit-manage-menu{grid-column:3;grid-row:1;justify-self:end;margin:-4px -4px 0 0}
+.today-quick-card-break .today-quick-side{justify-content:flex-end}
 .today-quick-complete,.today-quick-break-actions button{min-height:32px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface-soft);color:var(--accent-ink);font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer}
 .today-quick-complete:hover,.today-quick-break-actions button:hover{border-color:var(--accent-ink);background:var(--accent-soft)}
 .today-quick-break-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
@@ -1120,52 +1125,24 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-choice-menu .today-quick-break-actions{position:absolute;z-index:5;right:0;top:calc(100% + 5px);display:grid;gap:4px;min-width:160px;padding:6px;border:1px solid var(--line);border-radius:10px;background:var(--surface-raised);box-shadow:0 8px 24px rgba(0,0,0,.25)}
 .today-choice-menu .today-quick-break-actions button{min-height:40px;text-align:left}
 @media(max-width:600px){
-  .today-quick-card .today-law-details{grid-column:1/-1}
+  .today-quick-card .today-law-details{grid-column:1/-1;grid-row:3}
   .today-quick-card .today-law-details summary{margin-left:34px}
   .today-law-details>.today-law-list{grid-template-columns:minmax(0,1fr)}
   .today-section-heading{align-items:center}
   .today-list-actions{align-items:flex-end;flex-direction:column;gap:7px}
   .today-quick-break-actions{justify-content:flex-start}
-  .today-quick-side{justify-items:start;flex-wrap:wrap;gap:7px 10px}
-  .today-quick-side>span{white-space:normal}
+  .today-quick-side{flex-wrap:wrap;gap:7px 10px}
 }
 
 /* Keep break-habit cards readable on narrow screens. */
 @media(max-width:600px){
-  .today-quick-card-break{
-    grid-template-columns:24px minmax(0,1fr);
-    column-gap:13px;
-    row-gap:8px;
-  }
-  .today-quick-card-break .today-quick-main{
-    grid-column:2;
-    min-width:0;
-  }
   .today-quick-card-break .today-quick-side{
-    grid-column:2;
-    grid-row:2;
-    display:grid;
-    justify-self:end;
-    justify-items:end;
-    z-index:2;
-    gap:7px;
-    min-width:0;
-  }
-  .today-quick-card-break .today-quick-side>span{
-    flex:0 0 auto;
-    white-space:nowrap;
+    justify-content:flex-end;
   }
   .today-quick-card-break .today-quick-break-actions button{
     padding-inline:8px;
   }
-  .today-quick-card-break .today-law-details{
-    grid-column:1/-1;
-    grid-row:2;
-  }
   .today-quick-card-break .today-law-details>summary{min-height:36px}
-}
-@media(max-width:370px){
-  .today-quick-card-break .today-quick-side{grid-row:3;justify-self:start}
 }
 
 /* Modal overlays live at the document root so scrolling the page cannot move them. */
@@ -1373,13 +1350,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @media (max-width: 600px) {
   .content-wrap { padding-right: clamp(16px, 5vw, 20px); padding-left: clamp(16px, 5vw, 20px); }
 }
-.today-quick-title,
-.habit-title-line {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 36px;
-  align-items: start;
-  gap: 4px 8px;
-}
+.today-quick-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .habit-title-copy {
   display: flex;
   align-items: center;
@@ -1393,11 +1364,4 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .toast-undo-button { margin-left: auto; padding: 6px 3px; border: 0; background: transparent; color: #c7c3f2; font: inherit; font-weight: 700; cursor: pointer; }
 .toast-undo-button:hover { color: #fff; }
 .toast-undo-button:focus-visible { outline: 2px solid #c7c3f2; outline-offset: 3px; border-radius: 3px; }
-.today-quick-title > .habit-manage-menu,
-.habit-title-line > .habit-manage-menu {
-  grid-column: 2;
-  grid-row: 1;
-  justify-self: end;
-  align-self: start;
-  margin: 0;
-}
+.habit-card-top > .habit-manage-menu { margin: -4px -4px 0 0; }
