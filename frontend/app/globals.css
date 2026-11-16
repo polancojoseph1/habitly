@@ -1203,6 +1203,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .logging-clear-filters{grid-column:1/-1;display:flex;align-items:center;justify-content:center;justify-self:start;width:max-content;min-width:138px;min-height:42px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);color:var(--accent-ink);text-align:center}
 .logging-time-blocks>div,.logging-weekday-grid>div{min-width:0;text-align:center}
 .logging-time-blocks b,.logging-time-blocks span,.logging-time-blocks small,.logging-weekday-grid b,.logging-weekday-grid span,.logging-weekday-grid small{max-width:100%;overflow-wrap:anywhere;text-align:center}
+
+/* Keep every dialog inset so the backdrop stays available for dismissal. */
+.modal-backdrop{
+  align-items:center;
+  justify-content:center;
+  padding:max(24px,env(safe-area-inset-top)) max(env(safe-area-inset-right),clamp(24px,5vw,40px)) max(24px,env(safe-area-inset-bottom)) max(env(safe-area-inset-left),clamp(24px,5vw,40px));
+}
+.modal-backdrop>.builder-modal,.modal-backdrop>.identity-modal{
+  margin:0;
+  max-height:calc(100vh - max(24px,env(safe-area-inset-top)) - max(24px,env(safe-area-inset-bottom)));
+  max-height:calc(100dvh - max(24px,env(safe-area-inset-top)) - max(24px,env(safe-area-inset-bottom)));
+}
+.period-technique-modal{width:min(100%,600px)}
+.info-modal-backdrop .learning-modal{
+  max-height:calc(100vh - max(24px,env(safe-area-inset-top)) - max(24px,env(safe-area-inset-bottom)));
+  max-height:calc(100dvh - max(24px,env(safe-area-inset-top)) - max(24px,env(safe-area-inset-bottom)));
+}
 .anti-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px}
 .anti-stats span{line-height:1.35;overflow-wrap:anywhere}
 .breadcrumb-home{padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
