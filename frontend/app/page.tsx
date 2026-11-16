@@ -1153,7 +1153,7 @@ export default function Home() {
       return <article key={habit.id} className={`today-quick-card ${habit.completed ? 'today-quick-card-done' : ''} ${isBuild ? '' : 'today-quick-card-break'}`}>
         <span className={`today-quick-mark ${isBuild && habit.completed ? 'checked' : ''}`} aria-hidden="true">{isBuild && habit.completed ? <Icon name="check" size={15}/> : <Icon name="spark" size={15}/>}</span>
         <div className="today-quick-main">
-          <div className="today-quick-title"><h3>{habit.name}</h3>{!isBuild && <span className="today-choice-count">{helpfulChoices} helpful choice{helpfulChoices === 1 ? '' : 's'}</span>}{habit.missedYesterday && !habit.completed && <span className="recovery-pill">Recovery day</span>}</div>
+          <div className="today-quick-title"><h3>{habit.name}</h3>{!isBuild && <span className="today-choice-count">{helpfulChoices} helpful choice{helpfulChoices === 1 ? '' : 's'}</span>}{habit.missedYesterday && !habit.completed && <span className="recovery-pill">Recovery day</span>}{renderHabitActions(habit)}</div>
           <p className="today-quick-action"><span>{isBuild ? `${habit.gatewayMinutes || 2}-MIN START` : 'TRY INSTEAD'}</span>{actionSummary}</p>
         </div>
         <div className="today-quick-side">
@@ -1182,13 +1182,13 @@ export default function Home() {
         <span><Icon name="flame" size={14}/>{streak.hasHistory ? streak.count : habit.streak} day chain{streak.warning && !habit.completed ? ' · recover today' : ''}</span>
         <button className="quiet-button" onClick={() => markMissed(habit)}>Mark missed</button>
       </div>
+      {renderHabitActions(habit)}
       <details className="habit-plan-details"><summary>Plan details, check-ins & settings</summary>
         {habit.kind === 'BUILD' && <section className="duration-tracker" aria-label={`Practice minutes for ${habit.name}`}>
           <div className="duration-tracker-heading"><div><b>Practice minutes</b><p>Current starter target: {habit.gatewayMinutes || 2} minutes</p></div><span>{events.reduce((total, event) => total + (event.actualMinutes ?? 0), 0)} min tracked</span></div>
           <div className="duration-tracker-controls"><label>Minutes this session<input type="number" min="1" max="1440" step="1" value={durationDrafts[habit.id] ?? (habit.gatewayMinutes || 2)} onChange={e => setDurationDrafts(current => ({ ...current, [habit.id]: e.target.value === '' ? 0 : Number(e.target.value) }))}/></label><button type="button" className="secondary-button" onClick={() => logHabitMinutes(habit)}>Log session</button><label>Next target<input type="number" min="1" max="1440" step="1" value={targetDrafts[habit.id] ?? (habit.gatewayMinutes || 2)} onChange={e => setTargetDrafts(current => ({ ...current, [habit.id]: e.target.value === '' ? 0 : Number(e.target.value) }))}/></label><button type="button" className="text-button" onClick={() => { const target = targetDrafts[habit.id] ?? (habit.gatewayMinutes || 2); if (Number.isInteger(target) && target >= 1 && target <= 1440) void updateHabitDuration(habit, target); else setToast('Choose a target from 1 to 1,440 minutes.'); }}>Update target</button></div>
           <small>Start small, log what you actually did, and raise the target whenever you feel ready.</small>
         </section>}
-        {renderHabitActions(habit)}
         {habit.motive && <p className="habit-why">Why it matters: {habit.motive}</p>}
         {habit.ritual && <p className="habit-ritual"><span>BEFORE YOU START</span> {habit.ritual}</p>}
         {!!habit.prep && <div className="prep-inline"><label><input type="checkbox" checked={!!preppedHabits[habit.id]} onChange={e => setHabitPrep(habit.id, e.target.checked)}/><span><b>Tonight's setup</b> · {habit.prep}</span></label><span className="prep-label">{preppedHabits[habit.id] ? 'Ready' : 'PREP'}</span></div>}

@@ -878,6 +878,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .habit-manage-actions button:hover { border-color: var(--accent-ink); color: var(--accent-ink); }
 .habit-manage-actions .habit-delete-action { color: #c36c75; }
 .habit-manage-actions .habit-delete-action:hover { color: #e58790; border-color: #c36c75; }
+.habit-card > .habit-manage-actions { margin: 0 0 10px 43px; }
+.today-quick-title .habit-manage-actions { margin: 0 0 0 auto; gap: 5px; }
+.today-quick-title .habit-manage-actions button { min-height: 40px; padding: 4px 10px; font-size: 12px; }
 .anti-card-top .habit-manage-actions { margin: 0 0 0 auto; }
 .delete-habit-backdrop { z-index: 100; }
 .delete-habit-modal { margin: 0; }
