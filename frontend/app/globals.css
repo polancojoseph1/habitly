@@ -242,9 +242,18 @@
 .logging-weekday-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;margin:9px 0 12px}
 .logging-law-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:13px 0}
 .logging-law-grid article{min-width:0;padding:11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-soft)}
+.logging-law-grid{align-items:stretch}
+.logging-law-grid article{display:flex;flex-direction:column;height:100%}
+.logging-law-title{display:block;min-height:2.7em;line-height:1.35}
+.logging-law-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:8px}
+.logging-law-metrics>div{display:grid;gap:2px;min-width:0;padding:7px;border-radius:8px;background:var(--surface-raised)}
+.logging-law-metrics b{color:var(--ink);font:700 16px 'Manrope',sans-serif}
+.logging-law-metrics span{color:var(--muted);font-size:8px;font-weight:800;letter-spacing:.45px;text-transform:uppercase}
+.logging-law-grid article>.logging-law-applications{display:block;margin-top:8px;color:var(--muted);font-size:9px;line-height:1.4}
 .logging-law-grid article>b,.logging-law-grid article>small{display:block;margin-top:7px;color:var(--ink);font-size:10px;line-height:1.4}
 .logging-law-grid article>small,.logging-law-grid li span{color:var(--muted)}
 .logging-law-grid ul{display:grid;gap:5px;padding-left:15px;margin:9px 0 0;color:var(--muted);font-size:9px;line-height:1.4}
+.logging-law-grid li span{display:block;margin-top:2px;font-size:8px;letter-spacing:.25px;text-transform:uppercase}
 .logging-law-grid article>p{font-size:10px;color:var(--muted)}
 .logging-technique-table,.logging-weekly-grid{width:100%;overflow-x:auto}
 .logging-table-header,.logging-technique-table article,.logging-week-row{display:grid;grid-template-columns:minmax(135px,1.2fr) minmax(110px,.9fr) minmax(175px,1.4fr) minmax(150px,1fr);gap:10px;align-items:start;min-width:660px;padding:10px;border-bottom:1px solid var(--line)}
