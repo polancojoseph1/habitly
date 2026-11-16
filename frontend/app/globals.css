@@ -1388,6 +1388,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   min-width: 0;
 }
 .habit-title-copy h3 { min-width: 0; overflow-wrap: anywhere; }
+.toast-message.toast-habit-delete { width: min(560px, calc(100vw - 32px)); justify-content: flex-start; gap: 10px; }
+.toast-delete-copy { min-width: 0; }
+.toast-undo-button { margin-left: auto; padding: 6px 3px; border: 0; background: transparent; color: #c7c3f2; font: inherit; font-weight: 700; cursor: pointer; }
+.toast-undo-button:hover { color: #fff; }
+.toast-undo-button:focus-visible { outline: 2px solid #c7c3f2; outline-offset: 3px; border-radius: 3px; }
 .today-quick-title > .habit-manage-menu,
 .habit-title-line > .habit-manage-menu {
   grid-column: 2;

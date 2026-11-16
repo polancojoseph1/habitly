@@ -24,6 +24,7 @@ type Habit = {
   ritual?: string; milestones?: string[]; milestoneIndex?: number; accountabilityPartner?: string; accountabilityEmail?: string; accountabilityCost?: string; inviteLink?: string;
   techniqueIds?: string[]; techniqueNotes?: Record<string, string>; baselineDaily?: number;
 };
+type PendingHabitDeletion = { id: string; habit: Habit; restoreBeforeId?: string };
 type HabitEvent = { id: string; habitId: string; type: 'ACTION_COMPLETED' | 'URGE_PASSED' | 'REPLACEMENT_USED' | 'OLD_HABIT'; at: string; note?: string; actualMinutes?: number; strategy?: string; variationId?: string; variationName?: string };
 type HabitVariation = { id: string; habitId: string; law: Law; name: string; techniqueId?: string; setup: string; isActive: boolean; triedAt?: string; helped?: boolean | null; outcomeNote?: string; createdAt: string };
 type ScorecardEntry = { id: string; behavior: string; rating: '+' | '-' | '=' };
@@ -252,12 +253,14 @@ export default function Home() {
   const [checkinNotes, setCheckinNotes] = useState<Record<string, string>>({});
   const [hydrated, setHydrated] = useState(false);
   const [toast, setToast] = useState('');
+  const [pendingHabitDeletions, setPendingHabitDeletions] = useState<PendingHabitDeletion[]>([]);
+  const pendingHabitDeletionsRef = useRef<PendingHabitDeletion[]>([]);
+  const pendingHabitDeletionTimers = useRef(new Map<string, number>());
   const [showBuilder, setShowBuilder] = useState(false);
   const [builderReturnTo, setBuilderReturnTo] = useState<Tab>('Today');
   const [infoModal, setInfoModal] = useState<{ type: 'law'; law: Law; mode?: 'BUILD' | 'BREAK' } | { type: 'technique'; id: string; mode?: 'BUILD' | 'BREAK' } | { type: 'suggested'; index: number } | null>(null);
   const [editingHabitId, setEditingHabitId] = useState('');
   const [habitToDelete, setHabitToDelete] = useState<Habit | null>(null);
-  const [deletingHabit, setDeletingHabit] = useState(false);
   const [showIdentity, setShowIdentity] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
   const [habitType, setHabitType] = useState<'BUILD' | 'BREAK'>('BUILD');
@@ -546,6 +549,11 @@ export default function Home() {
     const timer = window.setTimeout(() => setToast(''), 3200);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => () => {
+    pendingHabitDeletionTimers.current.forEach(timer => window.clearTimeout(timer));
+    pendingHabitDeletionTimers.current.clear();
+  }, []);
 
   useEffect(() => {
     if (!hydrated || !apiUrl) return;
@@ -885,21 +893,80 @@ export default function Home() {
     if (removing) setTechniqueNotes(current => Object.fromEntries(Object.entries(current).filter(([key]) => key !== id && !key.endsWith(`:${id}`))));
   }
 
-  async function deleteHabit(habit: Habit) {
-    if (deletingHabit) return;
-    setDeletingHabit(true);
-    const localOnly = habit.id.startsWith('demo-') || habit.id.startsWith('habit-');
+  function updatePendingHabitDeletions(next: PendingHabitDeletion[]) {
+    pendingHabitDeletionsRef.current = next;
+    setPendingHabitDeletions(next);
+  }
+
+  function restorePendingHabitDeletion(deletion: PendingHabitDeletion) {
+    setHabits(current => {
+      if (current.some(item => item.id === deletion.habit.id)) return current;
+      let beforeId = deletion.restoreBeforeId;
+      const visited = new Set<string>();
+      while (beforeId && !current.some(item => item.id === beforeId) && !visited.has(beforeId)) {
+        visited.add(beforeId);
+        beforeId = pendingHabitDeletionsRef.current.find(item => item.habit.id === beforeId)?.restoreBeforeId;
+      }
+      const restored = [...current];
+      const beforeIndex = beforeId ? restored.findIndex(item => item.id === beforeId) : -1;
+      restored.splice(beforeIndex >= 0 ? beforeIndex : restored.length, 0, deletion.habit);
+      return restored;
+    });
+  }
+
+  async function finalizeHabitDeletion(deletionId: string) {
+    const deletion = pendingHabitDeletionsRef.current.find(item => item.id === deletionId);
+    if (!deletion) return;
+    pendingHabitDeletionTimers.current.delete(deletionId);
+    updatePendingHabitDeletions(pendingHabitDeletionsRef.current.filter(item => item.id !== deletionId));
+    const localOnly = deletion.habit.id.startsWith('demo-') || deletion.habit.id.startsWith('habit-');
     if (!localOnly) {
-      if (!apiUrl || !remoteIdentityId) { setToast('Connect your account to delete this habit.'); setDeletingHabit(false); return; }
+      if (!apiUrl || !remoteIdentityId) {
+        restorePendingHabitDeletion(deletion);
+        setToast('Connect your account to delete this habit.');
+        return;
+      }
       try {
-        const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits/${habit.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: false }) });
+        const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits/${deletion.habit.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: false }) });
         if (!response.ok) throw new Error('Delete failed');
-      } catch { setToast('Could not delete this habit. Please try again.'); setDeletingHabit(false); return; }
+      } catch {
+        restorePendingHabitDeletion(deletion);
+        setToast('Could not delete this habit. It has been restored.');
+        return;
+      }
     }
+  }
+
+  function deleteHabit(habit: Habit) {
+    const localOnly = habit.id.startsWith('demo-') || habit.id.startsWith('habit-');
+    if (!localOnly && (!apiUrl || !remoteIdentityId)) {
+      setHabitToDelete(null);
+      setToast('Connect your account to delete this habit.');
+      return;
+    }
+    const habitIndex = habits.findIndex(item => item.id === habit.id);
+    const deletion: PendingHabitDeletion = {
+      id: `${habit.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      habit,
+      restoreBeforeId: habits[habitIndex + 1]?.id,
+    };
+    updatePendingHabitDeletions([...pendingHabitDeletionsRef.current, deletion]);
     setHabits(current => current.filter(item => item.id !== habit.id));
     setHabitToDelete(null);
-    setDeletingHabit(false);
-    setToast('Habit removed.');
+    setToast('');
+    const timer = window.setTimeout(() => void finalizeHabitDeletion(deletion.id), 7000);
+    pendingHabitDeletionTimers.current.set(deletion.id, timer);
+  }
+
+  function undoHabitDeletion(deletionId: string) {
+    const deletion = pendingHabitDeletionsRef.current.find(item => item.id === deletionId);
+    if (!deletion) return;
+    const timer = pendingHabitDeletionTimers.current.get(deletionId);
+    if (timer !== undefined) window.clearTimeout(timer);
+    pendingHabitDeletionTimers.current.delete(deletionId);
+    updatePendingHabitDeletions(pendingHabitDeletionsRef.current.filter(item => item.id !== deletionId));
+    restorePendingHabitDeletion(deletion);
+    setToast('Habit deletion undone.');
   }
 
   function renderHabitActions(habit: Habit) {
@@ -1171,9 +1238,10 @@ export default function Home() {
       return <article key={habit.id} className={`today-quick-card ${habit.completed ? 'today-quick-card-done' : ''} ${isBuild ? '' : 'today-quick-card-break'}`}>
         <span className={`today-quick-mark ${isBuild && habit.completed ? 'checked' : ''}`} aria-hidden="true">{isBuild && habit.completed ? <Icon name="check" size={15}/> : <Icon name="spark" size={15}/>}</span>
         <div className="today-quick-main">
-          <div className="today-quick-title"><div className="habit-title-copy"><h3>{habit.name}</h3>{!isBuild && <span className="today-choice-count">{helpfulChoices} helpful choice{helpfulChoices === 1 ? '' : 's'}</span>}{habit.missedYesterday && !habit.completed && <span className="recovery-pill">Recovery day</span>}</div>{renderHabitActions(habit)}</div>
+          <div className="today-quick-title"><div className="habit-title-copy"><h3>{habit.name}</h3>{!isBuild && <span className="today-choice-count">{helpfulChoices} helpful choice{helpfulChoices === 1 ? '' : 's'}</span>}{habit.missedYesterday && !habit.completed && <span className="recovery-pill">Recovery day</span>}</div></div>
           <p className="today-quick-action"><span>{isBuild ? `${habit.gatewayMinutes || 2}-MIN START` : 'TRY INSTEAD'}</span>{actionSummary}</p>
         </div>
+        {renderHabitActions(habit)}
         <div className="today-quick-side">
           {isBuild
             ? <><span><Icon name="flame" size={13}/>{streak.hasHistory ? streak.count : habit.streak} day chain</span><button type="button" className="today-quick-complete" onClick={() => completeHabit(habit)}>{habit.completed ? 'Done' : 'I did it'}</button></>
@@ -1851,7 +1919,8 @@ export default function Home() {
     {diagnosticOpen && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setDiagnosticOpen(false); }}><section className="builder-modal diagnostic-modal" role="dialog" aria-modal="true" aria-labelledby="diagnostic-title"><header className="modal-header"><div><span className="eyebrow">ROUTINE DIAGNOSTIC · STEP {diagnosticStep + 1} OF 4</span><h2 id="diagnostic-title">Understand the loop</h2><p>Observe the behavior with curiosity before you try to change it.</p></div><button className="modal-close" onClick={() => setDiagnosticOpen(false)} aria-label="Close"><Icon name="x"/></button></header><form className="builder-form" onSubmit={saveDiagnostic}><div hidden={diagnosticStep !== 0} data-diagnostic-step="0"><label className="field-label">1. IDENTIFY THE ROUTINE<input value={diagnosticDraft.routine} onChange={e => setDiagnosticDraft(d => ({ ...d, routine: e.target.value }))} placeholder="What do you do, step by step?" required/></label><p className="form-note">Describe the action as it happens, without judging yourself.</p></div><div hidden={diagnosticStep !== 1} data-diagnostic-step="1"><label className="field-label">2. WHAT CRAVING MIGHT IT SATISFY?<input value={diagnosticDraft.craving} onChange={e => setDiagnosticDraft(d => ({ ...d, craving: e.target.value }))} placeholder="Relief, connection, stimulation, rest…" required/></label><label className="field-label">EXPERIMENT WITH THE REWARD<input value={diagnosticDraft.rewardExperiment} onChange={e => setDiagnosticDraft(d => ({ ...d, rewardExperiment: e.target.value }))} placeholder="What quick reward could meet that need?" required/></label></div><div hidden={diagnosticStep !== 2} data-diagnostic-step="2"><p className="form-note">3. ISOLATE THE CUE. What was happening just before the routine?</p><div className="field-two"><label className="field-label">TIME<input value={diagnosticDraft.cueTime} onChange={e => setDiagnosticDraft(d => ({ ...d, cueTime: e.target.value }))} placeholder="e.g. 3 PM"/></label><label className="field-label">LOCATION<input value={diagnosticDraft.cueLocation} onChange={e => setDiagnosticDraft(d => ({ ...d, cueLocation: e.target.value }))} placeholder="e.g. at my desk"/></label><label className="field-label">EMOTION<input value={diagnosticDraft.cueEmotion} onChange={e => setDiagnosticDraft(d => ({ ...d, cueEmotion: e.target.value }))} placeholder="e.g. bored or stressed"/></label><label className="field-label">PEOPLE<input value={diagnosticDraft.cuePeople} onChange={e => setDiagnosticDraft(d => ({ ...d, cuePeople: e.target.value }))} placeholder="Who was around?"/></label></div><p className="form-note">Leave any cue blank if you have not noticed it yet.</p></div><div hidden={diagnosticStep !== 3} data-diagnostic-step="3"><label className="field-label">4. MAKE A PLAN<input value={diagnosticDraft.plan} onChange={e => setDiagnosticDraft(d => ({ ...d, plan: e.target.value }))} placeholder="When I notice the cue, I’ll try…" required/></label><p className="form-note">Choose one small experiment for the next time the cue appears.</p></div><div className="modal-actions"><button type="button" className="secondary-button" onClick={() => diagnosticStep ? setDiagnosticStep(diagnosticStep - 1) : setDiagnosticOpen(false)}>{diagnosticStep ? 'Back' : 'Cancel'}</button>{diagnosticStep < 3 ? <button type="button" className="primary-button" onClick={e => { const section = e.currentTarget.closest('form')?.querySelector(`[data-diagnostic-step="${diagnosticStep}"]`); const fields = section?.querySelectorAll<HTMLInputElement>('input[required]'); for (const field of Array.from(fields ?? [])) if (!field.reportValidity()) return; setDiagnosticStep(diagnosticStep + 1); }}>Continue <Icon name="arrow" size={16}/></button> : <button className="primary-button" type="submit">Save diagnostic <Icon name="arrow" size={16}/></button>}</div></form></section></div>}
     {showIdentity && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setShowIdentity(false); }}><section className="identity-modal" role="dialog" aria-modal="true" aria-labelledby="identity-title"><button className="modal-close" onClick={() => setShowIdentity(false)} aria-label="Close"><Icon name="x"/></button><span className="identity-modal-star"><Icon name="spark" size={18}/></span><span className="eyebrow">IDENTITY BEFORE OUTCOME</span><h2 id="identity-title">Who do you want to become?</h2><p>An outcome tells you what you want. An identity gives you a direction to practice.</p><form onSubmit={saveIdentity}><label className="field-label">WHAT’S THE OUTCOME YOU’RE AFTER?<input value={goal} onChange={e => { setGoal(e.target.value); const reframe = reframeGoal(e.target.value); if (reframe) setIdentity(reframe); }} placeholder="e.g. write a book"/></label><div className="reframe-card"><span>TO MOVE TOWARD THAT, PRACTICE BEING…</span><input value={identity} onChange={e => setIdentity(e.target.value)} placeholder="e.g. The Writer"/><small>Every small action becomes a vote for this person.</small></div><button className="primary-button identity-save" type="submit">Save my identity <Icon name="arrow" size={16}/></button></form></section></div>}
     {celebrating && <div className="celebration-overlay" aria-hidden="true"><div className="celebration-spark"><Icon name="spark" size={18}/></div><div className="celebration-copy"><span>A VOTE CAST</span><b>That’s how you become<br/>{identity.toLowerCase()}.</b><small>One small action matters.</small></div><i className="confetti confetti-one"/><i className="confetti confetti-two"/><i className="confetti confetti-three"/><i className="confetti confetti-four"/><i className="confetti confetti-five"/><i className="confetti confetti-six"/></div>}
-    {toast && <div className={`toast-message${toast === 'Your new habit plan is ready.' ? ' toast-habit-added' : ''}`} role="status"><span className="toast-star"><Icon name="spark" size={18}/></span>{toast}</div>}
+    {pendingHabitDeletions.map((deletion, index) => <div className="toast-message toast-habit-delete" role="status" key={deletion.id} style={{ bottom: `${24 + (pendingHabitDeletions.length - index - 1) * 62}px` }}><span className="toast-star"><Icon name="spark" size={18}/></span><span className="toast-delete-copy">Habit removed.</span><button type="button" className="toast-undo-button" onClick={() => undoHabitDeletion(deletion.id)} aria-label={`Undo deleting ${deletion.habit.name}`}>Undo</button></div>)}
+    {toast && <div className={`toast-message${toast === 'Your new habit plan is ready.' ? ' toast-habit-added' : ''}`} role="status" style={pendingHabitDeletions.length ? { bottom: `${24 + pendingHabitDeletions.length * 62}px` } : undefined}><span className="toast-star"><Icon name="spark" size={18}/></span>{toast}</div>}
     </>, document.body)}
   </div>;
 }
