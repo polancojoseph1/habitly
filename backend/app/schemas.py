@@ -33,6 +33,7 @@ class IdentityOut(BaseModel):
 class HabitCreate(BaseModel):
     identity_id: str
     habit_type: Literal["BUILD", "BREAK"] = "BUILD"
+    display_name: str | None = Field(default=None, max_length=300)
     target_action: str = Field(min_length=1, max_length=300)
     gateway_action: str = Field(default="", max_length=300)
     gateway_minutes: int = Field(default=0, ge=0, le=1440)
@@ -78,6 +79,7 @@ class HabitOut(BaseModel):
     id: str
     identity_id: str
     habit_type: str
+    display_name: str | None
     target_action: str
     gateway_action: str
     gateway_minutes: int
@@ -195,6 +197,7 @@ class PrepUpdate(BaseModel):
 class HabitUpdate(BaseModel):
     is_active: bool | None = None
     habit_type: Literal["BUILD", "BREAK"] | None = None
+    display_name: str | None = Field(default=None, max_length=300)
     friction_votes: int | None = None
     shaping_current_step: int | None = Field(default=None, ge=0)
     target_action: str | None = Field(default=None, min_length=1, max_length=300)

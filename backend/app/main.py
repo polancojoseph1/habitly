@@ -32,7 +32,7 @@ if settings.database_url.startswith("sqlite"):
         inspector = inspect(connection)
         local_additions = {
             "users": {"password_hash": "VARCHAR(256)", "api_token_hash": "VARCHAR(64)", "telegram_chat_id": "VARCHAR(64)"},
-            "habits": {"gateway_minutes": "INTEGER NOT NULL DEFAULT 2", "cue_to_hide": "VARCHAR(300)", "friction_strategy": "VARCHAR(300)", "habit_contract": "VARCHAR(300)", "motivation_ritual": "VARCHAR(300)", "shaping_milestones": "VARCHAR(1200)", "shaping_current_step": "INTEGER NOT NULL DEFAULT 0", "accountability_partner": "VARCHAR(200)", "accountability_cost": "VARCHAR(300)", "accountability_partner_email": "VARCHAR(320)", "alternative_routine": "VARCHAR(300)", "aversion_reminder": "VARCHAR(300)", "friction_votes": "INTEGER NOT NULL DEFAULT 0", "technique_ids": "JSON", "technique_notes": "JSON", "baseline_daily": "INTEGER"},
+            "habits": {"display_name": "VARCHAR(300)", "gateway_minutes": "INTEGER NOT NULL DEFAULT 2", "cue_to_hide": "VARCHAR(300)", "friction_strategy": "VARCHAR(300)", "habit_contract": "VARCHAR(300)", "motivation_ritual": "VARCHAR(300)", "shaping_milestones": "VARCHAR(1200)", "shaping_current_step": "INTEGER NOT NULL DEFAULT 0", "accountability_partner": "VARCHAR(200)", "accountability_cost": "VARCHAR(300)", "accountability_partner_email": "VARCHAR(320)", "alternative_routine": "VARCHAR(300)", "aversion_reminder": "VARCHAR(300)", "friction_votes": "INTEGER NOT NULL DEFAULT 0", "technique_ids": "JSON", "technique_notes": "JSON", "baseline_daily": "INTEGER"},
             "habit_logs": {"environment_prepped": "BOOLEAN NOT NULL DEFAULT FALSE"},
             "habit_events": {"actual_minutes": "INTEGER", "strategy": "VARCHAR(300)", "variation_id": "VARCHAR(36)", "variation_name": "VARCHAR(160)"},
             "workspace_states": {"revision": "INTEGER NOT NULL DEFAULT 1"},
@@ -195,7 +195,7 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
         yesterday = next((log for log in logs if log.logged_date == date.today() - timedelta(days=1)), None)
         invite_token = db.scalar(select(AccountabilityInvite.token).where(AccountabilityInvite.habit_id == habit.id).order_by(AccountabilityInvite.created_at.desc()).limit(1))
         data["habits"].append({
-            "id": habit.id, "name": habit.target_action, "target": habit.target_action,
+            "id": habit.id, "name": habit.display_name or habit.target_action, "target": habit.target_action,
             "gateway": habit.gateway_action, "gatewayMinutes": habit.gateway_minutes,
             "cueType": habit.cue_type, "cue": habit.cue_trigger,
             "time": habit.cue_trigger if habit.cue_type == "TIME_LOCATION" else None,
@@ -295,7 +295,7 @@ def import_workspace(payload: dict, request: Request, db: Session = Depends(get_
             continue
         habit_ids.add(habit_id)
         db.add(Habit(
-            id=habit_id, identity_id=identity.id, habit_type=row.get("kind", "BUILD"),
+            id=habit_id, identity_id=identity.id, habit_type=row.get("kind", "BUILD"), display_name=row.get("name"),
             target_action=row.get("target") or row.get("name") or "Habit", gateway_action=row.get("gateway", ""),
             gateway_minutes=int(row.get("gatewayMinutes", 0) or 0), cue_type=row.get("cueType", "STACK"),
             cue_trigger=row.get("cue") or row.get("time") or "", location=row.get("location"),
@@ -434,7 +434,9 @@ def create_habit(payload: HabitCreate, db: Session = Depends(get_db)):
         raise HTTPException(404, "Identity not found")
     if payload.cue_type == "TIME_LOCATION" and not payload.location:
         raise HTTPException(422, "Time and location cues require a location")
-    habit = Habit(**payload.model_dump())
+    habit_data = payload.model_dump()
+    habit_data["display_name"] = payload.display_name or payload.target_action
+    habit = Habit(**habit_data)
     db.add(habit)
     db.commit()
     db.refresh(habit)

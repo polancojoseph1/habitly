@@ -47,6 +47,7 @@ class Habit(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
     identity_id: Mapped[str] = mapped_column(ForeignKey("identities.id", ondelete="CASCADE"))
     habit_type: Mapped[str] = mapped_column(String(8), default="BUILD")
+    display_name: Mapped[str | None] = mapped_column(String(300), nullable=True)
     target_action: Mapped[str] = mapped_column(String(300))
     gateway_action: Mapped[str] = mapped_column(String(300))
     gateway_minutes: Mapped[int] = mapped_column(Integer, default=0)

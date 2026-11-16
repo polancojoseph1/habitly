@@ -24,7 +24,7 @@ type Habit = {
   ritual?: string; milestones?: string[]; milestoneIndex?: number; accountabilityPartner?: string; accountabilityEmail?: string; accountabilityCost?: string; inviteLink?: string;
   techniqueIds?: string[]; techniqueNotes?: Record<string, string>; baselineDaily?: number;
 };
-type PendingHabitDeletion = { id: string; habit: Habit; restoreBeforeId?: string };
+type PendingHabitDeletion = { id: string; habit: Habit; restoreBeforeId?: string; serverBacked: boolean };
 type HabitEvent = { id: string; habitId: string; type: 'ACTION_COMPLETED' | 'URGE_PASSED' | 'REPLACEMENT_USED' | 'OLD_HABIT'; at: string; note?: string; actualMinutes?: number; strategy?: string; variationId?: string; variationName?: string };
 type HabitVariation = { id: string; habitId: string; law: Law; name: string; techniqueId?: string; setup: string; isActive: boolean; triedAt?: string; helped?: boolean | null; outcomeNote?: string; createdAt: string };
 type ScorecardEntry = { id: string; behavior: string; rating: '+' | '-' | '=' };
@@ -381,12 +381,8 @@ export default function Home() {
         const data = JSON.parse(saved);
         setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
         const originalHabits: Habit[] = data.habits ?? demoHabits;
-        const demoIds = new Set(demoHabits.map(habit => habit.id));
         const isSampleWorkspace = originalHabits.every(habit => habit.id.startsWith('demo-'));
-        const savedById = new Map(originalHabits.map(habit => [habit.id, habit]));
-        const savedHabits: Habit[] = (isSampleWorkspace
-          ? [...demoHabits.map(habit => ({ ...habit, ...savedById.get(habit.id) })), ...originalHabits.filter(habit => !demoIds.has(habit.id))]
-          : originalHabits).map(expandInviteLink);
+        const savedHabits: Habit[] = originalHabits.map(expandInviteLink);
         const savedHistory: Record<string, string[]> = data.history ?? demoHistory();
         if (data.dayKey && data.dayKey !== todayKey()) {
           const missedIds = savedHistory[dayOffsetKey(-1)] ?? [];
@@ -914,41 +910,34 @@ export default function Home() {
     });
   }
 
-  async function finalizeHabitDeletion(deletionId: string) {
+  function finalizeHabitDeletion(deletionId: string) {
     const deletion = pendingHabitDeletionsRef.current.find(item => item.id === deletionId);
     if (!deletion) return;
     pendingHabitDeletionTimers.current.delete(deletionId);
     updatePendingHabitDeletions(pendingHabitDeletionsRef.current.filter(item => item.id !== deletionId));
-    const localOnly = deletion.habit.id.startsWith('demo-') || deletion.habit.id.startsWith('habit-');
-    if (!localOnly) {
+  }
+
+  async function deleteHabit(habit: Habit) {
+    const serverBacked = workspaceReady && !habit.id.startsWith('demo-');
+    if (serverBacked) {
       if (!apiUrl || !remoteIdentityId) {
-        restorePendingHabitDeletion(deletion);
-        setToast('Connect your account to delete this habit.');
+        setToast('Reconnect your account before deleting this habit.');
         return;
       }
       try {
-        const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits/${deletion.habit.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: false }) });
+        const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits/${habit.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: false }) });
         if (!response.ok) throw new Error('Delete failed');
       } catch {
-        restorePendingHabitDeletion(deletion);
-        setToast('Could not delete this habit. It has been restored.');
+        setToast('Could not delete this habit. It is still active. Please try again.');
         return;
       }
-    }
-  }
-
-  function deleteHabit(habit: Habit) {
-    const localOnly = habit.id.startsWith('demo-') || habit.id.startsWith('habit-');
-    if (!localOnly && (!apiUrl || !remoteIdentityId)) {
-      setHabitToDelete(null);
-      setToast('Connect your account to delete this habit.');
-      return;
     }
     const habitIndex = habits.findIndex(item => item.id === habit.id);
     const deletion: PendingHabitDeletion = {
       id: `${habit.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       habit,
       restoreBeforeId: habits[habitIndex + 1]?.id,
+      serverBacked,
     };
     updatePendingHabitDeletions([...pendingHabitDeletionsRef.current, deletion]);
     setHabits(current => current.filter(item => item.id !== habit.id));
@@ -958,9 +947,22 @@ export default function Home() {
     pendingHabitDeletionTimers.current.set(deletion.id, timer);
   }
 
-  function undoHabitDeletion(deletionId: string) {
+  async function undoHabitDeletion(deletionId: string) {
     const deletion = pendingHabitDeletionsRef.current.find(item => item.id === deletionId);
     if (!deletion) return;
+    if (deletion.serverBacked) {
+      if (!apiUrl || !remoteIdentityId) {
+        setToast('Reconnect your account before restoring this habit.');
+        return;
+      }
+      try {
+        const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits/${deletion.habit.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: true }) });
+        if (!response.ok) throw new Error('Restore failed');
+      } catch {
+        setToast('Could not restore this habit. It remains deleted.');
+        return;
+      }
+    }
     const timer = pendingHabitDeletionTimers.current.get(deletionId);
     if (timer !== undefined) window.clearTimeout(timer);
     pendingHabitDeletionTimers.current.delete(deletionId);
@@ -1013,7 +1015,7 @@ export default function Home() {
     const updated: Habit = { ...existing, name: habitName.trim() || existing.name, target: targetAction.trim() || existing.target, gateway: gatewayAction.trim() || targetAction.trim(), gatewayMinutes: habitType === 'BUILD' ? Math.max(1, Math.min(1440, gatewayMinutes || 2)) : gatewayMinutes, cueType, cue: cueType === 'STACK' ? cue.trim() : time.trim(), time: cueType === 'TIME_LOCATION' ? time : undefined, location: cueType === 'TIME_LOCATION' ? location : undefined, motive: motive.trim(), reward: reward.trim(), hideCue: cue.trim() || hideCue.trim(), friction: friction.trim(), contract: contract.trim(), alternativeRoutine: gatewayAction.trim() || alternativeRoutine.trim(), aversionReminder: aversionReminder.trim(), techniqueIds: [...techniqueIds], techniqueNotes: { ...techniqueNotes }, prep: prepStep.trim() };
     setHabits(current => current.map(item => item.id === existing.id ? updated : item));
     if (apiUrl && remoteIdentityId && !existing.id.startsWith('demo-')) {
-      const payload = { target_action: updated.target, gateway_action: updated.gateway, gateway_minutes: updated.gatewayMinutes, cue_type: updated.cueType, cue_trigger: updated.cue, location: updated.location ?? null, craving_motive: updated.motive, reward_payoff: updated.reward, cue_to_hide: updated.hideCue ?? null, friction_strategy: updated.friction ?? null, habit_contract: updated.contract ?? null, alternative_routine: updated.alternativeRoutine ?? null, aversion_reminder: updated.aversionReminder ?? null, technique_ids: updated.techniqueIds ?? [], technique_notes: updated.techniqueNotes ?? {} };
+      const payload = { display_name: updated.name, target_action: updated.target, gateway_action: updated.gateway, gateway_minutes: updated.gatewayMinutes, cue_type: updated.cueType, cue_trigger: updated.cue, location: updated.location ?? null, craving_motive: updated.motive, reward_payoff: updated.reward, cue_to_hide: updated.hideCue ?? null, friction_strategy: updated.friction ?? null, habit_contract: updated.contract ?? null, alternative_routine: updated.alternativeRoutine ?? null, aversion_reminder: updated.aversionReminder ?? null, technique_ids: updated.techniqueIds ?? [], technique_notes: updated.techniqueNotes ?? {} };
       try { const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits/${existing.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!response.ok) throw new Error(); } catch { setToast(`${lawGroups.find(item => item.id === law)?.build ?? 'Law'} saved on this device; API sync is unavailable.`); return; }
     }
     setToast(`${lawGroups.find(item => item.id === law)?.[habitType === 'BUILD' ? 'build' : 'break'] ?? 'Law section'} saved. Keep editing or save the complete plan.`);
@@ -1034,7 +1036,7 @@ export default function Home() {
     let inviteLink = '';
     if (apiUrl && remoteIdentityId && !editingHabitId.startsWith('demo-')) {
       try {
-        const payload = { habit_type: habitType, target_action: targetAction.trim(), gateway_action: starterAction, gateway_minutes: savedGatewayMinutes, cue_type: cueType, cue_trigger: cueType === 'STACK' ? cue.trim() : time.trim(), location: cueType === 'TIME_LOCATION' ? location.trim() || null : null, craving_motive: motive.trim(), reward_payoff: reward.trim(), prep_step: prepStep.trim() || null, reward_bundle: bundle.trim() || null, cue_to_hide: hideCue.trim() || null, friction_strategy: friction.trim() || null, habit_contract: contract.trim() || null, alternative_routine: gatewayAction.trim() || alternativeRoutine.trim() || null, aversion_reminder: aversionReminder.trim() || null, motivation_ritual: ritual.trim() || null, shaping_milestones: habitType === 'BUILD' ? [starterAction, ...milestoneDraft.split('\n').map(item => item.trim()).filter(Boolean), targetAction.trim()].filter((item, i, all) => all.indexOf(item) === i).join('\n') : null, shaping_current_step: existingHabit?.milestoneIndex ?? 0, accountability_partner: accountabilityPartner.trim() || null, accountability_partner_email: accountabilityEmail.trim() || null, accountability_cost: accountabilityCost.trim() || null, technique_ids: techniqueIds, technique_notes: techniqueNotes, baseline_daily: baselineDaily !== '' ? Number(baselineDaily) : null };
+        const payload = { habit_type: habitType, display_name: savedHabitName, target_action: targetAction.trim(), gateway_action: starterAction, gateway_minutes: savedGatewayMinutes, cue_type: cueType, cue_trigger: cueType === 'STACK' ? cue.trim() : time.trim(), location: cueType === 'TIME_LOCATION' ? location.trim() || null : null, craving_motive: motive.trim(), reward_payoff: reward.trim(), prep_step: prepStep.trim() || null, reward_bundle: bundle.trim() || null, cue_to_hide: hideCue.trim() || null, friction_strategy: friction.trim() || null, habit_contract: contract.trim() || null, alternative_routine: gatewayAction.trim() || alternativeRoutine.trim() || null, aversion_reminder: aversionReminder.trim() || null, motivation_ritual: ritual.trim() || null, shaping_milestones: habitType === 'BUILD' ? [starterAction, ...milestoneDraft.split('\n').map(item => item.trim()).filter(Boolean), targetAction.trim()].filter((item, i, all) => all.indexOf(item) === i).join('\n') : null, shaping_current_step: existingHabit?.milestoneIndex ?? 0, accountability_partner: accountabilityPartner.trim() || null, accountability_partner_email: accountabilityEmail.trim() || null, accountability_cost: accountabilityCost.trim() || null, technique_ids: techniqueIds, technique_notes: techniqueNotes, baseline_daily: baselineDaily !== '' ? Number(baselineDaily) : null };
         const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits${editingHabitId ? `/${editingHabitId}` : ''}`, { method: editingHabitId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingHabitId ? payload : { ...payload, identity_id: remoteIdentityId, habit_type: habitType }) });
         if (!response.ok) throw new Error('Unable to save the habit to the server.');
         {
