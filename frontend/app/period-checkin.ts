@@ -31,11 +31,24 @@ export function resistancePercentage(resisted: number, resolved: number): number
   return resolved > 0 ? Math.round((resisted / resolved) * 100) : undefined;
 }
 
-export function techniquePracticeNote(configuredTechniques: number, distinctTechniques: number): string {
+export function techniquePracticeNote(configuredTechniques: number, distinctTechniques: number, hasTechniqueFilters = false): string {
   if (distinctTechniques > 0) return `${distinctTechniques} distinct technique${distinctTechniques === 1 ? '' : 's'} practiced.`;
+  if (hasTechniqueFilters) return 'No technique applications matched these filters.';
   return configuredTechniques === 0
     ? 'No techniques are configured for this habit.'
     : 'No technique applications recorded in this period.';
+}
+
+export type TechniqueUseRecord = { type: string; technique?: string };
+
+export function techniqueApplicationsByName(logs: TechniqueUseRecord[]): [string, number][] {
+  const counts = new Map<string, number>();
+  logs.forEach(log => {
+    if (log.type !== 'technique_applied') return;
+    const name = log.technique || 'Technique';
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  });
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]);
 }
 
 export function triggerInsightSentence(trigger: { name: string; count: number } | undefined, periodLabel: string): string {

@@ -19,6 +19,7 @@ import {
   isPeriodOccurrenceCoverageComplete,
   primaryRecordedValue,
   resistancePercentage,
+  techniqueApplicationsByName,
   techniquePracticeNote,
   triggerInsightSentence,
 } from '../app/period-checkin.ts';
@@ -210,7 +211,19 @@ test('craving resistance percentage only exists with a nonzero resolved denomina
 test('a habit with no configured strategies reports that state without implying successful resistance', () => {
   assert.equal(techniquePracticeNote(0, 0), 'No techniques are configured for this habit.');
   assert.equal(techniquePracticeNote(2, 0), 'No technique applications recorded in this period.');
+  assert.equal(techniquePracticeNote(2, 0, true), 'No technique applications matched these filters.');
   assert.equal(techniquePracticeNote(2, 1), '1 distinct technique practiced.');
+});
+
+test('technique usage names and application counts come from technique logs only', () => {
+  assert.deepEqual(techniqueApplicationsByName([
+    { type: 'technique_applied', technique: 'Reframe Your Mindset' },
+    { type: 'craving', technique: 'Not a technique' },
+    { type: 'technique_applied', technique: 'Increase Friction' },
+    { type: 'technique_applied', technique: 'Reframe Your Mindset' },
+    { type: 'technique_applied' },
+  ]), [['Reframe Your Mindset', 2], ['Increase Friction', 1], ['Technique', 1]]);
+  assert.deepEqual(techniqueApplicationsByName([]), []);
 });
 
 test('trigger insight has a real empty state and preserves long trigger names', () => {
