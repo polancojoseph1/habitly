@@ -1103,6 +1103,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .logging-field input:not([type=range]),.logging-field select,.logging-field textarea,.logging-insight-controls input,.logging-insight-controls select,.logging-history-filters input,.logging-history-filters select{box-sizing:border-box;min-width:0;max-width:100%}
 .logging-field input:not([type=range]),.logging-field select,.logging-insight-controls input,.logging-insight-controls select,.logging-history-filters input,.logging-history-filters select{min-height:42px}
 .logging-field input[type=datetime-local],.logging-insight-controls input[type=date],.logging-history-filters input[type=date]{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+.logging-date-field{grid-template-columns:minmax(0,1fr);min-width:0;max-width:100%;overflow:hidden}
+.logging-date-field input[type=date]{display:block;width:100%;min-width:0;max-width:100%;min-inline-size:0;max-inline-size:100%;inline-size:100%;box-sizing:border-box;-webkit-appearance:none;appearance:none}
 .logging-backdate,.logging-backdate .logging-field{width:100%;max-width:100%}
 .logging-submit{height:auto;min-height:44px;max-width:100%;padding:9px 14px;line-height:1.25;white-space:normal;overflow-wrap:anywhere}
 .logging-clear-filters{grid-column:1/-1;display:flex;align-items:center;justify-content:center;justify-self:start;width:max-content;min-width:138px;min-height:42px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);color:var(--accent-ink);text-align:center}
@@ -1110,6 +1112,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .logging-time-blocks b,.logging-time-blocks span,.logging-time-blocks small,.logging-weekday-grid b,.logging-weekday-grid span,.logging-weekday-grid small{max-width:100%;overflow-wrap:anywhere;text-align:center}
 .anti-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px}
 .anti-stats span{line-height:1.35;overflow-wrap:anywhere}
+.breadcrumb-home{padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.breadcrumb-home:hover{color:var(--accent-ink);text-decoration:underline;text-underline-offset:3px}
 @media(max-width:650px){
   .logging-insight-controls label,.logging-history-filters label{min-width:0;width:100%}
   .logging-date-field{grid-column:1/-1}
