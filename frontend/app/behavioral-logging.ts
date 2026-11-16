@@ -13,6 +13,7 @@ export type BehaviorLog = {
   type: BehaviorType;
   at: string;
   createdAt?: string;
+  resolvedAt?: string;
   localDate?: string;
   timezone?: string;
   episodeId?: string;
@@ -38,6 +39,10 @@ export type BehaviorLog = {
 export type EpisodeOutcome = 'resisted' | 'smoked' | 'unknown';
 export type DailyConfirmationStatus = 'no_occurrence' | 'occurred_recorded' | 'incomplete' | 'skip';
 export type DailyConfirmation = { habitId: string; date: string; status: DailyConfirmationStatus; updatedAt: string };
+
+export function withoutSampleBehaviorLogs(logs: BehaviorLog[]): BehaviorLog[] {
+  return logs.filter(log => !log.id.startsWith('sample-log-'));
+}
 
 function isDateKey(value: string | undefined): value is string {
   return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
@@ -120,6 +125,24 @@ export function outcomeForCraving(logs: BehaviorLog[], craving: BehaviorLog): Ep
   return 'unknown';
 }
 
+export function minutesToCravingResolution(logs: BehaviorLog[], craving: BehaviorLog): number | undefined {
+  if (outcomeForCraving(logs, craving) === 'unknown') return undefined;
+  const occurrence = craving.episodeId
+    ? logs.find(log => log.type === 'habit_occurrence' && log.habitId === craving.habitId && log.episodeId === craving.episodeId)
+    : undefined;
+  const resolvedAt = occurrence?.at ?? craving.resolvedAt;
+  if (!resolvedAt) return undefined;
+  const minutes = (new Date(resolvedAt).getTime() - new Date(craving.at).getTime()) / 60000;
+  return Number.isFinite(minutes) && minutes >= 0 ? minutes : undefined;
+}
+
+export function metadataForEditedTimestamp(previous: BehaviorLog | undefined, occurredAt: string, timezone: string | undefined) {
+  const unchanged = previous && new Date(previous.at).getTime() === new Date(occurredAt).getTime();
+  return unchanged
+    ? { localDate: previous.localDate ?? behaviorDayKey(previous), timezone: previous.timezone }
+    : { localDate: dateKeyInZone(occurredAt, timezone), timezone };
+}
+
 export function applyBehaviorLogChanges(current: BehaviorLog[], changes: BehaviorLog[]): BehaviorLog[] {
   if (!changes.length) return current;
   const changedIds = new Set<string>();
@@ -146,6 +169,11 @@ export function applyBehaviorLogChanges(current: BehaviorLog[], changes: Behavio
       next = next.map(log => log.type === 'craving' && log.habitId === change.habitId && log.episodeId === change.episodeId ? { ...log, outcome: 'smoked' } : log);
     }
   }
+  next = next.map(log => {
+    if (log.type !== 'craving' || !log.episodeId) return log;
+    const occurrence = next.find(item => item.type === 'habit_occurrence' && item.habitId === log.habitId && item.episodeId === log.episodeId);
+    return occurrence ? { ...log, outcome: 'smoked', resolvedAt: occurrence.at } : log;
+  });
   return next.sort((a, b) => b.at.localeCompare(a.at));
 }
 
@@ -153,7 +181,7 @@ export function removeBehaviorLogRecord(current: BehaviorLog[], id: string): Beh
   const removed = current.find(log => log.id === id);
   let next = current.filter(log => log.id !== id);
   if (removed?.type === 'habit_occurrence' && removed.episodeId && !next.some(log => log.type === 'habit_occurrence' && log.episodeId === removed.episodeId)) {
-    next = next.map(log => log.type === 'craving' && log.habitId === removed.habitId && log.episodeId === removed.episodeId ? { ...log, outcome: 'pending' } : log);
+    next = next.map(log => log.type === 'craving' && log.habitId === removed.habitId && log.episodeId === removed.episodeId ? { ...log, outcome: 'pending', resolvedAt: undefined } : log);
   }
   return next;
 }

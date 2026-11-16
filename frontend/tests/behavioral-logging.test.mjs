@@ -5,10 +5,13 @@ import {
   behaviorDayKey,
   dateKeyInZone,
   episodeResolvedOutcome,
+  metadataForEditedTimestamp,
+  minutesToCravingResolution,
   outcomeForCraving,
   removeBehaviorLogRecord,
   resolvedEpisodeOutcome,
   summarizeDay,
+  withoutSampleBehaviorLogs,
 } from '../app/behavioral-logging.ts';
 
 const craving = (id, episodeId, outcome = 'pending', at = '2026-11-15T16:00:00.000Z') => ({
@@ -77,6 +80,13 @@ test('stored local dates and timezone boundaries preserve historical day groupin
   assert.equal(dateKeyInZone('2026-11-16T04:30:00Z', 'America/New_York'), '2026-11-15');
 });
 
+test('editing event details without changing its instant preserves its original local date and timezone', () => {
+  const original = craving('c1', 'ep1');
+  const metadata = metadataForEditedTimestamp(original, original.at, 'Asia/Tokyo');
+  assert.deepEqual(metadata, { localDate: '2026-11-15', timezone: 'America/New_York' });
+  assert.deepEqual(metadataForEditedTimestamp(original, '2026-11-15T16:30:00.000Z', 'Asia/Tokyo'), { localDate: '2026-11-16', timezone: 'Asia/Tokyo' });
+});
+
 test('new craving records keep optional fields empty and retain backdated local time', () => {
   const entry = { id: 'c1', habitId: 'habit-a', type: 'craving', episodeId: 'ep1', at: '2026-04-03T18:21:00.000Z', createdAt: '2026-11-15T16:00:00.000Z', localDate: '2026-04-03', timezone: 'America/New_York', outcome: 'pending' };
   const saved = applyBehaviorLogChanges([], [entry]);
@@ -84,6 +94,12 @@ test('new craving records keep optional fields empty and retain backdated local 
   assert.equal(saved[0].localDate, '2026-04-03');
   assert.equal(saved[0].trigger, undefined);
   assert.equal(saved[0].context, undefined);
+});
+
+test('a real log for a sample habit survives while seeded sample logs are excluded', () => {
+  const realUseOfSampleHabit = craving('behavior-real-1', 'ep1');
+  const seededSample = craving('sample-log-old', 'ep2');
+  assert.deepEqual(withoutSampleBehaviorLogs([realUseOfSampleHabit, seededSample]), [realUseOfSampleHabit]);
 });
 
 test('technique applications preserve the configured technique, law and usage context', () => {
@@ -101,7 +117,16 @@ test('occurrence saves update the linked craving and preserve its explicit quant
   const saved = applyBehaviorLogChanges([pending], [logged]);
   assert.equal(saved.find(log => log.id === 'c1').outcome, 'smoked');
   assert.equal(saved.find(log => log.id === 'o1').quantity, 4);
+  assert.equal(saved.find(log => log.id === 'c1').resolvedAt, logged.at);
   assert.equal(saved.filter(log => log.type === 'habit_occurrence').length, 1);
+});
+
+test('time to resolution is reported only when a resolved timestamp is known', () => {
+  const resisted = { ...craving('c1', 'ep1', 'resisted'), resolvedAt: '2026-11-15T16:12:00.000Z' };
+  assert.equal(minutesToCravingResolution([resisted], resisted), 12);
+  assert.equal(minutesToCravingResolution([craving('c2', 'ep2', 'resisted')], craving('c2', 'ep2', 'resisted')), undefined);
+  const smoked = craving('c3', 'ep3');
+  assert.equal(minutesToCravingResolution([smoked, occurrence('o3', 'ep3', 1, '2026-11-15T16:10:00.000Z')], smoked), 10);
 });
 
 test('updating an event with the same stable ID replaces it instead of duplicating it', () => {
@@ -118,6 +143,7 @@ test('removing an occurrence keeps the craving and reopens its unresolved episod
   const remaining = removeBehaviorLogRecord(logs, 'o1');
   assert.equal(remaining.length, 1);
   assert.equal(remaining[0].outcome, 'pending');
+  assert.equal(remaining[0].resolvedAt, undefined);
 });
 
 test('conflicting resisted outcome cannot be saved over a linked occurrence', () => {
