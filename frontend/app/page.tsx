@@ -18,12 +18,13 @@ type Habit = {
   techniqueIds?: string[]; techniqueNotes?: Record<string, string>; baselineDaily?: number;
 };
 type HabitEvent = { id: string; habitId: string; type: 'ACTION_COMPLETED' | 'URGE_PASSED' | 'REPLACEMENT_USED' | 'OLD_HABIT'; at: string; note?: string; actualMinutes?: number; strategy?: string; variationId?: string; variationName?: string };
+type BehaviorLog = { id: string; habitId: string; type: 'craving' | 'habit_occurrence' | 'technique_applied'; at: string; trigger?: string; intensity?: number; outcome?: 'resisted' | 'smoked' | 'pending'; technique?: string; timing?: 'preventive' | 'responsive'; quantity?: number; note?: string };
 type HabitVariation = { id: string; habitId: string; law: Law; name: string; techniqueId?: string; setup: string; isActive: boolean; triedAt?: string; helped?: boolean | null; outcomeNote?: string; createdAt: string };
 type ScorecardEntry = { id: string; behavior: string; rating: '+' | '-' | '=' };
 type Diagnostic = { id: string; routine: string; craving: string; rewardExperiment: string; cueTime: string; cueLocation: string; cueEmotion: string; cuePeople: string; plan: string };
 type Circle = { id: string; name: string; category: string; members: number; detail: string };
 type Reward = { id: string; name: string; habitId: string; detail: string };
-type Tab = 'Today' | 'My habits' | 'Habit scorecard' | 'Community' | 'Recovery' | 'Reward vault' | 'Habit to break' | 'Playbook' | 'Settings';
+type Tab = 'Today' | 'Logging' | 'My habits' | 'Habit scorecard' | 'Community' | 'Recovery' | 'Reward vault' | 'Habit to break' | 'Playbook' | 'Settings';
 type Palette = 'lavender' | 'ocean' | 'rose' | 'amber' | 'sage';
 const palettes: { id: Palette; name: string; colors: [string, string, string] }[] = [
   { id: 'lavender', name: 'Lavender', colors: ['#6256c8', '#b8adff', '#efedff'] },
@@ -58,6 +59,7 @@ function expandInviteLink(habit: Habit): Habit {
     : habit;
 }
 const demoHabits: Habit[] = [
+  { id: 'demo-smoking', name: 'Smoking', target: 'Quit smoking', gateway: 'Wait ten minutes and take a short walk', gatewayMinutes: 0, cueType: 'STACK', cue: 'I finish a meal or feel stressed', motive: '', reward: '', prep: 'Keep gum and water nearby', completed: false, missedYesterday: false, streak: 0, kind: 'BREAK', hideCue: 'Keep cigarettes and lighters out of reach', friction: 'Make buying cigarettes inconvenient', alternativeRoutine: 'Walk outside without cigarettes or chew gum', techniqueIds: ['increase-friction', 'reframe-mindset', 'habit-tracking', 'never-miss-twice'], baselineDaily: 12 },
   { id: 'demo-write', name: 'Write one sentence', target: 'Write for 30 minutes', gateway: 'Open my journal and write one sentence', gatewayMinutes: 2, cueType: 'STACK', cue: 'I pour my first coffee', motive: 'Feel like a writer before the day gets loud', reward: 'A fresh coffee and a clear head', prep: 'Leave journal open on the desk', ritual: 'Play my focus playlist', techniqueIds: ['two-minute-rule', 'motivation-ritual', 'immediate-reinforcement'], techniqueNotes: { 'two-minute-rule': 'One sentence is enough to begin.' }, completed: true, missedYesterday: false, streak: 5, kind: 'BUILD' },
   { id: 'demo-move', name: 'Move my body', target: 'Go for a run', gateway: 'Put on my running shoes', gatewayMinutes: 2, cueType: 'TIME_LOCATION', cue: '7:30 AM', time: '7:30 AM', location: 'By the front door', motive: 'Have more energy for the day', reward: 'Play my favorite playlist', prep: 'Lay out running clothes tonight', completed: false, missedYesterday: true, streak: 3, kind: 'BUILD' },
   { id: 'demo-read', name: 'Read one page', target: 'Read a chapter', gateway: 'Open my book to the bookmark', gatewayMinutes: 2, cueType: 'TIME_LOCATION', cue: '9:00 PM', time: '9:00 PM', location: 'In bed', motive: 'Wind down without a screen', reward: 'A quiet end to the day', prep: 'Put book on my pillow', completed: false, missedYesterday: false, streak: 8, kind: 'BUILD' },
@@ -73,7 +75,7 @@ const tribes = [
   { id: 'makers-hour', name: 'Makers’ Hour', category: 'Creative work', members: 76, detail: 'Show up for one focused creative session.' },
 ];
 const nav: { title: Tab; icon: string }[] = [
-  { title: 'Today', icon: 'grid' }, { title: 'My habits', icon: 'leaf' },
+  { title: 'Today', icon: 'grid' }, { title: 'Logging', icon: 'clock' }, { title: 'My habits', icon: 'leaf' },
   { title: 'Habit to break', icon: 'spark' }, { title: 'Recovery', icon: 'heart' }, { title: 'Habit scorecard', icon: 'check' },
   { title: 'Reward vault', icon: 'lock' }, { title: 'Community', icon: 'heart' },
   { title: 'Playbook', icon: 'spark' }, { title: 'Settings', icon: 'heart' },
@@ -136,6 +138,21 @@ function demoHistory(): Record<string, string[]> {
   days.forEach(([offset, ids]) => { h[dayOffsetKey(offset)] = ids; });
   return h;
 }
+function demoBehaviorLogs(): BehaviorLog[] {
+  const rows: BehaviorLog[] = [];
+  const triggers = ['After eating', 'Coffee', 'Stress', 'Boredom', 'Waking up', 'Social break'];
+  const techniques = ['10-minute delay', 'Chew gum', 'Take a short walk', 'Drink water', 'Keep cigarettes out of reach'];
+  for (let day = 20; day >= 0; day--) {
+    if (day === 11) continue; // No entry is unknown, not a confirmed smoke-free day.
+    const date = new Date(); date.setDate(date.getDate() - day);
+    const add = (hour: number, minute: number, item: Omit<BehaviorLog, 'id' | 'habitId' | 'at'>) => rows.push({ id: `sample-log-${day}-${hour}-${rows.length}`, habitId: 'demo-smoking', at: new Date(date.getFullYear(), date.getMonth(), date.getDate(), hour, minute).toISOString(), ...item });
+    const count = day === 0 ? 3 : 4 + ((day * 7) % 5);
+    for (let i = 0; i < count; i++) add([8, 10, 12, 14, 17, 19, 21, 22][i % 8], (day * 13 + i * 17) % 60, { type: 'habit_occurrence', trigger: triggers[(day + i * 2) % triggers.length], quantity: 1, outcome: 'smoked' });
+    for (let i = 0; i < 2 + (day % 2); i++) add([9, 13, 16, 20][(i + day) % 4], (day * 11 + i * 19) % 60, { type: 'craving', trigger: triggers[(day + i) % triggers.length], intensity: 4 + ((day + i * 3) % 7), outcome: (day + i) % 3 === 0 ? 'resisted' : (day + i) % 3 === 1 ? 'smoked' : 'pending' });
+    if (day % 2 === 0) add(15, (day * 9) % 60, { type: 'technique_applied', trigger: triggers[day % triggers.length], technique: techniques[day % techniques.length], timing: day % 4 === 0 ? 'preventive' : 'responsive', outcome: day % 3 === 0 ? 'resisted' : 'pending' });
+  }
+  return rows.sort((a, b) => b.at.localeCompare(a.at));
+}
 function suggestStarter(action: string) {
   const text = action.toLowerCase();
   if (/run|jog|walk/.test(text)) return 'Put on my running shoes';
@@ -196,6 +213,18 @@ export default function Home() {
   const [preppedHabits, setPreppedHabits] = useState<Record<string, boolean>>({});
   const [history, setHistory] = useState<Record<string, string[]>>(demoHistory);
   const [habitEvents, setHabitEvents] = useState<HabitEvent[]>([]);
+  const [behaviorLogs, setBehaviorLogs] = useState<BehaviorLog[]>(demoBehaviorLogs);
+  const [loggingHabitId, setLoggingHabitId] = useState('demo-smoking');
+  const [logType, setLogType] = useState<BehaviorLog['type']>('craving');
+  const [logTrigger, setLogTrigger] = useState('');
+  const [logIntensity, setLogIntensity] = useState(5);
+  const [logOutcome, setLogOutcome] = useState<BehaviorLog['outcome']>('pending');
+  const [logTechnique, setLogTechnique] = useState('');
+  const [logTiming, setLogTiming] = useState<'preventive' | 'responsive'>('responsive');
+  const [logQuantity, setLogQuantity] = useState(1);
+  const [logNote, setLogNote] = useState('');
+  const [editingLogId, setEditingLogId] = useState('');
+  const [logTimestamp, setLogTimestamp] = useState('');
   const [variations, setVariations] = useState<HabitVariation[]>([]);
   const [variationDrafts, setVariationDrafts] = useState<Record<string, { law: Law; name: string; techniqueId: string; setup: string }>>({});
   const [checkinNotes, setCheckinNotes] = useState<Record<string, string>>({});
@@ -292,7 +321,7 @@ export default function Home() {
           const missedIds = savedHistory[dayOffsetKey(-1)] ?? [];
           setHabits(savedHabits.map(h => ({ ...h, completed: false, missedYesterday: missedIds.includes(`missed:${h.id}`) })));
         } else setHabits(savedHabits);
-        setHistory(savedHistory); setHabitEvents(data.habitEvents ?? []); setVariations(data.variations ?? []); setPreppedHabits(data.preppedHabits ?? {}); setRewards(data.rewards ?? demoRewards);
+        setHistory(savedHistory); setHabitEvents(data.habitEvents ?? []); setBehaviorLogs(data.behaviorLogs ?? demoBehaviorLogs()); setVariations(data.variations ?? []); setPreppedHabits(data.preppedHabits ?? {}); setRewards(data.rewards ?? demoRewards);
         setIdentity(data.identity ?? 'The Writer'); setGoal(data.goal ?? 'Write a book');
         setVotes(data.votes ?? 45); setPrepped(data.prepped ?? false);
         setScorecard(data.scorecard ?? []); setJoinedTribes(data.joinedTribes ?? []);
@@ -322,12 +351,12 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated) return;
-    try { localStorage.setItem(STORAGE, JSON.stringify({ habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, dayKey: todayKey(), apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand })); } catch { setConnectionError('Browser storage is unavailable. Export your local data before continuing.'); }
-  }, [hydrated, habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand]);
+    try { localStorage.setItem(STORAGE, JSON.stringify({ habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, behaviorLogs, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, dayKey: todayKey(), apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand })); } catch { setConnectionError('Browser storage is unavailable. Export your local data before continuing.'); }
+  }, [hydrated, habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, behaviorLogs, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand]);
 
   useEffect(() => {
     if (!hydrated || !workspaceReady || !apiUrl || !remoteToken) return;
-    const payload = { habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, dayKey: todayKey() };
+    const payload = { habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, behaviorLogs, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, dayKey: todayKey() };
     const timer = window.setTimeout(async () => {
       try {
         const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/workspace`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: payload, expected_revision: workspaceRevision }) });
@@ -337,7 +366,7 @@ export default function Home() {
       } catch (error) { setConnectionError(error instanceof Error && error.message.includes('409') ? 'Another browser saved newer data. Reconnect to load the server copy before editing here. Your local backup is still available.' : 'Could not save to the server. Your device copy remains available; retry the connection before switching devices.'); }
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [hydrated, workspaceReady, apiUrl, remoteToken, habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, workspaceRevision]);
+  }, [hydrated, workspaceReady, apiUrl, remoteToken, habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, behaviorLogs, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, workspaceRevision]);
 
   useEffect(() => {
     if (!hydrated || !apiUrl || !remoteToken) return;
@@ -359,7 +388,7 @@ export default function Home() {
           setRewards((data.rewards ?? []).filter((reward: Reward) => !reward.id.startsWith('reward-show')));
           setIdentity(data.identity ?? 'The Writer'); setGoal(data.goal ?? ''); setVotes(data.votes ?? 0);
           setPrepped(data.prepped ?? false); setPreppedHabits(data.preppedHabits ?? {});
-          setHistory(data.history ?? {}); setHabitEvents(data.habitEvents ?? []); setVariations(data.variations ?? []);
+          setHistory(data.history ?? {}); setHabitEvents(data.habitEvents ?? []); setBehaviorLogs(data.behaviorLogs ?? demoBehaviorLogs()); setVariations(data.variations ?? []);
           setScorecard(data.scorecard ?? []); setJoinedTribes(data.joinedTribes ?? []);
           setCommunityCircles(data.communityCircles ?? []); setDiagnostics(data.diagnostics ?? []);
           setDarkMode(data.darkMode ?? true); if (palettes.some(option => option.id === data.palette)) setPalette(data.palette); setLabs(data.labs ?? false); setTelegramCommand(data.telegramCommand ?? '');
@@ -435,7 +464,7 @@ export default function Home() {
     if (!apiUrl || !remoteToken) return;
     let local: any = {};
     try { local = backup ?? JSON.parse(localStorage.getItem(STORAGE) ?? '{}'); } catch { setConnectionError('Could not read this browser’s saved data. Export it from browser storage before retrying.'); return; }
-    const payload = { habits: (local.habits ?? habits).filter((h: Habit) => !h.id.startsWith('demo-')), rewards: (local.rewards ?? rewards).filter((r: Reward) => !r.id.startsWith('reward-show') && !r.habitId.startsWith('demo-')), identity: local.identity ?? identity, goal: local.goal ?? goal, votes: local.votes ?? votes, prepped: local.prepped ?? prepped, preppedHabits: local.preppedHabits ?? preppedHabits, history: local.history ?? history, habitEvents: local.habitEvents ?? habitEvents, variations: local.variations ?? variations, scorecard: local.scorecard ?? scorecard, joinedTribes: local.joinedTribes ?? joinedTribes, communityCircles: local.communityCircles ?? communityCircles, diagnostics: local.diagnostics ?? diagnostics, darkMode: local.darkMode ?? darkMode, palette: local.palette ?? palette, labs: local.labs ?? labs, telegramCommand: local.telegramCommand ?? telegramCommand, dayKey: local.dayKey ?? todayKey() };
+    const payload = { habits: (local.habits ?? habits).filter((h: Habit) => !h.id.startsWith('demo-')), rewards: (local.rewards ?? rewards).filter((r: Reward) => !r.id.startsWith('reward-show') && !r.habitId.startsWith('demo-')), identity: local.identity ?? identity, goal: local.goal ?? goal, votes: local.votes ?? votes, prepped: local.prepped ?? prepped, preppedHabits: local.preppedHabits ?? preppedHabits, history: local.history ?? history, habitEvents: local.habitEvents ?? habitEvents, behaviorLogs: local.behaviorLogs ?? behaviorLogs, variations: local.variations ?? variations, scorecard: local.scorecard ?? scorecard, joinedTribes: local.joinedTribes ?? joinedTribes, communityCircles: local.communityCircles ?? communityCircles, diagnostics: local.diagnostics ?? diagnostics, darkMode: local.darkMode ?? darkMode, palette: local.palette ?? palette, labs: local.labs ?? labs, telegramCommand: local.telegramCommand ?? telegramCommand, dayKey: local.dayKey ?? todayKey() };
     try {
       const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/workspace/import`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${remoteToken}` }, body: JSON.stringify(payload) });
       if (!response.ok) throw new Error(`Import failed (${response.status})`);
@@ -443,7 +472,7 @@ export default function Home() {
       if (!result.imported) throw new Error('Server data already exists. Reload the server copy before importing.');
       const inviteTokens = new Map((result.invites ?? []).map((invite: any) => [invite.habit_id, invite.token]));
       const importedHabits = payload.habits.map((habit: Habit) => { const token = inviteTokens.get(habit.id); return token ? { ...habit, inviteLink: `${window.location.origin}/?accountability=${token}` } : habit; });
-      setHabits(importedHabits); setRewards(payload.rewards); setIdentity(payload.identity); setGoal(payload.goal); setVotes(payload.votes); setPrepped(payload.prepped); setPreppedHabits(payload.preppedHabits); setHistory(payload.history); setHabitEvents(payload.habitEvents); setVariations(payload.variations); setScorecard(payload.scorecard); setJoinedTribes(payload.joinedTribes); setCommunityCircles(payload.communityCircles); setDiagnostics(payload.diagnostics); setDarkMode(payload.darkMode); if (palettes.some(option => option.id === payload.palette)) setPalette(payload.palette); setLabs(payload.labs); setTelegramCommand(payload.telegramCommand);
+      setHabits(importedHabits); setRewards(payload.rewards); setIdentity(payload.identity); setGoal(payload.goal); setVotes(payload.votes); setPrepped(payload.prepped); setPreppedHabits(payload.preppedHabits); setHistory(payload.history); setHabitEvents(payload.habitEvents); setBehaviorLogs(payload.behaviorLogs); setVariations(payload.variations); setScorecard(payload.scorecard); setJoinedTribes(payload.joinedTribes); setCommunityCircles(payload.communityCircles); setDiagnostics(payload.diagnostics); setDarkMode(payload.darkMode); if (palettes.some(option => option.id === payload.palette)) setPalette(payload.palette); setLabs(payload.labs); setTelegramCommand(payload.telegramCommand);
       setWorkspaceReady(true); setServerHasWorkspace(true); setConnectionError('');
       setWorkspaceRevision(result.revision ?? 1);
       setToast(`Imported ${result.habits} user habits and ${result.rewards} rewards. This browser’s original copy was kept.`);
@@ -504,6 +533,39 @@ export default function Home() {
     }
     const message: Record<HabitEvent['type'], string> = { ACTION_COMPLETED: 'Action logged. Each repeat counts.', URGE_PASSED: 'Urge passed. That choice counts.', REPLACEMENT_USED: 'You used your replacement action. Logged.', OLD_HABIT: 'Logged without judgment. Use this to adjust your plan.' };
     setToast(actualMinutes ? `${actualMinutes} minutes logged for ${habit.name}.` : message[type]);
+  }
+
+  function saveBehaviorLog(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const habit = habits.find(item => item.id === loggingHabitId) ?? demoHabits[0];
+    const previous = behaviorLogs.find(log => log.id === editingLogId);
+    const item: BehaviorLog = {
+      id: previous?.id ?? `behavior-${Date.now()}`, habitId: habit.id, type: logType, at: logTimestamp ? new Date(logTimestamp).toISOString() : previous?.at ?? new Date().toISOString(),
+      trigger: logTrigger || undefined,
+      ...(logType !== 'habit_occurrence' ? { intensity: logIntensity } : {}),
+      outcome: logType === 'habit_occurrence' ? 'smoked' : logOutcome,
+      technique: logType === 'technique_applied' ? (logTechnique || undefined) : undefined,
+      timing: logType === 'technique_applied' ? logTiming : undefined,
+      quantity: logType === 'habit_occurrence' ? Math.max(1, logQuantity) : undefined,
+      note: logNote.trim() || undefined,
+    };
+    setBehaviorLogs(current => previous ? current.map(log => log.id === previous.id ? item : log).sort((a, b) => b.at.localeCompare(a.at)) : [item, ...current]);
+    setEditingLogId(''); setLogTrigger(''); setLogNote(''); setLogQuantity(1); setLogTechnique(''); setLogTimestamp(''); setToast(previous ? 'Log updated.' : 'Log added.');
+  }
+
+  function editBehaviorLog(log: BehaviorLog) {
+    setEditingLogId(log.id); setLogType(log.type); setLogTrigger(log.trigger ?? ''); setLogIntensity(log.intensity ?? 5);
+    setLogOutcome(log.outcome ?? 'pending'); setLogTechnique(log.technique ?? ''); setLogTiming(log.timing ?? 'responsive');
+    setLogQuantity(log.quantity ?? 1); setLogNote(log.note ?? '');
+    const localDate = new Date(new Date(log.at).getTime() - new Date(log.at).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    setLogTimestamp(localDate);
+    document.querySelector('.logging-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function deleteBehaviorLog(id: string) {
+    setBehaviorLogs(current => current.filter(log => log.id !== id));
+    if (editingLogId === id) { setEditingLogId(''); setLogTimestamp(''); }
+    setToast('Log removed.');
   }
 
   async function updateHabitDuration(habit: Habit, minutes: number) {
@@ -811,7 +873,7 @@ export default function Home() {
       if (hasData) {
         setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
         setHabits((data.habits ?? []).map(expandInviteLink).filter((h: Habit) => !h.id.startsWith('demo-'))); setRewards((data.rewards ?? []).filter((r: Reward) => !r.id.startsWith('reward-show')));
-        setIdentity(data.identity ?? currentIdentity.identity_statement); setGoal(data.goal ?? ''); setVotes(data.votes ?? currentIdentity.total_votes ?? 0); setPrepped(data.prepped ?? false); setPreppedHabits(data.preppedHabits ?? {}); setHistory(data.history ?? {}); setHabitEvents(data.habitEvents ?? []); setVariations(data.variations ?? []); setScorecard(data.scorecard ?? []); setJoinedTribes(data.joinedTribes ?? []); setCommunityCircles(data.communityCircles ?? []); setDiagnostics(data.diagnostics ?? []); setWorkspaceReady(true);
+        setIdentity(data.identity ?? currentIdentity.identity_statement); setGoal(data.goal ?? ''); setVotes(data.votes ?? currentIdentity.total_votes ?? 0); setPrepped(data.prepped ?? false); setPreppedHabits(data.preppedHabits ?? {}); setHistory(data.history ?? {}); setHabitEvents(data.habitEvents ?? []); setBehaviorLogs(data.behaviorLogs ?? demoBehaviorLogs()); setVariations(data.variations ?? []); setScorecard(data.scorecard ?? []); setJoinedTribes(data.joinedTribes ?? []); setCommunityCircles(data.communityCircles ?? []); setDiagnostics(data.diagnostics ?? []); setWorkspaceReady(true);
         setDarkMode(data.darkMode ?? true); if (palettes.some(option => option.id === data.palette)) setPalette(data.palette); setLabs(data.labs ?? false); setTelegramCommand(data.telegramCommand ?? '');
         setToast('Connected. Loaded the server copy for this account.');
       } else {
@@ -900,6 +962,55 @@ export default function Home() {
         {habit.milestones && habit.milestones.length > 1 && <div className="milestone-progress"><div><b>Habit shaping</b><span>Step {(habit.milestoneIndex ?? 0) + 1} of {habit.milestones.length}</span></div><p>{habit.milestones[habit.milestoneIndex ?? 0]}</p><div className="milestone-track"><i style={{ width: `${(((habit.milestoneIndex ?? 0) + 1) / habit.milestones.length) * 100}%` }}/></div>{(habit.milestoneIndex ?? 0) < habit.milestones.length - 1 && <button type="button" onClick={() => advanceMilestone(habit)}>Ready for the next step <Icon name="arrow" size={13}/></button>}</div>}
       </details>
     </article>;
+  }
+
+  function renderLogging() {
+    const selectedHabit = habits.find(habit => habit.id === loggingHabitId) ?? demoHabits[0];
+    const logs = behaviorLogs.filter(log => log.habitId === selectedHabit.id).sort((a, b) => b.at.localeCompare(a.at));
+    const today = new Date();
+    const isToday = (value: string) => { const d = new Date(value); return d.toDateString() === today.toDateString(); };
+    const todayLogs = logs.filter(log => isToday(log.at));
+    const cigarettesToday = todayLogs.filter(log => log.type === 'habit_occurrence').reduce((sum, log) => sum + (log.quantity ?? 1), 0);
+    const cravingsToday = todayLogs.filter(log => log.type === 'craving').length;
+    const resolved = logs.filter(log => log.type === 'craving' && log.outcome && log.outcome !== 'pending');
+    const resisted = resolved.filter(log => log.outcome === 'resisted').length;
+    const resistanceRate = resolved.length ? Math.round((resisted / resolved.length) * 100) : 0;
+    const triggerCounts = new Map<string, number>();
+    logs.filter(log => log.type === 'habit_occurrence' && log.trigger).forEach(log => triggerCounts.set(log.trigger!, (triggerCounts.get(log.trigger!) ?? 0) + 1));
+    const topTriggers = [...triggerCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4);
+    const dayBars = Array.from({ length: 14 }, (_, index) => {
+      const date = new Date(); date.setDate(date.getDate() - (13 - index));
+      const dayLogs = logs.filter(log => new Date(log.at).toDateString() === date.toDateString());
+      return { key: date.toISOString(), label: date.toLocaleDateString('en-US', { weekday: 'short' }), count: dayLogs.filter(log => log.type === 'habit_occurrence').reduce((sum, log) => sum + (log.quantity ?? 1), 0), known: dayLogs.length > 0 };
+    });
+    const maxCount = Math.max(1, ...dayBars.map(day => day.count));
+    const typeLabel = (log: BehaviorLog) => log.type === 'craving' ? 'Craving' : log.type === 'habit_occurrence' ? 'Smoking' : 'Technique';
+    const typeIcon = (log: BehaviorLog) => log.type === 'craving' ? '◌' : log.type === 'habit_occurrence' ? '↗' : '✦';
+    return <>
+      <div className="page-heading-row logging-heading"><div><div className="eyebrow">NOTICE THE MOMENT, LEARN FROM IT</div><h1>Behavioral logging<span className="heading-period">.</span></h1><p className="page-subtitle">Capture the urge, what happened around it, and which response you tried.</p></div><label className="logging-habit-picker">HABIT<select value={loggingHabitId} onChange={event => setLoggingHabitId(event.target.value)}>{habits.filter(habit => habit.kind === 'BREAK').map(habit => <option key={habit.id} value={habit.id}>{habit.name}</option>)}</select></label></div>
+      <section className="logging-intro"><div><span className="overline">A QUICK, JUDGMENT-FREE CHECK IN</span><h2>Every entry helps reveal the pattern.</h2><p>Log a craving, an occurrence, or a technique. Add context when you have a moment; leave anything blank when you don’t.</p></div><div className="logging-intro-mark"><Icon name="spark" size={28}/></div></section>
+      <section className="logging-layout">
+        <form className="logging-form" onSubmit={saveBehaviorLog}>
+          <div className="logging-form-head"><div><span className="eyebrow">{editingLogId ? 'EDIT ENTRY' : 'NEW ENTRY'}</span><h2>What happened?</h2></div><span className="logging-live"><i/> Saved on this device</span></div>
+          <div className="logging-type-tabs" role="group" aria-label="Choose a log type">{([{ id: 'craving', title: 'Craving', icon: '◌' }, { id: 'habit_occurrence', title: 'I smoked', icon: '↗' }, { id: 'technique_applied', title: 'Used a technique', icon: '✦' }] as const).map(item => <button type="button" key={item.id} className={logType === item.id ? 'selected' : ''} aria-pressed={logType === item.id} onClick={() => setLogType(item.id)}><span>{item.icon}</span>{item.title}</button>)}</div>
+          <label className="logging-field">What triggered it? <span>OPTIONAL</span><select value={logTrigger} onChange={event => setLogTrigger(event.target.value)}><option value="">Choose a trigger</option>{['After eating', 'Stress', 'Boredom', 'Coffee', 'Waking up', 'Social break', 'Other'].map(trigger => <option key={trigger}>{trigger}</option>)}</select></label>
+          {logType === 'craving' && <><label className="logging-field">Craving intensity <b className="intensity-value">{logIntensity}<small>/10</small></b><input type="range" min="0" max="10" value={logIntensity} onChange={event => setLogIntensity(Number(event.target.value))}/></label><label className="logging-field">How did it end? <select value={logOutcome} onChange={event => setLogOutcome(event.target.value as BehaviorLog['outcome'])}><option value="pending">Still dealing with the urge</option><option value="resisted">I didn’t smoke</option><option value="smoked">I smoked</option></select></label></>}
+          {logType === 'habit_occurrence' && <label className="logging-field">Cigarettes <span>OPTIONAL</span><input type="number" min="1" max="100" value={logQuantity} onChange={event => setLogQuantity(Number(event.target.value))}/></label>}
+          {logType === 'technique_applied' && <><label className="logging-field">Technique <span>OPTIONAL</span><input list="smoking-techniques" value={logTechnique} onChange={event => setLogTechnique(event.target.value)} placeholder="e.g. 10-minute delay"/><datalist id="smoking-techniques">{(selectedHabit.techniqueIds ?? []).map(id => techniqueMap[id]?.name).filter(Boolean).map(name => <option key={name} value={name}/>)}</datalist></label><div className="logging-field-row"><label className="logging-field">When did you use it?<select value={logTiming} onChange={event => setLogTiming(event.target.value as 'preventive' | 'responsive')}><option value="responsive">During an urge</option><option value="preventive">Preventive</option></select></label><label className="logging-field">Outcome<select value={logOutcome} onChange={event => setLogOutcome(event.target.value as BehaviorLog['outcome'])}><option value="pending">Not sure yet</option><option value="resisted">Didn’t smoke</option><option value="smoked">Smoked</option></select></label></div></>}
+          <label className="logging-field">A note <span>OPTIONAL</span><textarea value={logNote} onChange={event => setLogNote(event.target.value)} placeholder="Add a detail you might want to remember" rows={2}/></label>
+          <details className="logging-backdate"><summary>{editingLogId ? 'Adjust date and time' : 'Add a past entry'}</summary><label className="logging-field">DATE AND TIME<input type="datetime-local" value={logTimestamp} onChange={event => setLogTimestamp(event.target.value)}/></label><small>Leave blank to use now.</small></details>
+          <div className="logging-form-actions"><button className="primary-button logging-submit" type="submit"><Icon name={editingLogId ? 'check' : 'plus'} size={17}/> {editingLogId ? 'Update log' : 'Save log'}</button>{editingLogId && <button type="button" className="text-button" onClick={() => { setEditingLogId(''); setLogTrigger(''); setLogNote(''); setLogTimestamp(''); }}>Cancel edit</button>}</div>
+          <p className="logging-privacy">A missing entry stays unknown. It is never counted as a smoke-free day.</p>
+        </form>
+        <div className="logging-insights-column">
+          <section className="logging-today-card"><div className="logging-card-heading"><div><span className="eyebrow">TODAY</span><h2>Your check in</h2></div><span className="logging-date-pill">{today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span></div><div className="logging-stat-grid"><div><b>{cigarettesToday}</b><span>cigarettes logged</span></div><div><b>{cravingsToday}</b><span>cravings logged</span></div><div><b>{resistanceRate}%</b><span>cravings resisted*</span></div></div><small>*Based on {resolved.length} resolved craving logs. Sample data is illustrative.</small></section>
+          <section className="logging-chart-card"><div className="logging-card-heading"><div><span className="eyebrow">LAST 14 DAYS</span><h2>Smoking events</h2></div><span className="logging-chart-note">No log ≠ no smoking</span></div><div className="logging-bars" aria-label="Cigarettes logged each of the last 14 days">{dayBars.map(day => <div className={`logging-bar-day ${!day.known ? 'unknown' : ''}`} key={day.key} title={`${day.label}: ${day.known ? `${day.count} logged` : 'No entry, unknown'}`}><span>{day.known ? day.count : '·'}</span><i style={{ height: day.known ? `${Math.max(8, day.count / maxCount * 100)}%` : '4px' }}/><small>{day.label.slice(0, 1)}</small></div>)}</div><div className="logging-legend"><span><i/> Entries recorded</span><span><i/> No entry</span></div></section>
+          <section className="logging-trigger-card"><div className="logging-card-heading"><div><span className="eyebrow">PATTERNS TO NOTICE</span><h2>Common smoking triggers</h2></div></div>{topTriggers.length ? <div className="logging-trigger-list">{topTriggers.map(([name, count]) => <div key={name}><span>{name}</span><b>{count}</b><i><em style={{ width: `${Math.max(8, count / (topTriggers[0]?.[1] ?? 1) * 100)}%` }}/></i></div>)}</div> : <p className="logging-empty-hint">Add a few entries with triggers to start spotting patterns.</p>}<p className="logging-caveat">Patterns describe what you logged. They don’t prove what caused an outcome.</p></section>
+        </div>
+      </section>
+      <section className="logging-timeline-section"><div className="logging-card-heading"><div><span className="eyebrow">YOUR RECENT ACTIVITY</span><h2>Timeline <span className="soft-count">{logs.length}</span></h2></div><span className="logging-timeline-caption">Cravings, smoking, and techniques together</span></div>{logs.length ? <ol className="behavior-timeline">{logs.slice(0, 36).map(log => <li key={log.id}><span className={`behavior-type-mark ${log.type}`}>{typeIcon(log)}</span><div className="behavior-log-main"><div className="behavior-log-title"><b>{typeLabel(log)}</b><time>{new Date(log.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} · {new Date(log.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</time></div><p>{log.type === 'craving' ? `Intensity ${log.intensity ?? '—'}/10` : log.type === 'habit_occurrence' ? `${log.quantity ?? 1} cigarette${(log.quantity ?? 1) === 1 ? '' : 's'}` : `${log.technique || 'Technique used'}${log.timing === 'preventive' ? ' · preventive' : ''}`}{log.trigger ? ` · ${log.trigger}` : ''}</p>{log.outcome && <span className={`behavior-outcome ${log.outcome}`}>{log.outcome === 'resisted' ? 'Didn’t smoke' : log.outcome === 'smoked' ? 'Smoked' : 'Pending'}</span>}{log.note && <small>{log.note}</small>}<div className="behavior-log-actions"><button type="button" onClick={() => editBehaviorLog(log)}>Edit</button><button type="button" onClick={() => deleteBehaviorLog(log.id)}>Remove</button></div></div></li>)}</ol> : <div className="logging-empty-hint">Nothing logged yet. Start with one tap above.</div>}</section>
+      <p className="logging-demo-notice">Sample workspace includes fictional smoking entries so you can preview patterns. Remove or edit them as you make this workspace yours.</p>
+    </>;
   }
 
   function renderToday() {
@@ -1001,6 +1112,7 @@ export default function Home() {
   }
 
   function renderPage() {
+    if (active === 'Logging') return renderLogging();
     if (active === 'My habits') return renderHabits();
     if (active === 'Habit scorecard') return renderScorecard();
     if (active === 'Community') return renderCommunity();
