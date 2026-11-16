@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { buildStrategyGap, buildSuggestedExperiment, buildTechniquePracticeStats, mostCommonTrigger, mostPracticedTechnique } from './insights';
 import { isPeriodOccurrenceCoverageComplete, techniqueApplicationsByName } from './period-checkin';
 import { PeriodCheckin } from './period-checkin-view';
 import notebookLMContent from './notebooklm-content.json';
@@ -469,7 +470,7 @@ export default function Home() {
   }, [logFormOpen]);
 
   useEffect(() => {
-    if (active !== 'Habit to break' || !strategyFocusId) return;
+    if ((active !== 'Habit to break' && active !== 'My habits') || !strategyFocusId) return;
     const target = document.getElementById(strategyFocusId);
     setStrategyFocusId('');
     if (!target) return;
@@ -785,11 +786,22 @@ export default function Home() {
     document.querySelector('.logging-advanced-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  function openStrategyPage() {
+    const destination = habits.find(habit => habit.id === loggingHabitId)?.kind === 'BUILD' ? 'My habits' : 'Habit to break';
+    setStrategyFocusId('');
+    setActive(destination);
+    setMobileNav(false);
+  }
+
   function openTechniqueInStrategy(techniqueId?: string, variationId?: string) {
-    const targetId = variationId ? `anti-variation-${variationId}` : techniqueId ? `anti-technique-${loggingHabitId}-${techniqueId}` : '';
-    if (!targetId) return;
+    const isBuild = habits.find(habit => habit.id === loggingHabitId)?.kind === 'BUILD';
+    const destination = isBuild ? 'My habits' : 'Habit to break';
+    const targetId = isBuild
+      ? variationId ? `build-variation-${variationId}` : techniqueId ? `build-technique-${loggingHabitId}-${techniqueId}` : ''
+      : variationId ? `anti-variation-${variationId}` : techniqueId ? `anti-technique-${loggingHabitId}-${techniqueId}` : '';
+    if (!targetId) { openStrategyPage(); return; }
     setStrategyFocusId(targetId);
-    setActive('Habit to break');
+    setActive(destination);
     setMobileNav(false);
   }
 
@@ -1199,9 +1211,9 @@ export default function Home() {
         {habit.motive && <p className="habit-why">Why it matters: {habit.motive}</p>}
         {habit.ritual && <p className="habit-ritual"><span>BEFORE YOU START</span> {habit.ritual}</p>}
         {!!habit.prep && <div className="prep-inline"><label><input type="checkbox" checked={!!preppedHabits[habit.id]} onChange={e => setHabitPrep(habit.id, e.target.checked)}/><span><b>Tonight's setup</b> · {habit.prep}</span></label><span className="prep-label">{preppedHabits[habit.id] ? 'Ready' : 'PREP'}</span></div>}
-        <div className="habit-laws-inline">{lawGroups.map(law => { const detail = law.id === 'cue' ? cueLine : law.id === 'craving' ? habit.motive : law.id === 'response' ? habit.gateway : habit.reward; const selected = (habit.techniqueIds ?? []).map(id => techniqueMap[id]).filter(item => item?.laws.includes(law.id)); return <div key={law.id}><b>{habit.kind === 'BUILD' ? law.build : law.break}</b><p>{detail || 'Add a clear step for this law.'}</p>{selected.length > 0 && <small>{selected.map(item => [item.name, habit.techniqueNotes?.[`${law.id}:${item.id}`] ?? habit.techniqueNotes?.[item.id]].filter(Boolean).join(': ')).join('; ')}</small>}</div>; })}</div>
+        <div className="habit-laws-inline">{lawGroups.map(law => { const detail = law.id === 'cue' ? cueLine : law.id === 'craving' ? habit.motive : law.id === 'response' ? habit.gateway : habit.reward; const selected = (habit.techniqueIds ?? []).map(id => techniqueMap[id]).filter(item => item?.laws.includes(law.id)); return <div key={law.id}><b>{habit.kind === 'BUILD' ? law.build : law.break}</b><p>{detail || 'Add a clear step for this law.'}</p>{selected.length > 0 && <small>{selected.map((item, itemIndex) => <span key={item.id} id={habit.kind === 'BUILD' && item.laws[0] === law.id ? `build-technique-${habit.id}-${item.id}` : undefined} tabIndex={habit.kind === 'BUILD' && item.laws[0] === law.id ? -1 : undefined}>{item.name}{(habit.techniqueNotes?.[`${law.id}:${item.id}`] ?? habit.techniqueNotes?.[item.id]) ? `: ${habit.techniqueNotes?.[`${law.id}:${item.id}`] ?? habit.techniqueNotes?.[item.id]}` : ''}{itemIndex < selected.length - 1 ? '; ' : ''}</span>)}</small>}</div>; })}</div>
         {habit.kind === 'BUILD' && <div className="action-checkin"><p>“I did it” marks today complete. Record an extra check-in only for another action.</p><textarea aria-label={`Extra check-in note for ${habit.name}`} value={checkinNotes[habit.id] ?? ''} onChange={e => setCheckinNotes(current => ({ ...current, [habit.id]: e.target.value }))} placeholder="Optional note about the extra action" rows={2}/><button type="button" className="text-button" onClick={() => void recordHabitEvent(habit, 'ACTION_COMPLETED')}>Record an extra check-in</button></div>}
-        <details className="build-variation-workspace"><summary>Test a plan variation <small>{habitVariations.length} saved</small></summary><p>Keep this plan and compare another cue, action, or reward.</p><div className="variation-fields"><select aria-label={`Variation law for ${habit.name}`} value={(variationDrafts[habit.id] ?? { law: 'cue' }).law} onChange={e => setVariationDrafts(current => ({ ...current, [habit.id]: { ...(current[habit.id] ?? { law: 'cue', name: '', techniqueId: '', setup: '' }), law: e.target.value as Law } }))}>{lawGroups.map(law => <option key={law.id} value={law.id}>{law.build}</option>)}</select><input aria-label={`Variation name for ${habit.name}`} placeholder="Name this alternative" value={variationDrafts[habit.id]?.name ?? ''} onChange={e => setVariationDrafts(current => ({ ...current, [habit.id]: { ...(current[habit.id] ?? { law: 'cue', name: '', techniqueId: '', setup: '' }), name: e.target.value } }))}/><textarea aria-label={`Variation setup for ${habit.name}`} placeholder="What will you try?" value={variationDrafts[habit.id]?.setup ?? ''} onChange={e => setVariationDrafts(current => ({ ...current, [habit.id]: { ...(current[habit.id] ?? { law: 'cue', name: '', techniqueId: '', setup: '' }), setup: e.target.value } }))}/><button type="button" className="secondary-button" onClick={() => void createVariation(habit)}>Save variation</button></div>{habitVariations.map(v => <div className="variation-row" key={v.id}><div className="variation-row-main"><div><b>{v.name}</b>{v.isActive && <span className="variation-active">Testing now</span>}<p>{lawGroups.find(law => law.id === v.law)?.build}: {v.setup}</p></div><button type="button" className="text-button" onClick={() => void updateVariation(v, { isActive: !v.isActive })}>{v.isActive ? 'Active' : 'Make active'}</button></div><div className="variation-outcome"><span>{v.triedAt ? `Tried ${new Date(v.triedAt).toLocaleDateString()}` : 'Not tried yet'}</span><label>Did it help?<select value={v.helped === true ? 'yes' : v.helped === false ? 'no' : ''} onChange={e => void updateVariation(v, { helped: e.target.value === '' ? null : e.target.value === 'yes' })}><option value="">Not rated</option><option value="yes">Yes</option><option value="no">Not yet</option></select></label></div></div>)}</details>
+        <details className="build-variation-workspace"><summary>Test a plan variation <small>{habitVariations.length} saved</small></summary><p>Keep this plan and compare another cue, action, or reward.</p><div className="variation-fields"><select aria-label={`Variation law for ${habit.name}`} value={(variationDrafts[habit.id] ?? { law: 'cue' }).law} onChange={e => setVariationDrafts(current => ({ ...current, [habit.id]: { ...(current[habit.id] ?? { law: 'cue', name: '', techniqueId: '', setup: '' }), law: e.target.value as Law } }))}>{lawGroups.map(law => <option key={law.id} value={law.id}>{law.build}</option>)}</select><input aria-label={`Variation name for ${habit.name}`} placeholder="Name this alternative" value={variationDrafts[habit.id]?.name ?? ''} onChange={e => setVariationDrafts(current => ({ ...current, [habit.id]: { ...(current[habit.id] ?? { law: 'cue', name: '', techniqueId: '', setup: '' }), name: e.target.value } }))}/><textarea aria-label={`Variation setup for ${habit.name}`} placeholder="What will you try?" value={variationDrafts[habit.id]?.setup ?? ''} onChange={e => setVariationDrafts(current => ({ ...current, [habit.id]: { ...(current[habit.id] ?? { law: 'cue', name: '', techniqueId: '', setup: '' }), setup: e.target.value } }))}/><button type="button" className="secondary-button" onClick={() => void createVariation(habit)}>Save variation</button></div>{habitVariations.map(v => <div className="variation-row" id={`build-variation-${v.id}`} tabIndex={-1} key={v.id}><div className="variation-row-main"><div><b>{v.name}</b>{v.isActive && <span className="variation-active">Testing now</span>}<p>{lawGroups.find(law => law.id === v.law)?.build}: {v.setup}</p></div><button type="button" className="text-button" onClick={() => void updateVariation(v, { isActive: !v.isActive })}>{v.isActive ? 'Active' : 'Make active'}</button></div><div className="variation-outcome"><span>{v.triedAt ? `Tried ${new Date(v.triedAt).toLocaleDateString()}` : 'Not tried yet'}</span><label>Did it help?<select value={v.helped === true ? 'yes' : v.helped === false ? 'no' : ''} onChange={e => void updateVariation(v, { helped: e.target.value === '' ? null : e.target.value === 'yes' })}><option value="">Not rated</option><option value="yes">Yes</option><option value="no">Not yet</option></select></label></div></div>)}</details>
         <details className="event-history"><summary>Check-in history <small>{events.length}</small></summary>{events.length ? <ol>{events.slice(0, 30).map(event => <li key={event.id}><b>{event.type === 'ACTION_COMPLETED' ? 'Action completed' : event.type === 'URGE_PASSED' ? 'Urge passed' : event.type === 'REPLACEMENT_USED' ? 'Replacement used' : 'Old behavior'}</b><time>{new Date(event.at).toLocaleString()}</time>{event.actualMinutes && <small>{event.actualMinutes} minutes practiced</small>}{event.variationName && <small>Testing: {event.variationName}</small>}{event.strategy && !event.variationName && <small>Strategy: {event.strategy}</small>}{event.note && <p>{event.note}</p>}</li>)}</ol> : <p>No events yet. Your history will appear here.</p>}</details>
         {habit.milestones && habit.milestones.length > 1 && <div className="milestone-progress"><div><b>Habit shaping</b><span>Step {(habit.milestoneIndex ?? 0) + 1} of {habit.milestones.length}</span></div><p>{habit.milestones[habit.milestoneIndex ?? 0]}</p><div className="milestone-track"><i style={{ width: `${(((habit.milestoneIndex ?? 0) + 1) / habit.milestones.length) * 100}%` }}/></div>{(habit.milestoneIndex ?? 0) < habit.milestones.length - 1 && <button type="button" onClick={() => advanceMilestone(habit)}>Ready for the next step <Icon name="arrow" size={13}/></button>}</div>}
       </details>
@@ -1291,7 +1303,7 @@ export default function Home() {
     const averageResolutionMinutes = resolutionMinutes.length ? (resolutionMinutes.reduce((sum, value) => sum + value, 0) / resolutionMinutes.length).toFixed(1) : '—';
     const intensities = rangeCravings.map(log => log.intensity).filter((value): value is number => value !== undefined);
     const avgIntensity = intensities.length ? (intensities.reduce((sum, value) => sum + value, 0) / intensities.length).toFixed(1) : '—';
-    const topTriggers = [...windowLogs.reduce((counts, log) => { if (log.trigger) counts.set(log.trigger, (counts.get(log.trigger) ?? 0) + 1); return counts; }, new Map<string, number>()).entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const topTriggers = [...windowLogs.reduce((counts, log) => { if (log.trigger) counts.set(log.trigger, (counts.get(log.trigger) ?? 0) + 1); return counts; }, new Map<string, number>()).entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'en', { sensitivity: 'base' })).slice(0, 6);
     const triggerStats = topTriggers.map(([name, count]) => {
       const triggered = windowLogs.filter(log => log.trigger === name);
       const episodes = [...new Set(triggered.map(episodeKey))];
@@ -1307,25 +1319,35 @@ export default function Home() {
     });
     const periodTechniqueApplicationCounts = techniqueApplicationsByName(techniqueApplicationLogs);
     const hasTechniqueFilters = insightLawFilter !== 'all' || insightTriggerFilter !== 'all' || insightIntensityFilter !== 'all' || insightTimingFilter !== 'all';
-    const techniqueStats = techniqueChoices.map(choice => {
-      const applications = techniqueApplicationLogs.filter(log => matchesTechniqueChoice(log, choice));
-      const responsive = applications.filter(log => log.timing !== 'preventive');
-      const episodeOutcomes = new Map<string, string>();
-      responsive.forEach(log => { const key = episodeKey(log); if (!episodeOutcomes.has(key)) episodeOutcomes.set(key, getOutcome(log)); });
-      const resolved = [...episodeOutcomes.values()].filter(value => value !== 'unknown');
-      const resisted = resolved.filter(value => value === 'resisted').length;
-      const preventive = applications.filter(log => log.timing === 'preventive');
-      const preventiveDays = [...new Set(preventive.map(behaviorDayKey))];
-      const occurrencesOnPreventiveDays = rangeOccurrences.filter(log => preventiveDays.includes(behaviorDayKey(log))).length;
-      return { ...choice, applications, total: applications.length, preventive: preventive.length, preventiveDays: preventiveDays.length, occurrencesOnPreventiveDays, responsive: responsive.length, resisted, smoked: resolved.filter(value => value === 'smoked').length, unknown: episodeOutcomes.size - resolved.length, resolved: resolved.length, rate: resolved.length ? Math.round(resisted / resolved.length * 100) : undefined };
-    });
-    const coverage = lawGroups.slice(0, 4).map(law => {
-      const lawChoices = techniqueChoices.filter(choice => choice.laws.includes(law.id));
-      const configuredKeys = new Set(lawChoices.map(choice => choice.key));
-      const used = windowLogs.filter(log => log.type === 'technique_applied' && lawChoices.some(choice => matchesTechniqueChoice(log, choice)));
-      const usedKeys = new Set(used.map(log => log.variationId ? 'variation:' + log.variationId : 'technique:' + log.techniqueId));
-      return { law, choices: lawChoices, used: used.length, usedTechniqueCount: [...configuredKeys].filter(key => usedKeys.has(key)).length };
-    });
+    const insightLaws = lawGroups.slice(0, 4).map(law => ({ ...law, break: law.break.replace(/\b\w/g, letter => letter.toUpperCase()) }));
+    const configuredInsightChoices = techniqueChoices.map(choice => ({
+      ...choice,
+      description: choice.techniqueId ? techniqueMap[choice.techniqueId]?.description : undefined,
+      example: choice.techniqueId ? techniqueMap[choice.techniqueId]?.example : undefined,
+    }));
+    const metadataChoices = [
+      ...configuredInsightChoices,
+      ...techniques.filter(technique => !configuredInsightChoices.some(choice => choice.key === 'technique:' + technique.id)).map(technique => ({
+        key: 'technique:' + technique.id,
+        name: technique.name,
+        techniqueId: technique.id,
+        laws: technique.laws,
+        description: technique.description,
+        example: technique.example,
+      })),
+    ];
+    const commonTrigger = mostCommonTrigger(windowLogs);
+    const mostPracticed = mostPracticedTechnique(techniqueApplicationLogs, metadataChoices);
+    const techniquePractice = buildTechniquePracticeStats(
+      techniqueApplicationLogs,
+      logs,
+      windowLogs,
+      metadataChoices,
+      configuredInsightChoices,
+      insightLaws.map(law => law.id),
+    );
+    const suggestedExperiment = buildSuggestedExperiment(windowLogs, logs, configuredInsightChoices);
+    const strategyGap = buildStrategyGap(windowLogs, logs, configuredInsightChoices, insightLaws);
     const localHour = (log: BehaviorLog) => {
       if (!log.timezone) return new Date(log.at).getHours();
       try { const value = new Intl.DateTimeFormat('en-US', { timeZone: log.timezone, hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(log.at)).find(part => part.type === 'hour')?.value; return Number(value ?? new Date(log.at).getHours()); } catch { return new Date(log.at).getHours(); }
@@ -1393,55 +1415,10 @@ export default function Home() {
     };
     const currentPeriod = summarizePeriod(windowLogs, insightKeys, isHourlyWindow, windowStartMs, windowEndMs);
     const previousPeriod = summarizePeriod(previousWindowLogs, previousKeys, isHourlyWindow, previousWindowStartMs, previousWindowEndMs);
-    const currentPeriodTriggers = [...windowLogs.reduce((counts, log) => { if (log.trigger) counts.set(log.trigger, (counts.get(log.trigger) ?? 0) + 1); return counts; }, new Map<string, number>()).entries()].sort((a, b) => b[1] - a[1]);
-    const currentPeriodTechniqueCounts = techniqueApplicationsByName(windowLogs);
-    const suggestedPeriodTrigger = currentPeriodTriggers.find(([trigger]) => !windowLogs.some(log => log.type === 'technique_applied' && log.trigger === trigger)) ?? currentPeriodTriggers[0];
-    const periodTechniqueStats = techniqueChoices.map(choice => {
-      const applications = windowLogs.filter(log => log.type === 'technique_applied' && matchesTechniqueChoice(log, choice));
-      const outcomes = new Map<string, string>();
-      applications.filter(log => log.timing !== 'preventive').forEach(log => {
-        const key = episodeKey(log);
-        if (!outcomes.has(key)) outcomes.set(key, getOutcome(log));
-      });
-      const resolved = [...outcomes.values()].filter(value => value !== 'unknown');
-      const resisted = resolved.filter(value => value === 'resisted').length;
-      return { ...choice, applications, total: applications.length, resolved: resolved.length, resisted, rate: resolved.length ? Math.round(resisted / resolved.length * 100) : undefined };
-    });
-    const triggerTechniqueStats = suggestedPeriodTrigger ? periodTechniqueStats.map(item => {
-      const applications = item.applications.filter(log => log.trigger === suggestedPeriodTrigger[0]);
-      const outcomes = new Map<string, string>();
-      applications.filter(log => log.timing !== 'preventive').forEach(log => {
-        const key = episodeKey(log);
-        if (!outcomes.has(key)) outcomes.set(key, getOutcome(log));
-      });
-      const resolved = [...outcomes.values()].filter(value => value !== 'unknown');
-      const resisted = resolved.filter(value => value === 'resisted').length;
-      return { ...item, triggerApplications: applications.length, triggerResolved: resolved.length, triggerResisted: resisted, triggerRate: resolved.length ? Math.round(resisted / resolved.length * 100) : undefined };
-    }) : [];
-    const suggestedTechnique = triggerTechniqueStats.filter(item => item.triggerResolved >= 5).sort((a, b) => (b.triggerRate ?? 0) - (a.triggerRate ?? 0))[0]
-      ?? triggerTechniqueStats.filter(item => item.triggerApplications > 0).sort((a, b) => b.triggerResolved - a.triggerResolved || b.triggerApplications - a.triggerApplications)[0]
-      ?? periodTechniqueStats.filter(item => item.total > 0).sort((a, b) => b.resolved - a.resolved || b.total - a.total)[0]
-      ?? periodTechniqueStats[0];
-    const suggestedTechniqueTriggerEvidence = suggestedTechnique && triggerTechniqueStats.find(item => item.key === suggestedTechnique.key);
     const delta = (current: number, previous: number) => previous === 0 ? (current === 0 ? '0' : 'New') : ((current - previous > 0 ? '+' : '') + Math.round((current - previous) / previous * 100) + '%');
     const rating = windowLogs.length === 0 ? 'No records in this period' : windowLogs.length < 12 ? 'Limited records in this period' : resolvedCravings.length < 5 ? 'Descriptive records, few resolved outcomes in this period' : 'Sufficient descriptive records for this period';
-    const periodTip = !windowLogs.length
-      ? `No events were logged in the selected ${periodLabel}. Keep recording cravings, behavior, and strategy use; no record does not confirm that nothing happened.`
-      : suggestedPeriodTrigger && suggestedTechnique
-        ? `Try ${suggestedTechnique.name} when ${suggestedPeriodTrigger[0]} appears, then record the outcome. ${suggestedTechniqueTriggerEvidence?.triggerResolved ? `This technique was linked to ${suggestedTechniqueTriggerEvidence.triggerResolved} resolved episode${suggestedTechniqueTriggerEvidence.triggerResolved === 1 ? '' : 's'} with this trigger in the selected ${periodLabel}; treat the pattern as preliminary.` : suggestedTechniqueTriggerEvidence?.triggerApplications ? `${suggestedTechniqueTriggerEvidence.triggerApplications} application${suggestedTechniqueTriggerEvidence.triggerApplications === 1 ? '' : 's'} were logged with this trigger, but there are no known outcomes to compare yet.` : `No use of this technique was linked to this trigger in the selected ${periodLabel}, so treat this as an experiment.`}`
-        : suggestedPeriodTrigger
-          ? `Add a strategy to this habit to get a technique recommendation for ${suggestedPeriodTrigger[0]}.`
-        : currentPeriod.resolved < 5
-          ? `Only ${currentPeriod.resolved} craving outcome${currentPeriod.resolved === 1 ? ' is' : 's are'} known in the selected ${periodLabel}. Treat outcome patterns as preliminary and keep linking cravings to what happened next.`
-          : currentPeriod.quantity > previousPeriod.quantity
-            ? `${currentPeriod.quantity - previousPeriod.quantity} more ${isSmoke ? 'cigarettes' : 'occurrences'} were recorded than in the previous ${periodLabel}. Review their triggers and context before drawing a conclusion.`
-            : currentPeriod.techniques === 0
-              ? `No strategy use was logged in the selected ${periodLabel}. If you use a technique, record it alongside the trigger and outcome.`
-              : `Keep recording triggers, technique use, and linked outcomes across the next ${periodLabel} to see whether this pattern continues.`;
     const maxOccurrence = Math.max(1, ...periodBuckets.map(bucket => isSmoke ? bucket.summary.quantity : bucket.summary.occurrenceEvents));
     const maxCravings = Math.max(1, ...periodBuckets.map(bucket => bucket.summary.cravings));
-    const triggersWithoutTechnique = topTriggers.filter(([trigger]) => !windowLogs.some(log => log.type === 'technique_applied' && log.trigger === trigger)).map(([trigger]) => trigger);
-    const establishedTechniqueStats = techniqueStats.filter(item => item.resolved >= 5 && item.rate !== undefined).sort((a, b) => (b.rate ?? 0) - (a.rate ?? 0));
     const historyLogs = logs.filter(log => {
       const outcome = getOutcome(log);
       const lawList = chosenLaw(log);
@@ -1557,8 +1534,112 @@ export default function Home() {
             <span className="logging-quality-pill" title="Descriptive evidence is based only on records in the selected period and the outcomes you entered">{rating}</span>
           </div>
           <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">01 · {periodEyebrow} · OVERVIEW</span><h2>Period Check-in</h2></div><span className="logging-date-pill">{periodRangeText}</span></div><PeriodCheckin habitName={selectedHabit.name} isSmoking={isSmoke} periodLabel={periodLabel} current={currentPeriod} previous={previousPeriod} configuredTechniques={configured.size} techniqueApplicationCount={techniqueApplicationLogs.length} hasTechniqueFilters={hasTechniqueFilters} usedTechniques={periodTechniqueApplicationCounts.map(([name, applications]) => ({ name, applications }))} topTrigger={topTriggers[0] ? { name: topTriggers[0][0], count: topTriggers[0][1] } : undefined}/></section>
-          <section className="logging-insight-section logging-review-card"><div className="logging-section-heading"><div><span className="eyebrow">02 · {periodEyebrow} · BEHAVIORAL INSIGHTS</span><h2>Grounded observations</h2></div><span className="logging-quality-pill">{currentPeriod.resolved < 5 ? 'Early read' : 'Based on logged outcomes'}</span></div><div className="logging-observation-grid"><article><span className="eyebrow">WHAT IS SHOWING UP</span><p>{currentPeriodTriggers.length ? <><b>{currentPeriodTriggers[0][0]}</b> was the most logged trigger in this {periodLabel}, appearing in {currentPeriodTriggers[0][1]} entries.</> : `No trigger was logged in the selected ${periodLabel}. Add one when you record a craving to see where the habit tends to begin.`}</p><p>{currentPeriodTechniqueCounts.length ? <>{currentPeriodTechniqueCounts[0][0]} was your most practiced technique ({currentPeriodTechniqueCounts[0][1]} applications).</> : 'No technique applications were recorded in this period.'}</p></article><article className="logging-recommendation"><span className="eyebrow">TRY THIS NEXT</span>{suggestedPeriodTrigger && suggestedTechnique ? <><b>When {suggestedPeriodTrigger[0]} appears, try {suggestedTechnique.name}.</b><p>{periodTip}</p><button type="button" className="text-button" onClick={() => openTechniqueInStrategy(suggestedTechnique.techniqueId, suggestedTechnique.variationId)}>Review this technique <Icon name="arrow" size={14}/></button></> : <p>{periodTip}</p>}</article></div></section>
-          <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">03 · {periodEyebrow} · FOUR REVERSE LAWS</span><h2>Strategy practice and outcomes</h2></div><button type="button" className="text-button" onClick={() => setActive('Habit to break')}>Open strategy <Icon name="arrow" size={14}/></button></div><p className="logging-caveat">Applications and outcomes below use the selected period. Outcomes are shared across techniques used in one episode, so no single technique gets exclusive credit.</p><div className="logging-law-grid">{coverage.map(item => <article key={item.law.id}><span className="eyebrow logging-law-title">{item.law.break.toUpperCase()}</span><div className="logging-law-metrics"><div><b>{item.choices.length}</b><span>Configured</span></div><div><b>{item.usedTechniqueCount}</b><span>Used</span></div></div><small className="logging-law-applications">{item.used} applications in this period</small>{item.choices.length ? <ul>{item.choices.map(choice => { const practiced = windowLogs.some(log => log.type === 'technique_applied' && matchesTechniqueChoice(log, choice)); return <li key={choice.key}>{choice.name}<span>{practiced ? 'Used in period' : 'Not used in period'}</span></li>; })}</ul> : <p>No technique configured</p>}</article>)}</div><div className="logging-technique-cards">{techniqueStats.length ? techniqueStats.map(item => { const linkedTriggers = [...item.applications.reduce((counts, log) => { if (log.trigger) counts.set(log.trigger, (counts.get(log.trigger) ?? 0) + 1); return counts; }, new Map<string, number>()).entries()]; return <details className="logging-technique-card" key={item.key}><summary><span className="logging-technique-card-title"><b>{item.name}</b><small>{item.laws.map(id => lawGroups.find(law => law.id === id)?.break).filter(Boolean).join(', ')}</small></span><span className="logging-technique-effectiveness"><b>{item.rate === undefined ? '—' : item.rate + '%'}</b><small>{item.resolved < 5 ? 'Limited evidence' : 'Observed resistance'}</small></span><Icon name="chevron" size={16}/></summary><div className="logging-technique-card-body"><div className="logging-technique-card-metrics"><div><span>Applications</span><b>{item.total}</b><small>{item.preventive} preventive · {item.responsive} responsive</small></div><div><span>Observed outcomes</span><b>{item.resisted} resisted · {item.smoked} engaged</b><small>{item.unknown} unknown · {item.resolved} resolved responsive episodes</small></div><div><span>Effectiveness</span><b>{item.rate === undefined ? '—' : item.rate + '%'}</b><small>{item.resolved < 5 ? 'Limited data. Five resolved episodes are needed for a comparison.' : 'Observed only · ' + item.resolved + ' known outcomes'}</small></div></div><div className="logging-technique-triggers"><b>Associated triggers</b>{linkedTriggers.length ? <div>{linkedTriggers.map(([trigger, count]) => <span key={trigger}>{trigger}<small>{count} {count === 1 ? 'application' : 'applications'}</small></span>)}</div> : <p>No trigger was linked to this technique in the selected period.</p>}</div><p className="logging-technique-preventive">Preventive use: {item.preventiveDays} days, with {item.occurrencesOnPreventiveDays} occurrences recorded on those days. Descriptive only.</p><button type="button" className="text-button" onClick={() => openTechniqueInStrategy(item.techniqueId, item.variationId)}>Open on strategy page <Icon name="arrow" size={14}/></button></div></details>; }) : <p className="logging-empty-hint">No techniques are configured for this habit. Configure them on the strategy page.</p>}</div>{triggersWithoutTechnique.length > 0 && <p className="logging-caveat">Triggers with no technique application logged in this period: {triggersWithoutTechnique.join(', ')}.</p>}{establishedTechniqueStats.length > 0 && <p className="logging-review-evidence">Based on at least five resolved responsive episodes in this period, {establishedTechniqueStats[0].name} has the highest observed resistance rate ({establishedTechniqueStats[0].rate}% of {establishedTechniqueStats[0].resolved} resolved episodes). This is an observation, not proof of effect.</p>}</section>
+          <section className="logging-insight-section logging-review-card logging-behavior-insights">
+            <div className="logging-section-heading">
+              <div><span className="eyebrow">02 · {periodEyebrow} · BEHAVIORAL INSIGHTS</span><h2>Your Behavioral Insights</h2></div>
+            </div>
+            <div className="logging-behavior-summary">
+              <article>
+                <span className="eyebrow">Most common trigger</span>
+                {commonTrigger
+                  ? <><b>{commonTrigger.name}</b><p>Appeared in {commonTrigger.appearances} logged {commonTrigger.appearances === 1 ? 'entry' : 'entries'} during the selected {periodLabel}.</p></>
+                  : <p>No trigger was logged during the selected {periodLabel}.</p>}
+              </article>
+              <article>
+                <span className="eyebrow">Most practiced technique</span>
+                {mostPracticed
+                  ? <><b>{mostPracticed.name}</b><p>{mostPracticed.applications} {mostPracticed.applications === 1 ? 'use' : 'uses'} during the selected {periodLabel}.</p>{(() => {
+                      const laws = metadataChoices.find(choice => choice.name === mostPracticed.name)?.laws ?? [];
+                      const label = laws.map(id => insightLaws.find(law => law.id === id)?.break).filter(Boolean).join(', ');
+                      return label ? <small>{label}</small> : null;
+                    })()}</>
+                  : <p>No technique applications were recorded during the selected {periodLabel}{hasTechniqueFilters ? ' with these filters' : ''}.</p>}
+              </article>
+            </div>
+            <article className="logging-recommendation">
+              <span className="eyebrow">Suggested experiment</span>
+              <b>{suggestedExperiment.technique ? `Test ${suggestedExperiment.technique.name}` : suggestedExperiment.trigger ? `Build a strategy for ${suggestedExperiment.trigger.name}` : 'Keep recording the pattern'}</b>
+              <p>{suggestedExperiment.action}</p>
+              {suggestedExperiment.untestedForTrigger && <small className="logging-experiment-status">Untested in this period</small>}
+              <button type="button" className="text-button" onClick={() => suggestedExperiment.technique
+                ? openTechniqueInStrategy(suggestedExperiment.technique.techniqueId, suggestedExperiment.technique.variationId)
+                : openStrategyPage()}>
+                {suggestedExperiment.technique ? 'Review this technique' : 'Open Strategy'} <Icon name="arrow" size={14}/>
+              </button>
+            </article>
+          </section>
+          <section className="logging-insight-section logging-strategy-insights">
+            <div className="logging-section-heading">
+              <div><span className="eyebrow">03 · {periodEyebrow} · FOUR REVERSE LAWS</span><h2>What’s Working?</h2></div>
+              <button type="button" className="text-button" onClick={openStrategyPage}>Open strategy <Icon name="arrow" size={14}/></button>
+            </div>
+            <div className="logging-law-overview">
+              <div className="logging-law-overview-heading">
+                <b>{techniquePractice.lawCounts.filter(item => item.count > 0).length} of {insightLaws.length} laws practiced</b>
+                <small>Distinct techniques used during the selected {periodLabel}{hasTechniqueFilters ? ' with these filters' : ''}</small>
+              </div>
+              <div className="logging-law-overview-grid">
+                {insightLaws.map((law, index) => <div key={law.id}>
+                  <span>{law.break}</span>
+                  <b>{techniquePractice.lawCounts[index]?.count ?? 0}</b>
+                  <small>{(techniquePractice.lawCounts[index]?.count ?? 0) === 1 ? 'technique practiced' : 'techniques practiced'}</small>
+                </div>)}
+              </div>
+            </div>
+            <div className="logging-method-note">
+              <details><summary>How to read these outcomes</summary><p>Techniques linked to the same episode share its recorded outcome. Counts describe associations and do not show that a technique caused an outcome. Unknown outcomes are excluded from resolved counts.</p></details>
+            </div>
+            <div className="logging-technique-cards">
+              {techniquePractice.techniques.length
+                ? techniquePractice.techniques.map(item => {
+                    const lawLabel = item.laws.map(id => insightLaws.find(law => law.id === id)?.break).filter(Boolean).join(', ') || 'Law not recorded';
+                    const outcomeText = item.resolved
+                      ? `${item.resisted} of ${item.resolved} resolved episodes ended without ${isSmoke ? 'smoking' : 'engaging in the habit'}.`
+                      : 'No resolved responsive outcomes yet.';
+                    const triggers = item.triggers;
+                    return <details className="logging-technique-card" key={item.key}>
+                      <summary>
+                        <span className="logging-technique-card-title"><b>{item.name}</b><small>{lawLabel}</small></span>
+                        <span className="logging-technique-effectiveness"><b>{outcomeText}</b><small>{item.resolved < 5 ? 'Limited evidence' : 'Descriptive association'}</small></span>
+                        <Icon name="chevron" size={16}/>
+                      </summary>
+                      <div className="logging-technique-card-body">
+                        <div className="logging-technique-card-metrics">
+                          <div><span>Total applications</span><b>{item.total}</b></div>
+                          <div><span>Preventive applications</span><b>{item.preventive}</b><small>Across {item.preventiveDays} {item.preventiveDays === 1 ? 'day' : 'days'}</small></div>
+                          <div><span>Responsive applications</span><b>{item.responsive}</b><small>During a craving or event</small></div>
+                          <div><span>Resolved responsive episodes</span><b>{item.resolved}</b><small>{item.unknown} unresolved or unknown</small></div>
+                          <div><span>Recorded outcomes</span><b>{item.resisted} without the habit · {item.engaged} with the habit</b><small>Shared episode outcomes, not exclusive credit</small></div>
+                          <div><span>Occurrences on preventive days</span><b>{item.occurrencesOnPreventiveDays}</b><small>Descriptive count across {item.preventiveDays} days</small></div>
+                        </div>
+                        <div className="logging-technique-triggers">
+                          <b>Associated triggers</b>
+                          {triggers.length
+                            ? <div>{triggers.map(([trigger, count]) => <span key={trigger}>{trigger}<small>{count} {count === 1 ? 'application' : 'applications'}</small></span>)}</div>
+                            : <p>No trigger was linked to this technique in the selected period.</p>}
+                        </div>
+                        <div className="logging-technique-triggers">
+                          <b>Recorded context</b>
+                          {item.contexts.length
+                            ? <div>{item.contexts.map(context => <span key={context}>{context}</span>)}</div>
+                            : <p>No additional context was recorded for these applications.</p>}
+                        </div>
+                        <p className="logging-technique-period">Selected period: {periodRangeText}</p>
+                        <button type="button" className="text-button" onClick={() => item.configured
+                          ? openTechniqueInStrategy(item.techniqueId, item.variationId)
+                          : openStrategyPage()}>
+                          {item.configured ? 'Review on strategy page' : 'View strategy'} <Icon name="arrow" size={14}/>
+                        </button>
+                      </div>
+                    </details>;
+                  })
+                : <p className="logging-empty-hint">No technique applications matched this period and its filters.</p>}
+            </div>
+            <div className="logging-strategy-gap">
+              <div><span className="eyebrow">{strategyGap.title}</span><p>{strategyGap.description}</p></div>
+              <button type="button" className="text-button" onClick={openStrategyPage}>Improve Strategy <Icon name="arrow" size={14}/></button>
+            </div>
+          </section>
           <div className="logging-insight-grid">
             <section className="logging-insight-section" id="logging-trigger-analytics"><div className="logging-section-heading"><div><span className="eyebrow">04 · {periodEyebrow} · TRIGGERS</span><h2>Common triggers</h2></div></div>{triggerStats.length ? <div className="logging-trigger-list">{triggerStats.map(item => <div key={item.name} className="logging-trigger-analysis"><span>{item.name}</span><b>{item.count} logged · {item.episodes} episodes</b><i><em style={{ width: Math.max(8, item.count / Math.max(1, triggerStats[0]?.count ?? 1) * 100) + '%' }}/></i><small>{item.resolved ? item.resisted + '/' + item.resolved + ' resolved episodes resisted' : 'No resolved outcomes yet'}{item.resolved < 5 ? ' · limited observations' : ''}</small></div>)}</div> : <p className="logging-empty-hint">Add triggers to see their logged frequency and associated outcomes.</p>}<p className="logging-caveat">Counts show how often a trigger was recorded. Associated outcomes are descriptive, not causal.</p></section>
             <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">05 · {periodEyebrow} · OUTCOME TREND</span><h2>{isSmoke ? 'Cigarette quantity trend' : 'Habit occurrence trend'}</h2></div><span className="logging-chart-note">{isHourlyWindow ? 'No event in an hour is not a confirmed zero' : 'No record is unknown'}</span></div><div className="logging-bars-scroll"><div className="logging-bars logging-bars-wide" role="img" aria-label={(isSmoke ? 'Cigarettes' : 'Habit occurrences') + (isHourlyWindow ? ' by hour over the past 24 hours.' : ' logged by local day. Unconfirmed days without an occurrence record are shown as unknown.')} style={{ minWidth: Math.max(320, periodBuckets.length * 25) + 'px' }}>{periodBuckets.map(bucket => { const value = isSmoke ? bucket.summary.quantity : bucket.summary.occurrenceEvents; const known = Boolean(bucket.summary.knownOccurrenceCount); const height = value ? Math.max(8, value / maxOccurrence * 100) : known ? 4 : 3; return <div className={'logging-bar-day ' + (!known ? 'unknown' : '')} key={bucket.key} title={bucket.detail + ': ' + (known ? value + ' logged' : 'no occurrence record')}><span>{known ? value : '·'}</span><i style={{ height: height + '%' }}/><small>{bucket.label}</small></div>; })}</div></div><div className="logging-legend"><span><i/> {isHourlyWindow ? 'Occurrence logged' : 'Logged or explicitly confirmed'}</span><span><i/> No occurrence data</span></div><p className="logging-caveat">{isHourlyWindow ? 'An hour without an occurrence record is not confirmed as zero.' : 'Confirmed no occurrence days require an explicit daily confirmation. Days without an occurrence entry are not counted as zero.'}</p></section>
@@ -1574,7 +1655,7 @@ export default function Home() {
             ['Technique applications', previousPeriod.techniques, currentPeriod.techniques, delta(currentPeriod.techniques, previousPeriod.techniques)],
             ['No-occurrence confirmations', previousPeriod.noOccurrenceConfirmations, currentPeriod.noOccurrenceConfirmations, delta(currentPeriod.noOccurrenceConfirmations, previousPeriod.noOccurrenceConfirmations)],
             ['Days with logs / confirmations', previousPeriod.loggedDays + ' / ' + previousPeriod.days + ', ' + previousPeriod.confirmations + ' confirmed', currentPeriod.loggedDays + ' / ' + currentPeriod.days + ', ' + currentPeriod.confirmations + ' confirmed', 'Completeness'],
-          ] as [string, string | number, string | number, string][]).map(row => <div className="logging-week-row" key={row[0]}><b>{row[0]}</b><span>{row[1]}</span><span>{row[2]}</span><span>{row[3]}</span></div>)}</div><p className="logging-caveat">The selected {periodLabel} is compared with the immediately previous equally long period. The 24 hour option compares exact rolling windows. A zero previous value has no percentage change.</p><div className="logging-week-review-text"><b>Tip based on this period</b><p>{periodTip}</p>{currentPeriodTriggers.length > 0 && <p>Most logged trigger: {currentPeriodTriggers[0][0]} ({currentPeriodTriggers[0][1]} entries in this period).</p>}{currentPeriodTechniqueCounts.length > 0 && <p>Most practiced technique: {currentPeriodTechniqueCounts[0][0]} ({currentPeriodTechniqueCounts[0][1]} applications in this period).</p>}</div></section>
+          ] as [string, string | number, string | number, string][]).map(row => <div className="logging-week-row" key={row[0]}><b>{row[0]}</b><span>{row[1]}</span><span>{row[2]}</span><span>{row[3]}</span></div>)}</div><p className="logging-caveat">The selected {periodLabel} is compared with the immediately previous equally long period. The 24 hour option compares exact rolling windows. A zero previous value has no percentage change.</p></section>
           {confirmationConflicts.length > 0 && <section className="logging-insight-section logging-conflict-list"><div className="logging-section-heading"><div><span className="eyebrow">DATA CHECK</span><h2>Confirmation conflicts</h2></div><span className="logging-chart-note">{confirmationConflicts.length} day{confirmationConflicts.length === 1 ? '' : 's'}</span></div><p className="logging-caveat">A daily confirmation disagrees with occurrence records on a date covered by this period. Correct either side; Habitly keeps both until you do.</p>{confirmationConflicts.map(day => <div className="logging-conflict-row" key={day.key}><div><b>{formatDay(day.key)}</b><small>{day.summary.confirmation?.status === 'no_occurrence' ? day.summary.occurrenceEvents + ' occurrence events are logged' : 'You confirmed an occurrence was recorded, but none is logged'}</small></div>{day.summary.confirmation?.status === 'no_occurrence' ? <><button type="button" onClick={() => saveDailyConfirmation('occurred_recorded', day.key)}>Occurred, logged</button><button type="button" onClick={() => saveDailyConfirmation('incomplete', day.key)}>Records incomplete</button></> : <><button type="button" onClick={() => saveDailyConfirmation('no_occurrence', day.key)}>No occurrence</button><button type="button" onClick={() => saveDailyConfirmation('incomplete', day.key)}>Records incomplete</button></>}<button type="button" className="text-button" onClick={() => { setHistoryFrom(day.key); setHistoryTo(day.key); setLoggingView('History'); }}>Review events</button></div>)}</section>}
         </div>}
         {loggingView === 'History' && <section className="logging-history-section">

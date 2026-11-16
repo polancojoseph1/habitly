@@ -1217,38 +1217,57 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .logging-filter-scope{grid-column:1/-1;margin:0;color:var(--muted);font-size:10px;line-height:1.45}
 .logging-insight-filter-fields label{display:grid;gap:5px;min-width:0;color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.7px}
 .logging-insight-filter-fields input,.logging-insight-filter-fields select{box-sizing:border-box;width:100%;min-width:0;max-width:100%;min-height:40px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);color:var(--ink);font:inherit;font-size:11px;letter-spacing:normal}
-.logging-observation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
-.logging-observation-grid>article{min-width:0;padding:13px;border:1px solid var(--line);border-radius:11px;background:var(--surface-soft)}
-.logging-observation-grid>article>p{margin:8px 0 0;color:var(--muted);font-size:11px;line-height:1.55}
-.logging-observation-grid>article>p b,.logging-recommendation>b{color:var(--ink)}
-.logging-recommendation{border-color:color-mix(in srgb,var(--accent) 38%,var(--line))!important}
-.logging-recommendation> b{display:block;margin-top:8px;font-size:13px;line-height:1.45}
-.logging-recommendation .text-button{display:inline-flex;align-items:center;gap:5px;margin-top:9px}
-.logging-technique-cards{display:grid;gap:8px;margin:13px 0}
+.logging-behavior-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:11px 0 8px}
+.logging-behavior-summary>article{display:grid;align-content:start;gap:5px;min-width:0;padding:11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-soft)}
+.logging-behavior-summary>article>b{color:var(--ink);font-size:13px;line-height:1.4;overflow-wrap:anywhere}
+.logging-behavior-summary>article>p{margin:0;color:var(--muted);font-size:10px;line-height:1.45;overflow-wrap:anywhere}
+.logging-behavior-summary>article>small{color:var(--muted);font-size:9px;line-height:1.4;overflow-wrap:anywhere}
+.logging-recommendation{display:grid;gap:6px;min-width:0;margin-top:8px;padding:12px;border:1px solid color-mix(in srgb,var(--accent) 38%,var(--line));border-radius:11px;background:var(--surface-soft)}
+.logging-recommendation>b{color:var(--ink);font-size:13px;line-height:1.4;overflow-wrap:anywhere}
+.logging-recommendation>p{margin:0;color:var(--muted);font-size:11px;line-height:1.5;overflow-wrap:anywhere}
+.logging-recommendation .text-button{display:inline-flex;align-items:center;gap:5px;justify-self:start;margin-top:2px}
+.logging-experiment-status{color:var(--accent-ink);font-size:9px;font-weight:800;letter-spacing:.25px}
+.logging-law-overview{display:grid;gap:9px;margin:12px 0 4px}
+.logging-law-overview-heading{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}
+.logging-law-overview-heading>b{color:var(--ink);font-size:12px}
+.logging-law-overview-heading>small{color:var(--muted);font-size:9px;text-align:right;line-height:1.4}
+.logging-law-overview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.logging-law-overview-grid>div{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:2px 7px;min-width:0;padding:8px 9px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft)}
+.logging-law-overview-grid>div>span{min-width:0;color:var(--muted);font-size:9px;line-height:1.3;overflow-wrap:anywhere}
+.logging-law-overview-grid>div>b{grid-column:2;grid-row:1/3;color:var(--accent-ink);font-size:18px;font-family:'Manrope',sans-serif}
+.logging-law-overview-grid>div>small{grid-column:1;color:var(--muted);font-size:8px;line-height:1.25}
+.logging-method-note{display:flex;justify-content:flex-end;margin:6px 0 2px}
+.logging-method-note details{min-width:0;color:var(--muted);font-size:9px}
+.logging-method-note summary{cursor:pointer;text-decoration:underline;text-decoration-color:color-mix(in srgb,var(--muted) 45%,transparent);text-underline-offset:2px}
+.logging-method-note p{max-width:560px;margin:6px 0 0 auto;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);font-size:10px;line-height:1.5}
+.logging-technique-cards{display:grid;gap:7px;margin:8px 0}
 .logging-technique-card{min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:12px;background:var(--surface-soft)}
-.logging-technique-card>summary{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;min-height:66px;padding:11px 13px;color:var(--ink);cursor:pointer;list-style:none}
+.logging-technique-card>summary{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) 20px;align-items:center;gap:8px;min-height:58px;padding:10px 12px;color:var(--ink);cursor:pointer;list-style:none}
 .logging-technique-card>summary::-webkit-details-marker{display:none}
 .logging-technique-card>summary>svg{color:var(--muted);transition:transform .15s ease}
 .logging-technique-card[open]>summary{border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 5%,var(--surface-soft))}
 .logging-technique-card[open]>summary>svg{transform:rotate(180deg)}
-.logging-technique-card-title,.logging-technique-effectiveness{display:grid;gap:4px;min-width:0}
+.logging-technique-card-title,.logging-technique-effectiveness{display:grid;gap:3px;min-width:0}
 .logging-technique-card-title b{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
-.logging-technique-card-title small,.logging-technique-effectiveness small{color:var(--muted);font-size:9px;line-height:1.4}
+.logging-technique-card-title small,.logging-technique-effectiveness small{color:var(--muted);font-size:9px;line-height:1.35;overflow-wrap:anywhere}
 .logging-technique-effectiveness{text-align:right}
-.logging-technique-effectiveness b{font:700 17px 'Manrope',sans-serif;color:var(--accent-ink)}
-.logging-technique-card-body{display:grid;gap:12px;padding:12px}
-.logging-technique-card-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.logging-technique-card-metrics>div{display:grid;align-content:start;gap:5px;min-width:0;padding:10px;border-radius:9px;background:var(--surface-raised)}
-.logging-technique-card-metrics span,.logging-technique-triggers>b{color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase}
-.logging-technique-card-metrics b{color:var(--ink);font-size:12px;line-height:1.4;overflow-wrap:anywhere}
-.logging-technique-card-metrics small,.logging-technique-preventive{color:var(--muted);font-size:9px;line-height:1.5}
-.logging-technique-triggers{display:grid;gap:7px}
-.logging-technique-triggers>div{display:flex;gap:6px;flex-wrap:wrap}
-.logging-technique-triggers>div>span{display:grid;gap:3px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface-raised);color:var(--ink);font-size:10px;font-weight:700}
+.logging-technique-effectiveness b{color:var(--ink);font-size:10px;line-height:1.4;overflow-wrap:anywhere}
+.logging-technique-card-body{display:grid;gap:10px;padding:11px 12px}
+.logging-technique-card-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}
+.logging-technique-card-metrics>div{display:grid;align-content:start;gap:3px;min-width:0;padding:7px 0;border-top:1px solid var(--line)}
+.logging-technique-card-metrics span,.logging-technique-triggers>b{color:var(--muted);font-size:8px;font-weight:800;letter-spacing:.45px;text-transform:uppercase;overflow-wrap:anywhere}
+.logging-technique-card-metrics b{color:var(--ink);font-size:11px;line-height:1.35;overflow-wrap:anywhere}
+.logging-technique-card-metrics small,.logging-technique-preventive,.logging-technique-period{margin:0;color:var(--muted);font-size:9px;line-height:1.45;overflow-wrap:anywhere}
+.logging-technique-triggers{display:grid;gap:6px;min-width:0}
+.logging-technique-triggers>div{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
+.logging-technique-triggers>div>span{display:grid;gap:2px;max-width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);color:var(--ink);font-size:9px;font-weight:700;overflow-wrap:anywhere}
 .logging-technique-triggers>div>span small{color:var(--muted);font-size:8px;font-weight:500}
-.logging-technique-triggers>p{margin:0;color:var(--muted);font-size:10px;line-height:1.5}
-.logging-technique-preventive{margin:0}
+.logging-technique-triggers>p{margin:0;color:var(--muted);font-size:9px;line-height:1.45;overflow-wrap:anywhere}
 .logging-technique-card-body>.text-button{display:inline-flex;align-items:center;gap:5px;justify-self:start}
+.logging-strategy-gap{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft)}
+.logging-strategy-gap>div{display:grid;gap:4px;min-width:0}
+.logging-strategy-gap>div>p{margin:0;color:var(--muted);font-size:10px;line-height:1.45;overflow-wrap:anywhere}
+.logging-strategy-gap>.text-button{display:inline-flex;align-items:center;justify-content:center;gap:5px;flex:0 0 auto;white-space:nowrap}
 .logging-insight-toolbar :focus-visible,.logging-technique-card :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @media(max-width:650px){
   .logging-insight-toolbar{align-items:stretch}
@@ -1258,14 +1277,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .logging-insight-filter-disclosure>summary{justify-content:center}
   .logging-insight-filter-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
   .logging-insight-filter-fields .logging-date-field{grid-column:auto}
-  .logging-observation-grid{grid-template-columns:1fr}
-  .logging-technique-card-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .logging-technique-card-metrics>div:last-child{grid-column:1/-1}
+  .logging-behavior-summary{grid-template-columns:1fr}
+  .logging-technique-card-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 10px}
+  .logging-law-overview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .logging-strategy-gap{align-items:flex-start;flex-direction:column}
 }
 @media(max-width:390px){
   .logging-insight-filter-fields{grid-template-columns:1fr}
   .logging-insight-filter-fields .logging-date-field{grid-column:1/-1}
-  .logging-technique-card>summary{gap:7px;padding:10px}
-  .logging-technique-card-metrics{grid-template-columns:1fr}
-  .logging-technique-card-metrics>div:last-child{grid-column:auto}
+  .logging-technique-card>summary{grid-template-columns:minmax(0,1fr) 20px;grid-template-rows:auto auto;gap:6px 8px;padding:10px}
+  .logging-technique-card-title{grid-column:1;grid-row:1}
+  .logging-technique-effectiveness{grid-column:1/-1;grid-row:2;text-align:left}
+  .logging-technique-card>summary>svg{grid-column:2;grid-row:1}
+  .logging-law-overview-heading{align-items:flex-start;flex-direction:column;gap:3px}
+  .logging-law-overview-heading>small{text-align:left}
 }

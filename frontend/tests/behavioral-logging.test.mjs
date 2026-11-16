@@ -23,6 +23,30 @@ import {
   techniquePracticeNote,
   triggerInsightSentence,
 } from '../app/period-checkin.ts';
+import {
+  buildStrategyGap,
+  buildSuggestedExperiment,
+  buildTechniquePracticeStats,
+  mostCommonTrigger,
+  mostPracticedTechnique,
+} from '../app/insights.ts';
+
+const insightLog = (id, type, fields = {}) => ({
+  id,
+  habitId: 'habit-a',
+  type,
+  at: '2026-11-15T16:00:00.000Z',
+  localDate: '2026-11-15',
+  timezone: 'America/New_York',
+  ...fields,
+});
+const insightChoice = (id, name, laws, extra = {}) => ({ key: `technique:${id}`, name, techniqueId: id, laws, ...extra });
+const insightLaws = [
+  { id: 'cue', break: 'Make It Invisible' },
+  { id: 'craving', break: 'Make It Unattractive' },
+  { id: 'response', break: 'Make It Difficult' },
+  { id: 'reward', break: 'Make It Unsatisfying' },
+];
 
 const craving = (id, episodeId, outcome = 'pending', at = '2026-11-15T16:00:00.000Z') => ({
   id, habitId: 'habit-a', type: 'craving', episodeId, outcome, at, localDate: '2026-11-15', timezone: 'America/New_York',
@@ -240,4 +264,215 @@ test('recorded comparisons show an absolute difference and avoid a percent when 
 
 test('incomplete previous period suppresses the comparative progress claim', () => {
   assert.deepEqual(compareRecordedPeriods(6, 12, false), { reliable: false });
+});
+
+test('empty insight periods show no trigger or practice and do not invent a recommendation', () => {
+  assert.equal(mostCommonTrigger([]), undefined);
+  assert.equal(mostPracticedTechnique([], []), undefined);
+  assert.deepEqual(buildSuggestedExperiment([], [], []), {
+    trigger: undefined,
+    technique: undefined,
+    action: 'No entries were logged in this period. Record a trigger and what happened next to build a useful pattern.',
+    untestedForTrigger: false,
+  });
+  const summary = buildTechniquePracticeStats([], [], [], [], [], insightLaws.map(law => law.id));
+  assert.deepEqual(summary.lawCounts.map(item => item.count), [0, 0, 0, 0]);
+  assert.deepEqual(summary.techniques, []);
+});
+
+test('a single trigger is counted as a logged appearance and a selected period scopes the summary', () => {
+  const selectedPeriod = [insightLog('c1', 'craving', { trigger: 'Commute' })];
+  assert.deepEqual(mostCommonTrigger(selectedPeriod), {
+    name: 'Commute', appearances: 1, episodes: 1, unfavorable: 0, resolved: 0, hasTechniqueApplication: false,
+  });
+  assert.equal(mostCommonTrigger([insightLog('c2', 'craving', { trigger: 'Older trigger' })])?.name, 'Older trigger');
+});
+
+test('tied most common triggers sort alphabetically regardless of record order', () => {
+  const commute = insightLog('c1', 'craving', { trigger: 'Commute' });
+  const boredom = insightLog('c2', 'craving', { trigger: 'Boredom' });
+  assert.equal(mostCommonTrigger([commute, boredom])?.name, 'Boredom');
+  assert.equal(mostCommonTrigger([boredom, commute])?.name, 'Boredom');
+});
+
+test('tied most practiced techniques sort alphabetically regardless of record order', () => {
+  const logs = [
+    insightLog('t1', 'technique_applied', { technique: 'Increase Friction', techniqueId: 'increase-friction' }),
+    insightLog('t2', 'technique_applied', { technique: 'Implementation Intentions', techniqueId: 'implementation-intentions' }),
+  ];
+  assert.equal(mostPracticedTechnique(logs, [])?.name, 'Implementation Intentions');
+  assert.equal(mostPracticedTechnique([...logs].reverse(), [])?.name, 'Implementation Intentions');
+});
+
+test('practice counts are applications, and a technique linked to two laws counts once under each', () => {
+  const choice = insightChoice('habit-automation', 'Habit Automation', ['cue', 'response']);
+  const applications = [
+    insightLog('t1', 'technique_applied', { technique: choice.name, techniqueId: choice.techniqueId, laws: choice.laws }),
+    insightLog('t2', 'technique_applied', { technique: choice.name, techniqueId: choice.techniqueId, laws: choice.laws }),
+  ];
+  const summary = buildTechniquePracticeStats(applications, applications, applications, [choice], [choice], insightLaws.map(law => law.id));
+  assert.equal(summary.techniques.length, 1);
+  assert.equal(summary.techniques[0].total, 2);
+  assert.deepEqual(summary.lawCounts.map(item => item.count), [1, 0, 1, 0]);
+});
+
+test('multiple techniques sharing one episode each show the same outcome without exclusive credit', () => {
+  const first = insightChoice('increase-friction', 'Increase Friction', ['response']);
+  const second = insightChoice('reframe-mindset', 'Reframe Your Mindset', ['craving']);
+  const logs = [
+    insightLog('c1', 'craving', { episodeId: 'ep1', trigger: 'Stress', outcome: 'resisted' }),
+    insightLog('t1', 'technique_applied', { episodeId: 'ep1', technique: first.name, techniqueId: first.techniqueId, laws: first.laws, timing: 'responsive', trigger: 'Stress' }),
+    insightLog('t2', 'technique_applied', { episodeId: 'ep1', technique: second.name, techniqueId: second.techniqueId, laws: second.laws, timing: 'responsive', trigger: 'Stress' }),
+  ];
+  const summary = buildTechniquePracticeStats(logs.filter(log => log.type === 'technique_applied'), logs, logs, [first, second], [first, second], insightLaws.map(law => law.id));
+  assert.deepEqual(summary.techniques.map(item => [item.resolved, item.resisted, item.engaged]), [[1, 1, 0], [1, 1, 0]]);
+});
+
+test('preventive use is kept separate from responsive outcomes', () => {
+  const choice = insightChoice('increase-friction', 'Increase Friction', ['response']);
+  const logs = [
+    insightLog('t1', 'technique_applied', { episodeId: 'ep1', technique: choice.name, techniqueId: choice.techniqueId, laws: choice.laws, timing: 'preventive' }),
+    insightLog('t2', 'technique_applied', { episodeId: 'ep2', technique: choice.name, techniqueId: choice.techniqueId, laws: choice.laws, timing: 'responsive' }),
+    insightLog('c2', 'craving', { episodeId: 'ep2', outcome: 'resisted' }),
+  ];
+  const stat = buildTechniquePracticeStats(logs.filter(log => log.type === 'technique_applied'), logs, logs, [choice], [choice], ['response']).techniques[0];
+  assert.equal(stat.total, 2);
+  assert.equal(stat.preventive, 1);
+  assert.equal(stat.responsive, 1);
+  assert.equal(stat.resolved, 1);
+  assert.equal(stat.resisted, 1);
+});
+
+test('preventive occurrence details stay inside the selected period', () => {
+  const choice = insightChoice('increase-friction', 'Increase Friction', ['response']);
+  const application = insightLog('t1', 'technique_applied', { technique: choice.name, techniqueId: choice.techniqueId, laws: choice.laws, timing: 'preventive' });
+  const outsidePeriodOccurrence = insightLog('o1', 'habit_occurrence', { localDate: '2026-11-14' });
+  const stat = buildTechniquePracticeStats([application], [application, outsidePeriodOccurrence], [application], [choice], [choice], ['response']).techniques[0];
+  assert.equal(stat.preventiveDays, 1);
+  assert.equal(stat.occurrencesOnPreventiveDays, 0);
+});
+
+test('unknown and unresolved responsive outcomes do not enter the resolved denominator', () => {
+  const choice = insightChoice('increase-friction', 'Increase Friction', ['response']);
+  const logs = [
+    insightLog('t1', 'technique_applied', { episodeId: 'ep1', technique: choice.name, techniqueId: choice.techniqueId, laws: choice.laws, timing: 'responsive' }),
+    insightLog('c1', 'craving', { episodeId: 'ep1', outcome: 'pending' }),
+    insightLog('t2', 'technique_applied', { episodeId: 'ep2', technique: choice.name, techniqueId: choice.techniqueId, laws: choice.laws, timing: 'responsive' }),
+  ];
+  const stat = buildTechniquePracticeStats(logs.filter(log => log.type === 'technique_applied'), logs, logs, [choice], [choice], ['response']).techniques[0];
+  assert.equal(stat.responsive, 2);
+  assert.equal(stat.resolved, 0);
+  assert.equal(stat.unknown, 2);
+  assert.equal(stat.resisted, 0);
+  assert.equal(stat.engaged, 0);
+});
+
+test('a contextually relevant strategy is suggested instead of the most used unrelated technique', () => {
+  const tracking = insightChoice('habit-tracking', 'Habit Tracking', ['reward']);
+  const plan = insightChoice('implementation-intentions', 'Implementation Intentions', ['cue']);
+  const logs = [
+    insightLog('c1', 'craving', { episodeId: 'ep1', trigger: 'Social pressure', outcome: 'pending' }),
+    insightLog('c2', 'craving', { episodeId: 'ep2', trigger: 'Social pressure', outcome: 'pending' }),
+    insightLog('t1', 'technique_applied', { technique: tracking.name, techniqueId: tracking.techniqueId, laws: tracking.laws, trigger: 'Other routine' }),
+    insightLog('t2', 'technique_applied', { technique: tracking.name, techniqueId: tracking.techniqueId, laws: tracking.laws, trigger: 'Other routine' }),
+    insightLog('t3', 'technique_applied', { technique: tracking.name, techniqueId: tracking.techniqueId, laws: tracking.laws, trigger: 'Other routine' }),
+  ];
+  const suggestion = buildSuggestedExperiment(logs, logs, [tracking, plan]);
+  assert.equal(suggestion.trigger?.name, 'Social pressure');
+  assert.equal(suggestion.technique?.name, 'Implementation Intentions');
+  assert.match(suggestion.action, /decide when and where/);
+  assert.match(suggestion.action, /log whether the habit happened/);
+  assert.equal(suggestion.untestedForTrigger, true);
+});
+
+test('commute suggestions require a commute relevant technique and never default to tracking', () => {
+  const tracking = insightChoice('habit-tracking', 'Habit Tracking', ['reward']);
+  const friction = insightChoice('increase-friction', 'Increase Friction', ['response']);
+  const logs = [insightLog('c1', 'craving', { episodeId: 'ep1', trigger: 'Commute', outcome: 'pending' })];
+  const suggestion = buildSuggestedExperiment(logs, logs, [tracking, friction]);
+  assert.equal(suggestion.technique?.name, 'Increase Friction');
+  assert.match(suggestion.action, /add one deliberate step/);
+});
+
+test('an unrelated configured technique leads to a Strategy page experiment, not an invented technique', () => {
+  const tracking = insightChoice('habit-tracking', 'Habit Tracking', ['reward']);
+  const logs = [insightLog('c1', 'craving', { episodeId: 'ep1', trigger: 'Commute', outcome: 'pending' })];
+  const suggestion = buildSuggestedExperiment(logs, logs, [tracking]);
+  assert.equal(suggestion.technique, undefined);
+  assert.match(suggestion.action, /No configured technique clearly matches Commute/);
+});
+
+test('repeated unfavorable triggers are prioritized without labeling frequency as danger', () => {
+  const plan = insightChoice('implementation-intentions', 'Implementation Intentions', ['cue']);
+  const logs = [
+    insightLog('c1', 'craving', { episodeId: 'ep1', trigger: 'Commute', outcome: 'smoked' }),
+    insightLog('c2', 'craving', { episodeId: 'ep2', trigger: 'Commute', outcome: 'smoked' }),
+    insightLog('c3', 'craving', { episodeId: 'ep3', trigger: 'Social pressure', outcome: 'pending' }),
+    insightLog('c4', 'craving', { episodeId: 'ep4', trigger: 'Social pressure', outcome: 'pending' }),
+    insightLog('c5', 'craving', { episodeId: 'ep5', trigger: 'Social pressure', outcome: 'pending' }),
+  ];
+  const suggestion = buildSuggestedExperiment(logs, logs, [plan]);
+  assert.equal(mostCommonTrigger(logs)?.name, 'Social pressure');
+  assert.equal(suggestion.trigger?.name, 'Commute');
+});
+
+test('repeated unaddressed triggers are offered before an unrelated frequently used strategy', () => {
+  const tracking = insightChoice('habit-tracking', 'Habit Tracking', ['reward']);
+  const logs = [
+    insightLog('c1', 'craving', { episodeId: 'ep1', trigger: 'Commute', outcome: 'pending' }),
+    insightLog('c2', 'craving', { episodeId: 'ep2', trigger: 'Commute', outcome: 'pending' }),
+    insightLog('t1', 'technique_applied', { technique: tracking.name, techniqueId: tracking.techniqueId, trigger: 'Other routine' }),
+  ];
+  const gap = buildStrategyGap(logs, logs, [tracking], insightLaws);
+  assert.equal(gap.title, 'Untested trigger');
+  assert.match(gap.description, /Commute appeared in 2 logged entries/);
+});
+
+test('an earlier application does not mark a trigger as practiced in the selected period', () => {
+  const tracking = insightChoice('habit-tracking', 'Habit Tracking', ['reward']);
+  const periodLogs = [
+    insightLog('c1', 'craving', { episodeId: 'ep1', trigger: 'Commute', outcome: 'pending' }),
+    insightLog('c2', 'craving', { episodeId: 'ep2', trigger: 'Commute', outcome: 'pending' }),
+  ];
+  const history = [
+    ...periodLogs,
+    insightLog('old-use', 'technique_applied', { technique: tracking.name, techniqueId: tracking.techniqueId, trigger: 'Commute', localDate: '2026-11-01' }),
+  ];
+  const gap = buildStrategyGap(periodLogs, history, [tracking], insightLaws);
+  assert.equal(gap.title, 'Untested trigger');
+});
+
+test('missing law configuration is surfaced as one concise strategy gap', () => {
+  const choice = insightChoice('increase-friction', 'Increase Friction', ['response']);
+  const gap = buildStrategyGap([], [], [choice], insightLaws);
+  assert.deepEqual(gap, { title: 'Strategy gap', description: 'No Make It Invisible technique is configured for this habit.' });
+});
+
+test('long technique names and recorded context remain available in expanded practice data', () => {
+  const name = 'A Very Long Contextual Technique Name That Should Wrap on a Small Screen';
+  const choice = insightChoice('implementation-intentions', name, ['cue']);
+  const application = insightLog('t1', 'technique_applied', {
+    technique: name,
+    techniqueId: choice.techniqueId,
+    laws: choice.laws,
+    trigger: 'Social pressure',
+    context: { environments: ['Community center'], social: ['With friends'] },
+  });
+  const stat = buildTechniquePracticeStats([application], [application], [application], [choice], [choice], ['cue']).techniques[0];
+  assert.equal(stat.name, name);
+  assert.deepEqual(stat.contexts, ['Community center', 'With friends']);
+  assert.deepEqual(stat.triggers, [['Social pressure', 1]]);
+});
+
+test('filtering application records limits technique rows and law counts to filtered data', () => {
+  const cueTechnique = insightChoice('implementation-intentions', 'Implementation Intentions', ['cue']);
+  const rewardTechnique = insightChoice('habit-tracking', 'Habit Tracking', ['reward']);
+  const allApplications = [
+    insightLog('t1', 'technique_applied', { technique: cueTechnique.name, techniqueId: cueTechnique.techniqueId, laws: cueTechnique.laws }),
+    insightLog('t2', 'technique_applied', { technique: rewardTechnique.name, techniqueId: rewardTechnique.techniqueId, laws: rewardTechnique.laws }),
+  ];
+  const filtered = allApplications.filter(log => log.techniqueId === cueTechnique.techniqueId);
+  const summary = buildTechniquePracticeStats(filtered, allApplications, allApplications, [cueTechnique, rewardTechnique], [cueTechnique, rewardTechnique], insightLaws.map(law => law.id));
+  assert.deepEqual(summary.techniques.map(item => item.name), ['Implementation Intentions']);
+  assert.deepEqual(summary.lawCounts.map(item => item.count), [1, 0, 0, 0]);
 });
