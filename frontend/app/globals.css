@@ -642,7 +642,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .habit-card-foot { width: 100%; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 13px; margin-top: 14px; padding: 11px 0; border-color: var(--line); }
 .habit-card-foot>span:first-child { max-width: 100%; color: var(--muted); font-size: 11px; white-space: normal; }
 .habit-card-foot>.complete-button { margin-left: auto; }
-.habit-card-foot>.quiet-button { margin-left: 0; }
 .habit-why { min-width: 0; flex: 1 1 150px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
 .quiet-button { flex: 0 0 auto; color: var(--muted); font-size: 11px; }
 .prep-inline { min-width: 0; width: 100%; margin: 0 0 12px; padding: 10px; background: var(--surface-soft); color: var(--muted); font-size: 11px; }
@@ -1359,12 +1358,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   min-width: 0;
 }
 .habit-title-copy h3 { min-width: 0; overflow-wrap: anywhere; }
+.habit-card-top > .habit-manage-menu { margin: -4px -4px 0 0; }
 .toast-message.toast-habit-delete { width: min(560px, calc(100vw - 32px)); justify-content: flex-start; gap: 10px; }
 .toast-delete-copy { min-width: 0; }
 .toast-undo-button { margin-left: auto; padding: 6px 3px; border: 0; background: transparent; color: #c7c3f2; font: inherit; font-weight: 700; cursor: pointer; }
 .toast-undo-button:hover { color: #fff; }
 .toast-undo-button:focus-visible { outline: 2px solid #c7c3f2; outline-offset: 3px; border-radius: 3px; }
-.habit-card-top > .habit-manage-menu { margin: -4px -4px 0 0; }
 
 /* Keep decorative and status surfaces dark throughout the app in dark mode. */
 :root[data-theme="dark"] .nav-item:hover { background: var(--surface-soft); color: var(--ink); }
@@ -1456,7 +1455,3 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 :root[data-theme="dark"] .confetti-four,
 :root[data-theme="dark"] .confetti-five { background: #53465b; }
 :root[data-theme="dark"] .connection-error { border-color: #604149; background: rgba(67, 36, 46, .55); color: var(--ink); }
-
-:root[data-theme="dark"] .reframe-card span,
-:root[data-theme="dark"] .reframe-card small { color: var(--muted); }
-:root[data-theme="dark"] .reframe-card input { border-color: var(--line); color: var(--ink); }
