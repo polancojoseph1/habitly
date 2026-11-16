@@ -31,6 +31,14 @@ export function resistancePercentage(resisted: number, resolved: number): number
   return resolved > 0 ? Math.round((resisted / resolved) * 100) : undefined;
 }
 
+export function techniqueOutcomePercentages(resisted: number, engaged: number, resolved: number): { worked: number; didNotWork: number } | undefined {
+  if (resolved <= 0) return undefined;
+  return {
+    worked: Math.round((resisted / resolved) * 100),
+    didNotWork: Math.round((engaged / resolved) * 100),
+  };
+}
+
 export function techniquePracticeNote(configuredTechniques: number, distinctTechniques: number, hasTechniqueFilters = false): string {
   if (distinctTechniques > 0) return `${distinctTechniques} distinct technique${distinctTechniques === 1 ? '' : 's'} practiced.`;
   if (hasTechniqueFilters) return 'No technique applications matched these filters.';

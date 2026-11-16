@@ -1,4 +1,8 @@
-import { compareRecordedPeriods, primaryRecordedValue, resistancePercentage, techniquePracticeNote, triggerInsightSentence } from './period-checkin';
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import type { TechniquePractice } from './insights';
+import { compareRecordedPeriods, primaryRecordedValue, resistancePercentage, techniqueOutcomePercentages, techniquePracticeNote, triggerInsightSentence } from './period-checkin';
 
 type PeriodStats = {
   quantity: number;
@@ -22,7 +26,7 @@ type Props = {
   configuredTechniques: number;
   techniqueApplicationCount: number;
   hasTechniqueFilters: boolean;
-  usedTechniques: { name: string; applications: number }[];
+  usedTechniques: Pick<TechniquePractice, 'key' | 'name' | 'total' | 'responsive' | 'preventive' | 'resolved' | 'resisted' | 'engaged' | 'unknown'>[];
   topTrigger?: TriggerStat;
 };
 
@@ -30,6 +34,10 @@ const unitName = (count: number, singular: string, pluralForm = `${singular}s`) 
 const plural = (count: number, singular: string, pluralForm = `${singular}s`) => `${count} ${unitName(count, singular, pluralForm)}`;
 
 export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, previous, configuredTechniques, techniqueApplicationCount, hasTechniqueFilters, usedTechniques, topTrigger }: Props) {
+  const [techniqueModalOpen, setTechniqueModalOpen] = useState(false);
+  const techniqueButtonRef = useRef<HTMLButtonElement>(null);
+  const techniqueCloseRef = useRef<HTMLButtonElement>(null);
+  const techniqueDialogRef = useRef<HTMLElement>(null);
   const primaryCurrent = isSmoking ? current.quantity : current.occurrences;
   const primaryPrevious = isSmoking ? previous.quantity : previous.occurrences;
   const primaryUnit = isSmoking ? 'cigarette' : 'occurrence';
@@ -44,6 +52,46 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
     : comparison.difference === 0
       ? `No change in recorded ${isSmoking ? 'cigarette quantity' : 'occurrences'}.`
       : `${Math.abs(comparison.difference)} ${comparisonWord} recorded ${primaryUnit}${Math.abs(comparison.difference) === 1 ? '' : 's'}${comparison.percentage === undefined ? '' : ` (${comparison.percentage > 0 ? '+' : '−'}${Math.abs(comparison.percentage)}%)`}.`;
+
+  useEffect(() => {
+    if (!techniqueModalOpen) return;
+    const body = document.body;
+    const root = document.documentElement;
+    const previousOverflow = body.style.overflow;
+    const previousRootOverflow = root.style.overflow;
+    const previousOverscroll = root.style.overscrollBehavior;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setTechniqueModalOpen(false);
+      if (event.key !== 'Tab') return;
+      const focusable = techniqueDialogRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])');
+      if (!focusable?.length) {
+        event.preventDefault();
+        techniqueDialogRef.current?.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    body.style.overflow = 'hidden';
+    root.style.overflow = 'hidden';
+    root.style.overscrollBehavior = 'none';
+    window.addEventListener('keydown', onKeyDown);
+    techniqueCloseRef.current?.focus();
+    return () => {
+      body.style.overflow = previousOverflow;
+      root.style.overflow = previousRootOverflow;
+      root.style.overscrollBehavior = previousOverscroll;
+      window.removeEventListener('keydown', onKeyDown);
+      techniqueButtonRef.current?.focus();
+    };
+  }, [techniqueModalOpen]);
 
   return <div className="period-checkin">
     <article className="period-primary-card" aria-labelledby="period-primary-title">
@@ -86,21 +134,13 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
           : <><strong className="period-secondary-value">{resistanceRate}%</strong><p>{current.resisted} of {current.resolved} resolved cravings resisted during the selected {periodLabel}.</p><div className="period-resistance-track" role="progressbar" aria-label={`Observed craving resistance, ${resistanceRate} percent`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={resistanceRate}><span style={{ width: `${resistanceRate}%` }}/></div></>}
       </article>
 
-      <details className="period-secondary-card period-technique-card">
-        <summary className="period-technique-summary" aria-controls="period-technique-details" aria-label={`Techniques used, ${techniqueApplicationCount} applications. Expand to view technique names and application counts.`}>
-          <div className="period-technique-heading"><h3>Techniques used</h3><span className="period-technique-chevron" aria-hidden="true">⌄</span></div>
+      <button ref={techniqueButtonRef} type="button" className="period-secondary-card period-technique-card" aria-haspopup="dialog" aria-controls="period-technique-dialog" aria-label={`Techniques used, ${techniqueApplicationCount} applications. View technique outcomes.`} onClick={() => setTechniqueModalOpen(true)}>
+          <div className="period-technique-heading"><h3>Techniques used</h3><span className="period-technique-chevron" aria-hidden="true">↗</span></div>
           <strong className="period-secondary-value">{techniqueApplicationCount.toLocaleString()} <span>applications</span></strong>
           <p>{hasTechniqueFilters ? 'Applications matching the selected filters during this period.' : `Techniques practiced during the selected ${periodLabel}.`}</p>
           <small>{techniquePracticeNote(configuredTechniques, usedTechniques.length, hasTechniqueFilters)}</small>
-          <span className="period-technique-toggle">View techniques</span>
-        </summary>
-        <div className="period-technique-details" id="period-technique-details">
-          <span className="eyebrow">USED IN THE SELECTED PERIOD</span>
-          {usedTechniques.length > 0
-            ? <ul className="period-technique-list">{usedTechniques.map(({ name, applications }) => <li key={name}><span>{name}</span><small>{plural(applications, 'application')}</small></li>)}</ul>
-            : <p className="period-technique-empty">{hasTechniqueFilters ? 'No techniques matched the selected filters.' : configuredTechniques === 0 ? 'No techniques are configured for this habit.' : `No technique applications were logged during the selected ${periodLabel}.`}</p>}
-        </div>
-      </details>
+          <span className="period-technique-toggle">View technique outcomes</span>
+      </button>
     </div>
 
     <article className="period-trigger-card">
@@ -120,5 +160,37 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
         : <span>No cravings logged during the selected {periodLabel}.</span>}
       {!current.occurrenceCoverageComplete && <span className="period-support-note">Missing logs are not counted as zero behavior.</span>}
     </div>
+    {techniqueModalOpen && <div className="modal-backdrop period-technique-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setTechniqueModalOpen(false); }}>
+      <section ref={techniqueDialogRef} id="period-technique-dialog" className="builder-modal period-technique-modal" role="dialog" aria-modal="true" aria-labelledby="period-technique-title" aria-describedby="period-technique-method" tabIndex={-1}>
+        <header className="modal-header"><div><span className="eyebrow">TECHNIQUE ANALYTICS · {periodLabel.toUpperCase()}</span><h2 id="period-technique-title">Techniques used</h2><p>Recorded applications and their resolved outcomes.</p></div><button ref={techniqueCloseRef} type="button" className="modal-close" onClick={() => setTechniqueModalOpen(false)} aria-label="Close technique analytics">×</button></header>
+        <div className="period-technique-modal-body">
+          {usedTechniques.length > 0
+            ? <ul className="period-technique-outcome-list">{usedTechniques.map(item => {
+                const outcomePercentages = techniqueOutcomePercentages(item.resisted, item.engaged, item.resolved);
+                const workedPercentage = outcomePercentages?.worked;
+                const notWorkedPercentage = outcomePercentages?.didNotWork;
+                return <li key={item.key}>
+                  <article className="period-technique-outcome">
+                    <header><h3>{item.name}</h3><span>{plural(item.total, 'application')}</span></header>
+                    {workedPercentage === undefined || notWorkedPercentage === undefined
+                      ? <p className="period-technique-outcome-empty">No resolved responsive outcomes to calculate percentages for this technique.</p>
+                      : <>
+                        <div className="period-technique-outcome-grid">
+                          <div><span>Worked</span><strong>{workedPercentage}%</strong><small>{item.resisted} of {item.resolved} resolved responsive episodes were resisted.</small></div>
+                          <div><span>Did not work</span><strong>{notWorkedPercentage}%</strong><small>{item.engaged} of {item.resolved} resolved responsive episodes had a habit occurrence recorded.</small></div>
+                        </div>
+                        <div className="period-technique-outcome-track" role="img" aria-label={`${workedPercentage}% resisted and ${notWorkedPercentage}% with a habit occurrence, among ${item.resolved} resolved responsive episodes`}>
+                          <span style={{ width: `${item.resisted / item.resolved * 100}%` }}/><span style={{ width: `${item.engaged / item.resolved * 100}%` }}/>
+                        </div>
+                      </>}
+                    <p className="period-technique-outcome-context">{plural(item.responsive, 'responsive application')} · {plural(item.preventive, 'preventive application')}{item.unknown > 0 ? ` · ${item.unknown} unresolved or unknown responsive ${item.unknown === 1 ? 'episode' : 'episodes'}` : ''}</p>
+                  </article>
+                </li>;
+              })}</ul>
+            : <p className="period-technique-empty">{hasTechniqueFilters ? 'No techniques matched the selected filters.' : configuredTechniques === 0 ? 'No techniques are configured for this habit.' : `No technique applications were logged during the selected ${periodLabel}.`}</p>}
+          <p id="period-technique-method" className="period-technique-method">Percentages use resolved responsive episodes only. Unresolved or unknown outcomes and preventive applications are excluded. These are descriptive associations, not proof that a technique caused an outcome; techniques linked to the same episode share its recorded outcome.</p>
+        </div>
+      </section>
+    </div>}
   </div>;
 }

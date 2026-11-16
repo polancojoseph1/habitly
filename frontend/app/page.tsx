@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { buildStrategyGap, buildSuggestedExperiment, buildTechniquePracticeStats, mostCommonTrigger, mostPracticedTechnique } from './insights';
-import { isPeriodOccurrenceCoverageComplete, techniqueApplicationsByName } from './period-checkin';
+import { isPeriodOccurrenceCoverageComplete } from './period-checkin';
 import { PeriodCheckin } from './period-checkin-view';
 import notebookLMContent from './notebooklm-content.json';
 import { lawGroups, techniques, techniqueMap } from './techniques';
@@ -1317,7 +1317,6 @@ export default function Home() {
       const timingMatch = insightTimingFilter === 'all' || (log.timing ?? 'responsive') === insightTimingFilter;
       return log.type === 'technique_applied' && lawMatch && triggerMatch && intensityMatch && timingMatch;
     });
-    const periodTechniqueApplicationCounts = techniqueApplicationsByName(techniqueApplicationLogs);
     const hasTechniqueFilters = insightLawFilter !== 'all' || insightTriggerFilter !== 'all' || insightIntensityFilter !== 'all' || insightTimingFilter !== 'all';
     const insightLaws = lawGroups.slice(0, 4).map(law => ({ ...law, break: law.break.replace(/\b\w/g, letter => letter.toUpperCase()) }));
     const configuredInsightChoices = techniqueChoices.map(choice => ({
@@ -1533,7 +1532,7 @@ export default function Home() {
             </details>
             <span className="logging-quality-pill" title="Descriptive evidence is based only on records in the selected period and the outcomes you entered">{rating}</span>
           </div>
-          <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">01 · {periodEyebrow} · OVERVIEW</span><h2>Period Check-in</h2></div><span className="logging-date-pill">{periodRangeText}</span></div><PeriodCheckin habitName={selectedHabit.name} isSmoking={isSmoke} periodLabel={periodLabel} current={currentPeriod} previous={previousPeriod} configuredTechniques={configured.size} techniqueApplicationCount={techniqueApplicationLogs.length} hasTechniqueFilters={hasTechniqueFilters} usedTechniques={periodTechniqueApplicationCounts.map(([name, applications]) => ({ name, applications }))} topTrigger={topTriggers[0] ? { name: topTriggers[0][0], count: topTriggers[0][1] } : undefined}/></section>
+          <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">01 · {periodEyebrow} · OVERVIEW</span><h2>Period Check-in</h2></div><span className="logging-date-pill">{periodRangeText}</span></div><PeriodCheckin habitName={selectedHabit.name} isSmoking={isSmoke} periodLabel={periodLabel} current={currentPeriod} previous={previousPeriod} configuredTechniques={configured.size} techniqueApplicationCount={techniqueApplicationLogs.length} hasTechniqueFilters={hasTechniqueFilters} usedTechniques={techniquePractice.techniques} topTrigger={topTriggers[0] ? { name: topTriggers[0][0], count: topTriggers[0][1] } : undefined}/></section>
           <section className="logging-insight-section logging-review-card logging-behavior-insights">
             <div className="logging-section-heading">
               <div><span className="eyebrow">02 · {periodEyebrow} · BEHAVIORAL INSIGHTS</span><h2>Your Behavioral Insights</h2></div>

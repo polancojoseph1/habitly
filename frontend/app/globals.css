@@ -319,23 +319,41 @@
 .period-secondary-value.unavailable{font-size:17px;letter-spacing:0}
 .period-secondary-card p{margin:1px 0 0;color:var(--muted);font-size:10px;line-height:1.45;overflow-wrap:anywhere}
 .period-secondary-card>small{margin-top:3px;color:var(--muted);font-size:9px;line-height:1.4;overflow-wrap:anywhere}
-.period-technique-card{padding:0}
-.period-technique-summary{display:flex;flex-direction:column;gap:4px;width:100%;min-width:0;padding:10px;cursor:pointer;list-style:none;overflow-wrap:anywhere}
-.period-technique-summary::-webkit-details-marker{display:none}
-.period-technique-summary>small{margin-top:3px;color:var(--muted);font-size:9px;line-height:1.4;overflow-wrap:anywhere}
-.period-technique-summary:focus-visible{outline:3px solid color-mix(in srgb,var(--accent-ink) 40%,transparent);outline-offset:-3px;border-radius:11px}
+.period-technique-card{box-sizing:border-box;width:100%;padding:10px;border:1px solid var(--line);background:var(--surface-raised);color:var(--ink);font:inherit;text-align:left;cursor:pointer;transition:border-color .15s ease,background .15s ease}
+.period-technique-card:hover{border-color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 5%,var(--surface-raised))}
+.period-technique-card:focus-visible{outline:3px solid color-mix(in srgb,var(--accent-ink) 45%,transparent);outline-offset:2px}
+.period-technique-card>small{margin-top:3px;color:var(--muted);font-size:9px;line-height:1.4;overflow-wrap:anywhere}
 .period-technique-heading{display:flex;align-items:center;justify-content:space-between;gap:7px;min-width:0}
 .period-technique-heading h3{min-width:0}
-.period-technique-chevron{display:grid;place-items:center;flex:0 0 24px;width:24px;height:24px;border:1px solid var(--line);border-radius:50%;color:var(--accent-ink);font-size:16px;line-height:1;transition:transform .16s ease}
-.period-technique-card[open] .period-technique-chevron{transform:rotate(180deg)}
+.period-technique-chevron{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;border:1px solid var(--line);border-radius:50%;color:var(--accent-ink);font-size:15px;line-height:1}
 .period-technique-toggle{display:flex;align-items:center;gap:4px;margin-top:2px;color:var(--accent-ink);font-size:9px;font-weight:800}
-.period-technique-details{padding:10px;border-top:1px solid var(--line)}
-.period-technique-details>.eyebrow{display:block;margin-bottom:5px;font-size:8px;letter-spacing:.65px}
-.period-technique-list{display:grid;gap:0;margin:0;padding:0;list-style:none}
-.period-technique-list li{display:flex;align-items:flex-start;justify-content:space-between;gap:6px;padding:7px 0;border-top:1px solid var(--line)}
-.period-technique-list li>span{min-width:0;color:var(--ink);font-size:10px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
-.period-technique-list li>small{flex:0 0 auto;color:var(--muted);font-size:9px;text-align:right}
+.period-technique-modal-backdrop{z-index:90}
 .period-technique-empty{margin:0;color:var(--muted);font-size:10px;line-height:1.45;overflow-wrap:anywhere}
+.period-technique-modal{width:min(100%,680px);padding:clamp(16px,4vw,24px)}
+.period-technique-modal>.modal-header{align-items:flex-start}
+.period-technique-modal .modal-close{flex-basis:42px;width:42px;height:42px;font-size:24px}
+.period-technique-modal>.modal-header>div{min-width:0}
+.period-technique-modal .modal-header .eyebrow{font-size:9px;letter-spacing:.8px}
+.period-technique-modal .modal-header h2{overflow-wrap:anywhere}
+.period-technique-modal .modal-header p{margin-top:4px;font-size:12px;line-height:1.45}
+.period-technique-modal-body{display:grid;gap:12px;min-width:0;padding-top:14px}
+.period-technique-outcome-list{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+.period-technique-outcome-list>li{min-width:0}
+.period-technique-outcome{display:grid;gap:10px;min-width:0;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-soft)}
+.period-technique-outcome>header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-width:0}
+.period-technique-outcome>header h3{min-width:0;margin:0;color:var(--ink);font:700 14px/1.35 'Manrope',sans-serif;overflow-wrap:anywhere}
+.period-technique-outcome>header>span{flex:0 0 auto;color:var(--muted);font-size:10px;text-align:right}
+.period-technique-outcome-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-width:0}
+.period-technique-outcome-grid>div{display:grid;gap:3px;min-width:0;padding:9px;border:1px solid var(--line);border-radius:9px;background:var(--surface-raised)}
+.period-technique-outcome-grid>div>span{color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase}
+.period-technique-outcome-grid>div>strong{color:var(--accent-ink);font:800 24px/1.1 'Manrope',sans-serif;font-variant-numeric:tabular-nums}
+.period-technique-outcome-grid>div>small{color:var(--muted);font-size:10px;line-height:1.4;overflow-wrap:anywhere}
+.period-technique-outcome-track{display:flex;height:7px;overflow:hidden;border-radius:999px;background:var(--surface-raised)}
+.period-technique-outcome-track>span:first-child{background:var(--accent-ink)}
+.period-technique-outcome-track>span:last-child{background:#bc8693}
+.period-technique-outcome-empty,.period-technique-outcome-context,.period-technique-method{margin:0;color:var(--muted);font-size:10px;line-height:1.5;overflow-wrap:anywhere}
+.period-technique-method{padding-top:10px;border-top:1px solid var(--line)}
+@media(max-width:420px){.period-technique-modal .modal-header h2{font-size:21px}.period-technique-outcome-grid{grid-template-columns:1fr}.period-technique-outcome{padding:10px}}
 .period-resistance-track{height:5px;margin-top:5px;border-radius:10px;background:var(--surface-soft);overflow:hidden}
 .period-resistance-track>span{display:block;height:100%;border-radius:inherit;background:var(--accent-ink);transition:width .2s ease}
 .period-trigger-card{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:13px}

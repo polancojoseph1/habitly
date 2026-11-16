@@ -19,6 +19,7 @@ import {
   isPeriodOccurrenceCoverageComplete,
   primaryRecordedValue,
   resistancePercentage,
+  techniqueOutcomePercentages,
   techniqueApplicationsByName,
   techniquePracticeNote,
   triggerInsightSentence,
@@ -365,6 +366,23 @@ test('unknown and unresolved responsive outcomes do not enter the resolved denom
   assert.equal(stat.unknown, 2);
   assert.equal(stat.resisted, 0);
   assert.equal(stat.engaged, 0);
+  assert.equal(techniqueOutcomePercentages(stat.resisted, stat.engaged, stat.resolved), undefined);
+});
+
+test('technique outcome percentages compare only resolved responsive episodes', () => {
+  const choice = insightChoice('increase-friction', 'Increase Friction', ['response']);
+  const logs = [
+    insightLog('t1', 'technique_applied', { episodeId: 'ep1', technique: choice.name, techniqueId: choice.techniqueId, timing: 'responsive' }),
+    insightLog('c1', 'craving', { episodeId: 'ep1', outcome: 'resisted' }),
+    insightLog('t2', 'technique_applied', { episodeId: 'ep2', technique: choice.name, techniqueId: choice.techniqueId, timing: 'responsive' }),
+    insightLog('o2', 'habit_occurrence', { episodeId: 'ep2' }),
+    insightLog('t3', 'technique_applied', { episodeId: 'ep3', technique: choice.name, techniqueId: choice.techniqueId, timing: 'responsive' }),
+    insightLog('c3', 'craving', { episodeId: 'ep3', outcome: 'pending' }),
+  ];
+  const stat = buildTechniquePracticeStats(logs.filter(log => log.type === 'technique_applied'), logs, logs, [choice], [choice], ['response']).techniques[0];
+  assert.equal(stat.resolved, 2);
+  assert.equal(stat.unknown, 1);
+  assert.deepEqual(techniqueOutcomePercentages(stat.resisted, stat.engaged, stat.resolved), { worked: 50, didNotWork: 50 });
 });
 
 test('a contextually relevant strategy is suggested instead of the most used unrelated technique', () => {
