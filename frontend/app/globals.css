@@ -1097,3 +1097,27 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .learning-modal>.modal-header{flex:0 0 auto}
 .learning-modal-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding-top:14px}
 @media(max-width:600px){.info-modal-backdrop .learning-modal{max-height:calc(100vh - 48px);max-height:calc(100dvh - 48px)}}
+
+/* Keep logging controls and their contents inside their cards. */
+.logging-form,.logging-advanced-form,.logging-backdate,.logging-field,.logging-insight-section,.logging-history-section,.logging-insight-controls,.logging-history-filters,.logging-section-heading,.logging-form-head,.logging-context-grid,.logging-tag-manager,.logging-episode,.behavior-timeline li,.anti-card,.anti-stats>div{min-width:0}
+.logging-field input:not([type=range]),.logging-field select,.logging-field textarea,.logging-insight-controls input,.logging-insight-controls select,.logging-history-filters input,.logging-history-filters select{box-sizing:border-box;min-width:0;max-width:100%}
+.logging-field input:not([type=range]),.logging-field select,.logging-insight-controls input,.logging-insight-controls select,.logging-history-filters input,.logging-history-filters select{min-height:42px}
+.logging-field input[type=datetime-local],.logging-insight-controls input[type=date],.logging-history-filters input[type=date]{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box}
+.logging-backdate,.logging-backdate .logging-field{width:100%;max-width:100%}
+.logging-submit{height:auto;min-height:44px;max-width:100%;padding:9px 14px;line-height:1.25;white-space:normal;overflow-wrap:anywhere}
+.logging-clear-filters{grid-column:1/-1;display:flex;align-items:center;justify-content:center;justify-self:start;width:max-content;min-width:138px;min-height:42px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);color:var(--accent-ink);text-align:center}
+.logging-time-blocks>div,.logging-weekday-grid>div{min-width:0;text-align:center}
+.logging-time-blocks b,.logging-time-blocks span,.logging-time-blocks small,.logging-weekday-grid b,.logging-weekday-grid span,.logging-weekday-grid small{max-width:100%;overflow-wrap:anywhere;text-align:center}
+.anti-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px}
+.anti-stats span{line-height:1.35;overflow-wrap:anywhere}
+@media(max-width:650px){
+  .logging-insight-controls label,.logging-history-filters label{min-width:0;width:100%}
+  .logging-date-field{grid-column:1/-1}
+  .logging-time-blocks{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .logging-time-blocks b{font-size:16px}
+  .logging-weekday-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .logging-weekday-grid>div{padding-inline:6px}
+  .logging-insight-controls input,.logging-insight-controls select,.logging-history-filters input,.logging-history-filters select{font-size:13px}
+  .logging-clear-filters{justify-self:stretch;width:100%}
+  .anti-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+}
