@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './icons';
 import { buildStrategyGap, buildSuggestedExperiment, buildTechniquePracticeStats, mostCommonTrigger, mostPracticedTechnique } from './insights';
@@ -176,32 +176,90 @@ function MultiAnswerField({ label, helper, values, onChange, optional = false, o
   optional?: boolean; ordered?: boolean; placeholder?: string; addLabel?: string;
 }) {
   const rows = values.length ? values : [''];
+  const listRef = useRef<HTMLDivElement>(null);
+  const rowIdsRef = useRef<string[]>([]);
+  const nextRowIdRef = useRef(0);
+  const currentRowsRef = useRef(rows);
+  const activeDragIdRef = useRef<string | null>(null);
+  const [draggedRowId, setDraggedRowId] = useState<string | null>(null);
+  currentRowsRef.current = rows;
+  while (rowIdsRef.current.length < rows.length) rowIdsRef.current.push(`answer-${nextRowIdRef.current++}`);
+  if (rowIdsRef.current.length > rows.length) rowIdsRef.current = rowIdsRef.current.slice(0, rows.length);
+
   function updateAnswer(index: number, value: string) {
     onChange(rows.map((answer, rowIndex) => rowIndex === index ? value : answer));
   }
   function removeAnswer(index: number) {
     const next = rows.filter((_, rowIndex) => rowIndex !== index);
+    rowIdsRef.current = rowIdsRef.current.filter((_, rowIndex) => rowIndex !== index);
+    if (!next.length) rowIdsRef.current = [`answer-${nextRowIdRef.current++}`];
+    currentRowsRef.current = next.length ? next : [''];
     onChange(next.length ? next : ['']);
   }
-  function moveAnswer(index: number, direction: -1 | 1) {
-    const nextIndex = index + direction;
-    if (nextIndex < 0 || nextIndex >= rows.length) return;
-    const next = [...rows];
-    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+  function moveAnswerTo(index: number, nextIndex: number) {
+    const sourceRows = currentRowsRef.current;
+    if (index < 0 || nextIndex < 0 || index >= sourceRows.length || nextIndex >= sourceRows.length || index === nextIndex) return;
+    const next = [...sourceRows];
+    const [answer] = next.splice(index, 1);
+    next.splice(nextIndex, 0, answer);
+    const nextIds = [...rowIdsRef.current];
+    const [rowId] = nextIds.splice(index, 1);
+    nextIds.splice(nextIndex, 0, rowId);
+    currentRowsRef.current = next;
+    rowIdsRef.current = nextIds;
+    onChange(next);
+  }
+  function startAnswerDrag(event: ReactPointerEvent<HTMLButtonElement>, rowId: string) {
+    if (rows.length < 2 || event.button !== 0) return;
+    event.preventDefault();
+    activeDragIdRef.current = rowId;
+    setDraggedRowId(rowId);
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+  function moveAnswerWithPointer(event: ReactPointerEvent<HTMLButtonElement>) {
+    const activeId = activeDragIdRef.current;
+    if (!activeId || !listRef.current) return;
+    const fromIndex = rowIdsRef.current.indexOf(activeId);
+    const rowElements = Array.from(listRef.current.querySelectorAll<HTMLElement>('[data-answer-row]'));
+    const targetIndex = rowElements.findIndex(row => {
+      const bounds = row.getBoundingClientRect();
+      return event.clientY < bounds.top + bounds.height / 2;
+    });
+    const nextIndex = targetIndex === -1 ? rowIdsRef.current.length - 1 : targetIndex;
+    moveAnswerTo(fromIndex, nextIndex);
+  }
+  function finishAnswerDrag(event?: ReactPointerEvent<HTMLButtonElement>) {
+    activeDragIdRef.current = null;
+    setDraggedRowId(null);
+    if (event?.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+  function moveAnswerWithKeyboard(event: ReactKeyboardEvent<HTMLButtonElement>, rowId: string) {
+    if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+    event.preventDefault();
+    const index = rowIdsRef.current.indexOf(rowId);
+    moveAnswerTo(index, index + (event.key === 'ArrowUp' ? -1 : 1));
+  }
+  function addAnswer() {
+    rowIdsRef.current = [...rowIdsRef.current, `answer-${nextRowIdRef.current++}`];
+    const next = [...rows, ''];
+    currentRowsRef.current = next;
     onChange(next);
   }
   return <div className="multi-answer-field">
     <div className="multi-answer-heading"><span className="field-label multi-answer-label">{label}</span>{optional && <span className="optional">OPTIONAL</span>}</div>
     <p className="multi-answer-helper">{helper}</p>
-    <div className={ordered ? 'multi-answer-list multi-answer-list-ordered' : 'multi-answer-list'}>
-      {rows.map((answer, index) => <div className="multi-answer-row" key={`${label}-${index}`}>
+    <div ref={listRef} className={ordered ? 'multi-answer-list multi-answer-list-ordered' : 'multi-answer-list'}>
+      {rows.map((answer, index) => {
+        const rowId = rowIdsRef.current[index];
+        return <div className={`multi-answer-row${draggedRowId === rowId ? ' multi-answer-row-dragging' : ''}`} data-answer-row key={rowId}>
         <span className="multi-answer-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
         <input value={answer} maxLength={300} required={ordered && index === 0} aria-label={`${label}, ${ordered ? 'step' : 'answer'} ${index + 1}`} placeholder={placeholder} onChange={event => updateAnswer(index, event.target.value)}/>
-        {ordered && <span className="multi-answer-reorder"><button type="button" aria-label={`Move step ${index + 1} up`} disabled={index === 0} onClick={() => moveAnswer(index, -1)}>↑</button><button type="button" aria-label={`Move step ${index + 1} down`} disabled={index === rows.length - 1} onClick={() => moveAnswer(index, 1)}>↓</button></span>}
+        {ordered && <button type="button" className="multi-answer-drag-handle" aria-label={`Drag to reorder step ${index + 1}`} aria-roledescription="drag handle" title="Drag to reorder" onPointerDown={event => startAnswerDrag(event, rowId)} onPointerMove={moveAnswerWithPointer} onPointerUp={finishAnswerDrag} onPointerCancel={finishAnswerDrag} onLostPointerCapture={() => { if (activeDragIdRef.current === rowId) finishAnswerDrag(); }} onKeyDown={event => moveAnswerWithKeyboard(event, rowId)}><Icon name="grip" size={18}/></button>}
         <button type="button" className="multi-answer-remove" aria-label={`Remove ${ordered ? 'step' : 'answer'} ${index + 1} from ${label}`} onClick={() => removeAnswer(index)}>×</button>
-      </div>)}
+      </div>;
+      })}
     </div>
-    <button type="button" className="multi-answer-add" onClick={() => onChange([...rows, ''])}><span aria-hidden="true">+</span>{addLabel ?? 'Add another answer'}</button>
+    <button type="button" className="multi-answer-add" onClick={addAnswer}><span aria-hidden="true">+</span>{addLabel ?? 'Add another answer'}</button>
   </div>;
 }
 function demoHistory(): Record<string, string[]> {

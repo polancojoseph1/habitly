@@ -14,6 +14,7 @@ export function Icon({ name, size = 18 }: { name: string; size?: number }) {
     'arrow-down-right': <path d="m5 5 14 14M8 19h11V8"/>,
     send: <><path d="m21 3-7.5 18-3.5-7-7-3.5L21 3Z"/><path d="M10 14 21 3"/></>,
     chevron: <path d="m7 10 5 5 5-5"/>,
+    grip: <><circle cx="9" cy="6" r="1.25"/><circle cx="15" cy="6" r="1.25"/><circle cx="9" cy="12" r="1.25"/><circle cx="15" cy="12" r="1.25"/><circle cx="9" cy="18" r="1.25"/><circle cx="15" cy="18" r="1.25"/></>,
     check: <path d="m5 12 4.2 4.2L19 6.5"/>,
     clock: <><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></>,
     pin: <><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2"/></>,
