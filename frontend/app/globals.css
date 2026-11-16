@@ -884,11 +884,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .habit-manage-menu > div .habit-delete-action { color: #c36c75; }
 .habit-manage-menu > div .habit-delete-action:hover { color: #e58790; }
 .delete-habit-backdrop { z-index: 100; }
-.delete-habit-modal { box-sizing: border-box; width: min(calc(100% - 16px), 360px); max-width: 360px; margin: 0; padding: 20px; }
-.delete-habit-modal h2 { margin: 0 0 7px; font-size: 21px; line-height: 1.25; }
-.delete-habit-modal > p { margin: 0 0 14px; font-size: 14px; line-height: 1.5; }
-.delete-habit-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
-.delete-habit-actions > button { box-sizing: border-box; flex: 1 1 0; min-width: 0; height: 40px; min-height: 40px; padding: 0 10px; border-radius: 9px; font-size: 14px; white-space: nowrap; }
+.delete-habit-modal { margin: 0; }
+.delete-habit-modal h2 { font-size: 21px; line-height: 1.25; }
+.delete-habit-modal > p { font-size: 14px; line-height: 1.5; }
+.delete-habit-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.delete-habit-actions > button { font-size: 14px; white-space: nowrap; }
 .delete-confirm-button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #b74656; color: #fff; font-weight: 700; cursor: pointer; }
 .delete-confirm-button:disabled { opacity: .6; cursor: wait; }
 @media (max-width: 600px) { .habit-manage-menu > summary { width: 36px; height: 36px; } .delete-habit-actions > button { flex: 1; } }
