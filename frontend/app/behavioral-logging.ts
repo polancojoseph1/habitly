@@ -1,0 +1,160 @@
+export type BehaviorType = 'craving' | 'habit_occurrence' | 'technique_applied';
+export type BehaviorOutcome = 'resisted' | 'smoked' | 'pending';
+export type ContextFields = {
+  emotions?: string[];
+  environments?: string[];
+  activities?: string[];
+  social?: string[];
+  tags?: string[];
+};
+export type BehaviorLog = {
+  id: string;
+  habitId: string;
+  type: BehaviorType;
+  at: string;
+  createdAt?: string;
+  localDate?: string;
+  timezone?: string;
+  episodeId?: string;
+  trigger?: string;
+  intensity?: number;
+  outcome?: BehaviorOutcome;
+  technique?: string;
+  techniqueId?: string;
+  law?: string;
+  laws?: string[];
+  variationId?: string;
+  timing?: 'preventive' | 'responsive';
+  quantity?: number;
+  context?: ContextFields;
+  automaticThought?: string;
+  belief?: string;
+  confidence?: number;
+  reframing?: string;
+  intensityAfter?: number;
+  note?: string;
+};
+
+export type EpisodeOutcome = 'resisted' | 'smoked' | 'unknown';
+export type DailyConfirmationStatus = 'no_occurrence' | 'occurred_recorded' | 'incomplete' | 'skip';
+export type DailyConfirmation = { habitId: string; date: string; status: DailyConfirmationStatus; updatedAt: string };
+
+function isDateKey(value: string | undefined): value is string {
+  return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+}
+
+export function dateKeyInZone(at: string | Date, timezone?: string): string {
+  const value = typeof at === 'string' ? new Date(at) : at;
+  if (!Number.isFinite(value.getTime())) return '';
+  if (timezone) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).formatToParts(value);
+      const pick = (kind: string) => parts.find(part => part.type === kind)?.value ?? '';
+      return `${pick('year')}-${pick('month')}-${pick('day')}`;
+    } catch {
+      // Old entries may contain a timezone removed from the user's device.
+    }
+  }
+  return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
+}
+
+export function behaviorDayKey(log: Pick<BehaviorLog, 'at' | 'localDate' | 'timezone'>): string {
+  return isDateKey(log.localDate) ? log.localDate : dateKeyInZone(log.at, log.timezone);
+}
+
+export function resolvedEpisodeOutcome(logs: BehaviorLog[], episodeId: string): EpisodeOutcome {
+  const episode = logs.filter(log => log.episodeId === episodeId);
+  if (episode.some(log => log.type === 'habit_occurrence')) return 'smoked';
+  const outcome = episode.find(log => log.type === 'craving' && (log.outcome === 'resisted' || log.outcome === 'smoked'))?.outcome;
+  return outcome === 'resisted' || outcome === 'smoked' ? outcome : 'unknown';
+}
+
+export function episodeKey(log: BehaviorLog): string {
+  return log.episodeId || `standalone:${log.id}`;
+}
+
+export function episodeResolvedOutcome(logs: BehaviorLog[], log: BehaviorLog): EpisodeOutcome {
+  return resolvedEpisodeOutcome(logs, episodeKey(log));
+}
+
+export function localDateKeys(count: number, today = new Date()): string[] {
+  return Array.from({ length: count }, (_, index) => {
+    const day = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    day.setDate(day.getDate() - (count - index - 1));
+    return dateKeyInZone(day);
+  });
+}
+
+export function summarizeDay(logs: BehaviorLog[], habitId: string, date: string, confirmations: DailyConfirmation[]) {
+  const dayLogs = logs.filter(log => log.habitId === habitId && behaviorDayKey(log) === date);
+  const occurrences = dayLogs.filter(log => log.type === 'habit_occurrence');
+  const cravings = dayLogs.filter(log => log.type === 'craving');
+  const resolved = cravings.filter(log => outcomeForCraving(logs, log) !== 'unknown');
+  const confirmation = confirmations.find(item => item.habitId === habitId && item.date === date);
+  const explicitNoOccurrence = confirmation?.status === 'no_occurrence' && occurrences.length === 0;
+  const conflict = (confirmation?.status === 'no_occurrence' && occurrences.length > 0)
+    || (confirmation?.status === 'occurred_recorded' && occurrences.length === 0);
+  return {
+    logs: dayLogs,
+    occurrenceEvents: occurrences.length,
+    quantity: occurrences.reduce((total, log) => total + (log.quantity ?? 1), 0),
+    cravings: cravings.length,
+    resolvedCravings: resolved.length,
+    resistedCravings: resolved.filter(log => outcomeForCraving(logs, log) === 'resisted').length,
+    techniqueApplications: dayLogs.filter(log => log.type === 'technique_applied').length,
+    confirmation,
+    explicitNoOccurrence,
+    conflict,
+    knownOccurrenceCount: occurrences.length > 0 || explicitNoOccurrence,
+  };
+}
+
+export function outcomeForCraving(logs: BehaviorLog[], craving: BehaviorLog): EpisodeOutcome {
+  if (craving.episodeId && logs.some(log => log.episodeId === craving.episodeId && log.type === 'habit_occurrence')) return 'smoked';
+  if (craving.outcome === 'resisted' || craving.outcome === 'smoked') return craving.outcome;
+  return 'unknown';
+}
+
+export function applyBehaviorLogChanges(current: BehaviorLog[], changes: BehaviorLog[]): BehaviorLog[] {
+  if (!changes.length) return current;
+  const changedIds = new Set<string>();
+  for (const change of changes) {
+    if (changedIds.has(change.id)) throw new Error('Each event ID can be updated only once per save.');
+    changedIds.add(change.id);
+  }
+  const previousById = new Map(current.map(log => [log.id, log]));
+  let next = current.filter(log => !changedIds.has(log.id));
+  for (const change of changes) {
+    const previous = previousById.get(change.id);
+    if (previous?.type === 'habit_occurrence' && previous.episodeId && (change.type !== 'habit_occurrence' || change.episodeId !== previous.episodeId)) {
+      const remains = next.some(log => log.type === 'habit_occurrence' && log.habitId === previous.habitId && log.episodeId === previous.episodeId)
+        || changes.some(log => log.type === 'habit_occurrence' && log.habitId === previous.habitId && log.episodeId === previous.episodeId);
+      if (!remains) next = next.map(log => log.type === 'craving' && log.habitId === previous.habitId && log.episodeId === previous.episodeId ? { ...log, outcome: 'pending' } : log);
+    }
+    if (change.type === 'craving' && change.outcome === 'resisted' && change.episodeId && next.some(log => log.type === 'habit_occurrence' && log.habitId === change.habitId && log.episodeId === change.episodeId)) {
+      throw new Error('A craving cannot be marked resisted while its episode has a habit occurrence.');
+    }
+  }
+  next = [...changes, ...next];
+  for (const change of changes) {
+    if (change.type === 'habit_occurrence' && change.episodeId) {
+      next = next.map(log => log.type === 'craving' && log.habitId === change.habitId && log.episodeId === change.episodeId ? { ...log, outcome: 'smoked' } : log);
+    }
+  }
+  return next.sort((a, b) => b.at.localeCompare(a.at));
+}
+
+export function removeBehaviorLogRecord(current: BehaviorLog[], id: string): BehaviorLog[] {
+  const removed = current.find(log => log.id === id);
+  let next = current.filter(log => log.id !== id);
+  if (removed?.type === 'habit_occurrence' && removed.episodeId && !next.some(log => log.type === 'habit_occurrence' && log.episodeId === removed.episodeId)) {
+    next = next.map(log => log.type === 'craving' && log.habitId === removed.habitId && log.episodeId === removed.episodeId ? { ...log, outcome: 'pending' } : log);
+  }
+  return next;
+}
+

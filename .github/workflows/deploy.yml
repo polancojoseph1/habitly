@@ -38,6 +38,7 @@ jobs:
         working-directory: frontend
         run: |
           npm ci --no-audit --no-fund
+          npm run test:logging
           npm run build
 
   build-and-push:
