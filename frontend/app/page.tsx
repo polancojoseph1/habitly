@@ -209,7 +209,7 @@ export default function Home() {
   const [votes, setVotes] = useState(45);
   const [prepped, setPrepped] = useState(false);
   const [preppedHabits, setPreppedHabits] = useState<Record<string, boolean>>({});
-  const [history, setHistory] = useState<Record<string, string[]>>(demoHistory);
+  const [history, setHistory] = useState<Record<string, string[]>>({});
   const [habitEvents, setHabitEvents] = useState<HabitEvent[]>([]);
   const [behaviorLogs, setBehaviorLogs] = useState<BehaviorLog[]>([]);
   const [loggingHabitId, setLoggingHabitId] = useState('demo-smoking');
@@ -340,9 +340,11 @@ export default function Home() {
   }, [modalOpen]);
 
   useEffect(() => {
+    let hasLocalWorkspace = false;
     try {
       const saved = localStorage.getItem(STORAGE);
       if (saved) {
+        hasLocalWorkspace = true;
         const data = JSON.parse(saved);
         setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
         const originalHabits: Habit[] = data.habits ?? demoHabits;
@@ -371,6 +373,7 @@ export default function Home() {
         setRemoteToken(data.remoteToken ?? '');
       }
     } catch { /* Start with the guided sample workspace. */ }
+    if (!hasLocalWorkspace) setHistory(demoHistory());
     if (!apiUrl && !process.env.NEXT_PUBLIC_API_URL) setApiUrl(window.location.origin);
     setHydrated(true);
   }, []);
@@ -513,7 +516,7 @@ export default function Home() {
   const progress = buildHabits.length ? Math.round((completed / buildHabits.length) * 100) : 0;
   const unlockedRewards = useMemo(() => rewards.filter(r => habits.find(h => h.id === r.habitId)?.completed), [rewards, habits]);
   const needRecovery = habits.some(h => h.missedYesterday && !h.completed);
-  const currentDate = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const currentDate = hydrated ? new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'Today';
 
   function save() {
     setToast(remoteToken ? 'Changes are syncing to your Habitly account.' : 'Saved on this device. Connect an account to sync across browsers.');
@@ -1409,7 +1412,7 @@ export default function Home() {
 
   function renderToday() {
     return <>
-      <div className="page-heading-row today-page-heading"><div className="today-greeting"><div className="today-greeting-top"><div className="eyebrow">{currentDate}</div><button type="button" className="habit-arrange-button" aria-label={reorderingHabits ? 'Done arranging habits' : 'Arrange habits'} title={reorderingHabits ? 'Done arranging' : 'Arrange habits'} aria-pressed={reorderingHabits} onClick={() => setReorderingHabits(value => !value)}>{reorderingHabits ? <Icon name="check" size={18}/> : <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="5" r="1.6"/><circle cx="16" cy="5" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg>}</button></div><h1>{greeting()}, Joseph<span className="heading-period">.</span></h1></div></div>
+      <div className="page-heading-row today-page-heading"><div className="today-greeting"><div className="today-greeting-top"><div className="eyebrow">{currentDate}</div><button type="button" className="habit-arrange-button" aria-label={reorderingHabits ? 'Done arranging habits' : 'Arrange habits'} title={reorderingHabits ? 'Done arranging' : 'Arrange habits'} aria-pressed={reorderingHabits} onClick={() => setReorderingHabits(value => !value)}>{reorderingHabits ? <Icon name="check" size={18}/> : <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="5" r="1.6"/><circle cx="16" cy="5" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg>}</button></div><h1>{hydrated ? greeting() : 'Welcome'}, Joseph<span className="heading-period">.</span></h1></div></div>
       <section className="today-section"><div className="section-heading today-section-heading"><div><span className="eyebrow">YOUR SMALL PROMISES</span><h2>Today’s habits <span className="soft-count">{todayHabits.length}</span></h2><p className="today-progress-note">{completed} of {buildHabits.length} build habits completed</p></div><div className="today-list-actions"><button className="text-button today-add-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus" size={15}/> Add habit</button></div></div><div className="habit-list">{todayHabits.length ? todayHabits.map((habit, i) => <div className={`today-order-item${dragState?.id === habit.id ? ' is-dragging' : ''}${dragState && dragState.id !== habit.id && dragState.target === i ? ' is-drop-target' : ''}`} key={habit.id} style={dragState?.id === habit.id ? { transform: `translateY(${dragState.offset}px)` } : undefined}>{renderHabitCard(habit, i)}{reorderingHabits && <button type="button" className="habit-drag-handle" aria-label={`Drag to move ${habit.name}. Use up or down arrow keys to reorder.`} onPointerDown={event => { if (event.button !== 0) return; event.currentTarget.setPointerCapture(event.pointerId); dragStart.current = { id: habit.id, y: event.clientY, target: i }; setDragState({ id: habit.id, offset: 0, target: i }); }} onPointerMove={event => { const drag = dragStart.current; if (!drag || drag.id !== habit.id) return; const target = dragTarget(event.clientY); drag.target = target; setDragState({ id: drag.id, offset: event.clientY - drag.y, target }); if (event.clientY < 70) window.scrollBy(0, -14); else if (event.clientY > window.innerHeight - 70) window.scrollBy(0, 14); }} onPointerUp={event => { const drag = dragStart.current; if (drag?.id === habit.id) moveHabit(i, drag.target); dragStart.current = null; setDragState(null); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} onPointerCancel={() => { dragStart.current = null; setDragState(null); }} onKeyDown={event => { if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); moveHabit(i, i + (event.key === 'ArrowUp' ? -1 : 1)); } }}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="5" r="1.6"/><circle cx="16" cy="5" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg><span>Drag to reorder</span></button>}</div>) : <div className="empty-card"><div className="empty-flower"><Icon name="spark" size={18}/></div><h3>Start with one tiny promise.</h3><p>Choose a cue, make the action easy, and give your future self a clear path.</p><button className="primary-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus"/> Create your first habit</button></div>}</div></section>
     </>;
   }
