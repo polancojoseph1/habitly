@@ -887,7 +887,7 @@ export default function Home() {
   }
 
   function renderHabitActions(habit: Habit) {
-    return <div className="habit-manage-actions"><button type="button" onClick={() => editHabitPlan(habit)} aria-label={`Edit ${habit.name}`}>Edit</button><button type="button" className="habit-delete-action" onClick={() => setHabitToDelete(habit)} aria-label={`Delete ${habit.name}`}>Delete</button></div>;
+    return <details className="habit-manage-menu"><summary aria-label={`Manage ${habit.name}`} title={`Manage ${habit.name}`}><span aria-hidden="true">⋯</span></summary><div role="group" aria-label={`Manage ${habit.name}`}><button type="button" onClick={event => { event.currentTarget.closest('details')?.removeAttribute('open'); editHabitPlan(habit); }}>Edit</button><button type="button" className="habit-delete-action" onClick={event => { event.currentTarget.closest('details')?.removeAttribute('open'); setHabitToDelete(habit); }}>Delete</button></div></details>;
   }
 
   function editHabitPlan(habit: Habit) {
@@ -1170,7 +1170,7 @@ export default function Home() {
           {habit.completed ? <Icon name="check" size={19}/> : <span>{String(index + 1).padStart(2, '0')}</span>}
         </div>
         <div className="habit-main">
-          <div className="habit-title-line"><h3>{habit.name}</h3>{habit.missedYesterday && !habit.completed && <span className="recovery-pill">Recovery day</span>}</div>
+          <div className="habit-title-line"><h3>{habit.name}</h3>{habit.missedYesterday && !habit.completed && <span className="recovery-pill">Recovery day</span>}{renderHabitActions(habit)}</div>
           <p className="habit-cue"><Icon name={habit.cueType === 'STACK' ? 'spark' : 'clock'} size={14}/>{cueLine}</p>
           <p className="habit-starter"><span>{habit.gatewayMinutes ? `${habit.gatewayMinutes}-MIN START` : 'START HERE'}</span>{habit.gateway}</p>
         </div>
@@ -1182,7 +1182,6 @@ export default function Home() {
         <span><Icon name="flame" size={14}/>{streak.hasHistory ? streak.count : habit.streak} day chain{streak.warning && !habit.completed ? ' · recover today' : ''}</span>
         <button className="quiet-button" onClick={() => markMissed(habit)}>Mark missed</button>
       </div>
-      {renderHabitActions(habit)}
       <details className="habit-plan-details"><summary>Plan details, check-ins & settings</summary>
         {habit.kind === 'BUILD' && <section className="duration-tracker" aria-label={`Practice minutes for ${habit.name}`}>
           <div className="duration-tracker-heading"><div><b>Practice minutes</b><p>Current starter target: {habit.gatewayMinutes || 2} minutes</p></div><span>{events.reduce((total, event) => total + (event.actualMinutes ?? 0), 0)} min tracked</span></div>

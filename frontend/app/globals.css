@@ -873,21 +873,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   font-weight: 600;
 }
 .law-info:hover, .technique-info:hover { border-color: var(--line); }
-.habit-manage-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
-.habit-manage-actions button { min-height: 36px; padding: 6px 14px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-soft); color: var(--ink); font-size: 13px; font-weight: 700; cursor: pointer; }
-.habit-manage-actions button:hover { border-color: var(--accent-ink); color: var(--accent-ink); }
-.habit-manage-actions .habit-delete-action { color: #c36c75; }
-.habit-manage-actions .habit-delete-action:hover { color: #e58790; border-color: #c36c75; }
-.habit-card > .habit-manage-actions { margin: 0 0 10px 43px; }
-.today-quick-title .habit-manage-actions { margin: 0 0 0 auto; gap: 5px; }
-.today-quick-title .habit-manage-actions button { min-height: 40px; padding: 4px 10px; font-size: 12px; }
-.anti-card-top .habit-manage-actions { margin: 0 0 0 auto; }
+.habit-manage-menu { position: relative; flex: 0 0 auto; margin-left: auto; }
+.habit-manage-menu > summary { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid transparent; border-radius: 9px; color: var(--muted); cursor: pointer; list-style: none; }
+.habit-manage-menu > summary::-webkit-details-marker { display: none; }
+.habit-manage-menu > summary span { font-size: 22px; line-height: 1; }
+.habit-manage-menu > summary:hover, .habit-manage-menu[open] > summary { border-color: var(--line); background: var(--surface-soft); color: var(--accent-ink); }
+.habit-manage-menu > div { position: absolute; z-index: 20; top: calc(100% + 4px); right: 0; display: grid; min-width: 132px; gap: 2px; padding: 5px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-raised); box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+.habit-manage-menu > div button { min-height: 38px; padding: 7px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink); font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
+.habit-manage-menu > div button:hover { background: var(--surface-soft); color: var(--accent-ink); }
+.habit-manage-menu > div .habit-delete-action { color: #c36c75; }
+.habit-manage-menu > div .habit-delete-action:hover { color: #e58790; }
 .delete-habit-backdrop { z-index: 100; }
 .delete-habit-modal { margin: 0; }
 .delete-habit-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 .delete-confirm-button { min-height: 40px; padding: 0 16px; border: 0; border-radius: 10px; background: #b74656; color: #fff; font-weight: 700; cursor: pointer; }
 .delete-confirm-button:disabled { opacity: .6; cursor: wait; }
-@media (max-width: 600px) { .anti-card-top .habit-manage-actions { width: 100%; margin: 4px 0; } .habit-manage-actions button { min-height: 40px; } .delete-habit-actions > button { flex: 1; } }
+@media (max-width: 600px) { .habit-manage-menu > summary { width: 36px; height: 36px; } .delete-habit-actions > button { flex: 1; } }
 
 /* Navigation stays compact and scrollable on smaller screens. */
 .sidebar { overflow-y: auto; }
