@@ -355,6 +355,21 @@ export default function Home() {
   }, [modalOpen]);
 
   useEffect(() => {
+    function closeHabitMenus(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+
+      document.querySelectorAll<HTMLDetailsElement>('details.habit-manage-menu[open]').forEach(menu => {
+        const clickedMenuControl = menu.contains(target) && !!target.closest('summary, button');
+        if (!clickedMenuControl) menu.removeAttribute('open');
+      });
+    }
+
+    document.addEventListener('pointerdown', closeHabitMenus);
+    return () => document.removeEventListener('pointerdown', closeHabitMenus);
+  }, []);
+
+  useEffect(() => {
     let hasLocalWorkspace = false;
     try {
       const saved = localStorage.getItem(STORAGE);
