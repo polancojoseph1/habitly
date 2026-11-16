@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Build habits that cast a vote for who you are becoming.',
     start_url: '/',
     display: 'standalone',
-    background_color: '#f6f5f1',
-    theme_color: '#345d48',
+    background_color: '#11111a',
+    theme_color: '#11111a',
   };
 }
