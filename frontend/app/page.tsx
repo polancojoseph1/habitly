@@ -262,6 +262,7 @@ export default function Home() {
   const [mobileNav, setMobileNav] = useState(false);
   const [habitType, setHabitType] = useState<'BUILD' | 'BREAK'>('BUILD');
   const [cueType, setCueType] = useState<CueType>('TIME_LOCATION');
+  const [habitName, setHabitName] = useState('');
   const [targetAction, setTargetAction] = useState('');
   const [gatewayAction, setGatewayAction] = useState('');
   const [gatewayMinutes, setGatewayMinutes] = useState(2);
@@ -857,7 +858,7 @@ export default function Home() {
 
   function startNewHabit(mode: ChangeMode) {
     setEditingHabitId(''); setBuilderReturnTo(active); setHabitType(mode); setCueType('STACK');
-    setTargetAction(''); setGatewayAction(''); setGatewayMinutes(mode === 'BUILD' ? 2 : 0); setCue(''); setTime(''); setLocation(''); setMotive(''); setReward('');
+    setHabitName(''); setTargetAction(''); setGatewayAction(''); setGatewayMinutes(mode === 'BUILD' ? 2 : 0); setCue(''); setTime(''); setLocation(''); setMotive(''); setReward('');
     setPrepStep(''); setBundle(''); setHideCue(''); setFriction(''); setContract(''); setAccountabilityPartner(''); setAccountabilityEmail('');
     setAccountabilityCost(''); setAlternativeRoutine(''); setAversionReminder(''); setRitual(''); setMilestoneDraft(''); setTechniqueIds([]);
     setTechniqueNotes({}); setBaselineDaily(''); setShowBuilder(true);
@@ -893,6 +894,7 @@ export default function Home() {
   function editHabitPlan(habit: Habit) {
     setEditingHabitId(habit.id);
     setHabitType(habit.kind);
+    setHabitName(habit.name);
     setTargetAction(habit.target);
     setGatewayAction(habit.gateway ?? '');
     setGatewayMinutes(habit.gatewayMinutes ?? 2);
@@ -926,7 +928,7 @@ export default function Home() {
   async function saveLawSection(law: Law) {
     const existing = habits.find(item => item.id === editingHabitId);
     if (!existing) { setToast('Finish the complete plan to save its law sections.'); return; }
-    const updated: Habit = { ...existing, name: targetAction.trim() || existing.name, target: targetAction.trim() || existing.target, gateway: gatewayAction.trim() || targetAction.trim(), gatewayMinutes: habitType === 'BUILD' ? Math.max(1, Math.min(1440, gatewayMinutes || 2)) : gatewayMinutes, cueType, cue: cueType === 'STACK' ? cue.trim() : time.trim(), time: cueType === 'TIME_LOCATION' ? time : undefined, location: cueType === 'TIME_LOCATION' ? location : undefined, motive: motive.trim(), reward: reward.trim(), hideCue: cue.trim() || hideCue.trim(), friction: friction.trim(), contract: contract.trim(), alternativeRoutine: gatewayAction.trim() || alternativeRoutine.trim(), aversionReminder: aversionReminder.trim(), techniqueIds: [...techniqueIds], techniqueNotes: { ...techniqueNotes }, prep: prepStep.trim() };
+    const updated: Habit = { ...existing, name: habitName.trim() || existing.name, target: targetAction.trim() || existing.target, gateway: gatewayAction.trim() || targetAction.trim(), gatewayMinutes: habitType === 'BUILD' ? Math.max(1, Math.min(1440, gatewayMinutes || 2)) : gatewayMinutes, cueType, cue: cueType === 'STACK' ? cue.trim() : time.trim(), time: cueType === 'TIME_LOCATION' ? time : undefined, location: cueType === 'TIME_LOCATION' ? location : undefined, motive: motive.trim(), reward: reward.trim(), hideCue: cue.trim() || hideCue.trim(), friction: friction.trim(), contract: contract.trim(), alternativeRoutine: gatewayAction.trim() || alternativeRoutine.trim(), aversionReminder: aversionReminder.trim(), techniqueIds: [...techniqueIds], techniqueNotes: { ...techniqueNotes }, prep: prepStep.trim() };
     setHabits(current => current.map(item => item.id === existing.id ? updated : item));
     if (apiUrl && remoteIdentityId && !existing.id.startsWith('demo-')) {
       const payload = { target_action: updated.target, gateway_action: updated.gateway, gateway_minutes: updated.gatewayMinutes, cue_type: updated.cueType, cue_trigger: updated.cue, location: updated.location ?? null, craving_motive: updated.motive, reward_payoff: updated.reward, cue_to_hide: updated.hideCue ?? null, friction_strategy: updated.friction ?? null, habit_contract: updated.contract ?? null, alternative_routine: updated.alternativeRoutine ?? null, aversion_reminder: updated.aversionReminder ?? null, technique_ids: updated.techniqueIds ?? [], technique_notes: updated.techniqueNotes ?? {} };
@@ -944,6 +946,7 @@ export default function Home() {
     if (habitType === 'BREAK' && !techniqueIds.length) { setToast('Choose at least one strategy from the four anti laws.'); return; }
     const savedGatewayMinutes = habitType === 'BUILD' ? Math.max(1, Math.min(1440, gatewayMinutes || 2)) : gatewayMinutes;
     const existingHabit = habits.find(habit => habit.id === editingHabitId);
+    const savedHabitName = editingHabitId ? habitName.trim() || existingHabit?.name || targetAction.trim() : targetAction.trim();
     const starterAction = gatewayAction.trim() || (habitType === 'BUILD' ? suggestStarter(targetAction.trim()) : targetAction.trim());
     let habitId = editingHabitId || `habit-${Date.now()}`;
     let inviteLink = '';
@@ -963,7 +966,7 @@ export default function Home() {
     }
     const habit: Habit = {
       ...existingHabit,
-      id: habitId, name: targetAction.trim(), target: targetAction.trim(), gateway: starterAction, gatewayMinutes: savedGatewayMinutes,
+      id: habitId, name: savedHabitName, target: targetAction.trim(), gateway: starterAction, gatewayMinutes: savedGatewayMinutes,
       cueType, cue: cueType === 'STACK' ? cue.trim() : time.trim(), time: cueType === 'TIME_LOCATION' ? time : undefined,
       location: cueType === 'TIME_LOCATION' ? location : undefined, motive: motive.trim(), reward: reward.trim(),
       prep: prepStep.trim(), completed: existingHabit?.completed ?? false, missedYesterday: existingHabit?.missedYesterday ?? false, streak: existingHabit?.streak ?? 0, kind: habitType,
@@ -982,7 +985,7 @@ export default function Home() {
     }
     setShowBuilder(false); setActive(habitType === 'BREAK' ? 'Habit to break' : builderReturnTo === 'My habits' ? 'My habits' : 'Today');
     setToast(editingHabitId ? 'Your plan is updated.' : habitType === 'BUILD' ? 'Your new habit plan is ready.' : inviteLink ? 'Change plan saved. Partner link copied.' : 'Your change plan is ready.');
-    setTargetAction(''); setGatewayAction(''); setGatewayMinutes(2); setCue(''); setTime(''); setLocation(''); setMotive(''); setReward(''); setPrepStep(''); setBundle(''); setHideCue(''); setFriction(''); setContract(''); setAccountabilityPartner(''); setAccountabilityEmail(''); setAccountabilityCost(''); setAlternativeRoutine(''); setAversionReminder(''); setRitual(''); setMilestoneDraft(''); setTechniqueIds([]); setTechniqueNotes({}); setBaselineDaily(''); setEditingHabitId(''); setHabitType('BUILD'); setCueType('STACK');
+    setHabitName(''); setTargetAction(''); setGatewayAction(''); setGatewayMinutes(2); setCue(''); setTime(''); setLocation(''); setMotive(''); setReward(''); setPrepStep(''); setBundle(''); setHideCue(''); setFriction(''); setContract(''); setAccountabilityPartner(''); setAccountabilityEmail(''); setAccountabilityCost(''); setAlternativeRoutine(''); setAversionReminder(''); setRitual(''); setMilestoneDraft(''); setTechniqueIds([]); setTechniqueNotes({}); setBaselineDaily(''); setEditingHabitId(''); setHabitType('BUILD'); setCueType('STACK');
   }
 
   function addScorecardEntry(event: FormEvent) {
@@ -1788,7 +1791,8 @@ export default function Home() {
       <header className="modal-header"><div><span className="eyebrow">YOUR HABIT PLAN</span><h2 id="builder-title">{editingHabitId ? 'Edit your plan' : habitType === 'BREAK' ? 'Change a habit' : 'Build a habit'}</h2><p>Name the habit, pick a starter action, and choose a cue. You can add more details later.</p></div><button type="button" className="modal-close" onClick={() => setShowBuilder(false)} aria-label="Close builder"><Icon name="x"/></button></header>
       <div className="builder-form"><div className="basics-page">
         {!editingHabitId && <div className="form-kind-tabs"><button type="button" className={habitType === 'BUILD' ? 'selected' : ''} onClick={() => { setHabitType('BUILD'); setGatewayMinutes(2); setCueType('STACK'); setTechniqueIds([]); setTechniqueNotes({}); }}>Build a habit</button><button type="button" className={habitType === 'BREAK' ? 'selected' : ''} onClick={() => { setHabitType('BREAK'); setGatewayMinutes(0); setCueType('STACK'); setTechniqueIds([]); setTechniqueNotes({}); }}>Break a habit</button></div>}
-        <label className="field-label">{habitType === 'BUILD' ? 'What do you want to do?' : 'What habit do you want to change?'}<input value={targetAction} onChange={e => setTargetAction(e.target.value)} placeholder={habitType === 'BUILD' ? 'e.g. Run three miles' : 'e.g. Scroll social media in bed'} required/></label>
+        {editingHabitId && <label className="field-label">Habit name <span className="optional">SHOWN ON YOUR HABIT CARD</span><input value={habitName} onChange={e => setHabitName(e.target.value)} placeholder="Name this habit" required/></label>}
+        <label className="field-label">{editingHabitId ? 'Target action' : habitType === 'BUILD' ? 'What do you want to do?' : 'What habit do you want to change?'}<input value={targetAction} onChange={e => setTargetAction(e.target.value)} placeholder={habitType === 'BUILD' ? 'e.g. Run three miles' : 'e.g. Scroll social media in bed'} required/></label>
         {habitType === 'BREAK' && <label className="field-label">How often does it happen now? <span className="optional">OPTIONAL ESTIMATE PER DAY</span><input type="number" min="0" max="1000" value={baselineDaily} onChange={e => setBaselineDaily(e.target.value)}/></label>}
 <label className="field-label">{habitType === 'BUILD' ? 'Starter action (optional)' : 'What better action can you switch to?'}<input value={gatewayAction} onChange={e => setGatewayAction(e.target.value)} placeholder={habitType === 'BUILD' ? (targetAction ? suggestStarter(targetAction) : 'Optional. We can suggest a starter for you.') : 'Choose a replacement action'} required={habitType === 'BREAK'}/></label>{habitType === 'BUILD' && targetAction && <p className="form-note">Starter idea: {suggestStarter(targetAction)}. Leave the field blank to use it.</p>}      </div><div className="laws-page">
         <section className="builder-law" data-law="cue"><div className="builder-law-heading"><span className="builder-law-index"><Icon name="clock" size={16}/></span><div><small>SET THE MOMENT</small><h3>{habitType === 'BUILD' ? 'When will you start?' : 'What usually triggers it?'}</h3></div></div><div className="law-fields">        <div className="field-label">{habitType === 'BUILD' ? 'Choose a cue for your routine' : 'Notice the cue that starts the old routine'}<div className="cue-tabs" role="group" aria-label="Choose a cue type"><button type="button" aria-pressed={cueType === 'STACK'} className={cueType === 'STACK' ? 'cue-tab-selected' : ''} onClick={() => setCueType('STACK')}>After a routine or cue</button><button type="button" aria-pressed={cueType === 'TIME_LOCATION'} className={cueType === 'TIME_LOCATION' ? 'cue-tab-selected' : ''} onClick={() => setCueType('TIME_LOCATION')}>At a time and place</button></div></div>

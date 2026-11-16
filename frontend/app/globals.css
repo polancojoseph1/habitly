@@ -1338,3 +1338,33 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .logging-law-overview-heading{align-items:flex-start;flex-direction:column;gap:3px}
   .logging-law-overview-heading>small{text-align:left}
 }
+
+/* Keep every dialog inside a visible, scrollable inset on every screen. */
+.modal-backdrop {
+  box-sizing: border-box;
+  height: 100vh;
+  height: 100dvh;
+  padding: calc(env(safe-area-inset-top, 0px) + 24px) calc(env(safe-area-inset-right, 0px) + 20px) calc(env(safe-area-inset-bottom, 0px) + 24px) calc(env(safe-area-inset-left, 0px) + 20px);
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.modal-backdrop > [role="dialog"] {
+  box-sizing: border-box;
+  flex: 0 1 auto;
+  max-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 48px);
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 48px);
+  margin: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.info-modal-backdrop > [role="dialog"] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.habit-builder .modal-actions { bottom: 0; }
+@media (max-width: 600px) {
+  .habit-builder .modal-actions { bottom: 0; }
+}
