@@ -1479,7 +1479,7 @@ export default function Home() {
           <div className="logging-insight-toolbar">
             <label className="logging-period-picker">PERIOD<select aria-label="Insights period" value={insightFrom || insightTo ? 'custom' : insightDays} onChange={event => { setInsightDays(event.target.value === '24h' ? '24h' : Number(event.target.value)); setInsightFrom(''); setInsightTo(''); }}><option value="24h">24 hours</option>{(insightFrom || insightTo) && <option value="custom" disabled>Custom date range</option>}<option value={7}>7 days</option><option value={14}>14 days</option><option value={30}>30 days</option><option value={90}>90 days</option></select></label>
             <details className="logging-insight-filter-disclosure">
-              <summary><Icon name="chevron" size={15}/> Advanced filters <span>{[insightFrom || insightTo, insightLawFilter !== 'all', insightTriggerFilter !== 'all', insightIntensityFilter !== 'all', insightTimingFilter !== 'all'].filter(Boolean).length ? 'Active' : 'Optional'}</span></summary>
+              <summary><Icon name="chevron" size={15}/> Advanced filters <span>{[insightFrom || insightTo, insightLawFilter !== 'all', insightTriggerFilter !== 'all', insightIntensityFilter !== 'all', insightTimingFilter !== 'all'].filter(Boolean).length ? 'Active' : 'None active'}</span></summary>
               <div className="logging-insight-filter-fields">
                 <p className="logging-filter-scope">Dates change the analytics period. Law, trigger, intensity, and use narrow technique results.</p>
                 <label className="logging-date-field">FROM<input aria-label="Custom insights start date" type="date" value={insightFrom} onChange={event => setInsightFrom(event.target.value)}/></label>

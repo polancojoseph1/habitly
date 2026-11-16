@@ -1146,7 +1146,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .logging-insight-filter-disclosure>summary::-webkit-details-marker{display:none}
 .logging-insight-filter-disclosure>summary span{color:var(--muted);font-size:9px;font-weight:600}
 .logging-insight-filter-disclosure[open]{flex-basis:100%}
-.logging-insight-filter-disclosure[open]>summary{width:max-content}
+.logging-insight-filter-disclosure[open]>summary{width:100%}
 .logging-insight-filter-disclosure[open]>summary svg{transform:rotate(180deg)}
 .logging-insight-filter-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:8px;padding:11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-soft)}
 .logging-filter-scope{grid-column:1/-1;margin:0;color:var(--muted);font-size:10px;line-height:1.45}
