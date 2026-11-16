@@ -1,8 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import type { TechniquePractice } from './insights';
 import { compareRecordedPeriods, primaryRecordedValue, resistancePercentage, techniqueOutcomePercentages, techniquePracticeNote, triggerInsightSentence } from './period-checkin';
+import styles from './period-info-popover.module.css';
 
 type PeriodStats = {
   quantity: number;
@@ -32,6 +35,112 @@ type Props = {
 
 const unitName = (count: number, singular: string, pluralForm = `${singular}s`) => count === 1 ? singular : pluralForm;
 const plural = (count: number, singular: string, pluralForm = `${singular}s`) => `${count} ${unitName(count, singular, pluralForm)}`;
+
+type PopoverPosition = { top: number; left: number; arrowLeft: number; placement: 'top' | 'bottom' };
+
+function PeriodInfoBubble({ label, children }: { label: string; children: ReactNode }) {
+  const id = useId();
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState<PopoverPosition | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setPosition(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      const trigger = triggerRef.current;
+      const bubble = bubbleRef.current;
+      if (!trigger || !bubble) return;
+
+      const anchor = trigger.getBoundingClientRect();
+      const bounds = bubble.getBoundingClientRect();
+      const gutter = 12;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const anchorCenter = anchor.left + anchor.width / 2;
+      const maxLeft = Math.max(gutter, viewportWidth - bounds.width - gutter);
+      const left = Math.max(gutter, Math.min(anchorCenter - bounds.width / 2, maxLeft));
+      const belowTop = anchor.bottom + 8;
+      const aboveTop = anchor.top - bounds.height - 8;
+      const hasRoomBelow = belowTop + bounds.height <= viewportHeight - gutter;
+      const placement = hasRoomBelow || aboveTop < gutter ? 'bottom' : 'top';
+      const top = placement === 'bottom'
+        ? Math.min(belowTop, viewportHeight - bounds.height - gutter)
+        : Math.max(gutter, aboveTop);
+
+      const arrowLeft = Math.max(10, Math.min(anchorCenter - left, bounds.width - 10));
+      setPosition({ top, left, arrowLeft, placement });
+    };
+
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    window.visualViewport?.addEventListener('resize', updatePosition);
+    window.visualViewport?.addEventListener('scroll', updatePosition);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+      window.visualViewport?.removeEventListener('resize', updatePosition);
+      window.visualViewport?.removeEventListener('scroll', updatePosition);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && (triggerRef.current?.contains(target) || bubbleRef.current?.contains(target))) return;
+      setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  const bubble = open && typeof document !== 'undefined' ? createPortal(
+    <div
+      ref={bubbleRef}
+      id={id}
+      className={styles.popover}
+      data-placement={position?.placement ?? 'bottom'}
+      role="tooltip"
+      style={{
+        top: position?.top ?? 0,
+        left: position?.left ?? 0,
+        visibility: position ? 'visible' : 'hidden',
+      }}
+    >{children}<span className={styles.arrow} aria-hidden="true" style={{ left: position ? `${position.arrowLeft}px` : '18px' }}/></div>,
+    document.body,
+  ) : null;
+
+  return <>
+    <button
+      ref={triggerRef}
+      type="button"
+      className={styles.trigger}
+      aria-label={label}
+      aria-expanded={open}
+      aria-controls={id}
+      aria-describedby={open ? id : undefined}
+      onClick={() => setOpen(value => !value)}
+    >i</button>
+    {bubble}
+  </>;
+}
 
 export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, previous, configuredTechniques, techniqueApplicationCount, hasTechniqueFilters, usedTechniques, topTrigger }: Props) {
   const [techniqueModalOpen, setTechniqueModalOpen] = useState(false);
@@ -97,10 +206,7 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
     <article className="period-primary-card" aria-labelledby="period-primary-title">
       <div className="period-card-heading">
         <div><span className="eyebrow">MAIN OUTCOME</span><h3 id="period-primary-title">{isSmoking ? 'Cigarettes recorded' : `Occurrences of ${habitName}`}</h3></div>
-        <details className="period-info">
-          <summary aria-label="How to read the comparison">i</summary>
-          <p>Counts use this period and the previous equally long period. A comparison needs every day in both periods to have logged behavior or an explicit daily confirmation. Incomplete records can change the comparison.</p>
-        </details>
+        <PeriodInfoBubble label="How to read the comparison">Counts use this period and the previous equally long period. A comparison needs every day in both periods to have logged behavior or an explicit daily confirmation. Incomplete records can change the comparison.</PeriodInfoBubble>
       </div>
       <div className="period-primary-value">
         <strong className={primaryValue === undefined ? 'unavailable' : ''}>{primaryValue === undefined ? 'Not confirmed' : primaryValue.toLocaleString()}</strong>
@@ -124,10 +230,7 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
       <article className="period-secondary-card">
         <div className="period-card-heading">
           <h3>Cravings resisted</h3>
-          <details className="period-info">
-            <summary aria-label="How craving resistance is calculated">i</summary>
-            <p>Calculated from logged cravings with known outcomes. Unresolved cravings and missing records are excluded.</p>
-          </details>
+          <PeriodInfoBubble label="How craving resistance is calculated">Calculated from logged cravings with known outcomes. Unresolved cravings and missing records are excluded.</PeriodInfoBubble>
         </div>
         {resistanceRate === undefined
           ? <><strong className="period-secondary-value unavailable">Not available</strong><p>No resolved craving outcomes during the selected {periodLabel}.</p></>
