@@ -255,12 +255,9 @@
 .logging-law-grid ul{display:grid;gap:5px;padding-left:15px;margin:9px 0 0;color:var(--muted);font-size:9px;line-height:1.4}
 .logging-law-grid li span{display:block;margin-top:2px;font-size:8px;letter-spacing:.25px;text-transform:uppercase}
 .logging-law-grid article>p{font-size:10px;color:var(--muted)}
-.logging-technique-table,.logging-weekly-grid{width:100%;overflow-x:auto}
-.logging-table-header,.logging-technique-table article,.logging-week-row{display:grid;grid-template-columns:minmax(135px,1.2fr) minmax(110px,.9fr) minmax(175px,1.4fr) minmax(150px,1fr);gap:10px;align-items:start;min-width:660px;padding:10px;border-bottom:1px solid var(--line)}
+.logging-weekly-grid{width:100%;overflow-x:auto}
+.logging-table-header,.logging-week-row{display:grid;grid-template-columns:minmax(135px,1.2fr) minmax(110px,.9fr) minmax(175px,1.4fr) minmax(150px,1fr);gap:10px;align-items:start;min-width:660px;padding:10px;border-bottom:1px solid var(--line)}
 .logging-table-header{color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.6px}
-.logging-technique-table article>div{display:grid;gap:4px;min-width:0}
-.logging-technique-table article b{font-size:10px;line-height:1.45;color:var(--ink)}
-.logging-technique-table article small{font-size:9px;line-height:1.45;color:var(--muted)}
 .logging-review-evidence,.logging-week-review-text{padding:11px;border-radius:10px;background:var(--surface-soft);color:var(--ink);font-size:11px;line-height:1.5}
 .logging-weekly-grid .logging-table-header,.logging-week-row{grid-template-columns:minmax(170px,1.3fr) repeat(3,minmax(110px,1fr));min-width:600px}
 .logging-week-row{font-size:10px;color:var(--muted)}
@@ -1137,4 +1134,73 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .logging-insight-controls input,.logging-insight-controls select,.logging-history-filters input,.logging-history-filters select{font-size:13px}
   .logging-clear-filters{justify-self:stretch;width:100%}
   .anti-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+}
+
+/* Analytics reading order and responsive detail cards. */
+.logging-insight-grid{grid-template-columns:minmax(0,1fr)}
+.logging-insight-toolbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:12px;padding:9px 11px;border:1px solid var(--line);border-radius:13px;background:var(--surface-raised)}
+.logging-period-picker{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.7px}
+.logging-period-picker select{min-width:130px;min-height:40px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);color:var(--ink);font:inherit;font-size:12px;letter-spacing:normal}
+.logging-insight-filter-disclosure{flex:0 1 auto;min-width:0}
+.logging-insight-filter-disclosure>summary{display:flex;align-items:center;gap:6px;min-height:40px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);color:var(--ink);font-size:11px;font-weight:750;cursor:pointer;list-style:none}
+.logging-insight-filter-disclosure>summary::-webkit-details-marker{display:none}
+.logging-insight-filter-disclosure>summary span{color:var(--muted);font-size:9px;font-weight:600}
+.logging-insight-filter-disclosure[open]{flex-basis:100%}
+.logging-insight-filter-disclosure[open]>summary{width:max-content}
+.logging-insight-filter-disclosure[open]>summary svg{transform:rotate(180deg)}
+.logging-insight-filter-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:8px;padding:11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-soft)}
+.logging-filter-scope{grid-column:1/-1;margin:0;color:var(--muted);font-size:10px;line-height:1.45}
+.logging-insight-filter-fields label{display:grid;gap:5px;min-width:0;color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.7px}
+.logging-insight-filter-fields input,.logging-insight-filter-fields select{box-sizing:border-box;width:100%;min-width:0;max-width:100%;min-height:40px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface-raised);color:var(--ink);font:inherit;font-size:11px;letter-spacing:normal}
+.logging-observation-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.logging-observation-grid>article{min-width:0;padding:13px;border:1px solid var(--line);border-radius:11px;background:var(--surface-soft)}
+.logging-observation-grid>article>p{margin:8px 0 0;color:var(--muted);font-size:11px;line-height:1.55}
+.logging-observation-grid>article>p b,.logging-recommendation>b{color:var(--ink)}
+.logging-recommendation{border-color:color-mix(in srgb,var(--accent) 38%,var(--line))!important}
+.logging-recommendation> b{display:block;margin-top:8px;font-size:13px;line-height:1.45}
+.logging-recommendation .text-button{display:inline-flex;align-items:center;gap:5px;margin-top:9px}
+.logging-technique-cards{display:grid;gap:8px;margin:13px 0}
+.logging-technique-card{min-width:0;overflow:hidden;border:1px solid var(--line);border-radius:12px;background:var(--surface-soft)}
+.logging-technique-card>summary{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;min-height:66px;padding:11px 13px;color:var(--ink);cursor:pointer;list-style:none}
+.logging-technique-card>summary::-webkit-details-marker{display:none}
+.logging-technique-card>summary>svg{color:var(--muted);transition:transform .15s ease}
+.logging-technique-card[open]>summary{border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 5%,var(--surface-soft))}
+.logging-technique-card[open]>summary>svg{transform:rotate(180deg)}
+.logging-technique-card-title,.logging-technique-effectiveness{display:grid;gap:4px;min-width:0}
+.logging-technique-card-title b{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.logging-technique-card-title small,.logging-technique-effectiveness small{color:var(--muted);font-size:9px;line-height:1.4}
+.logging-technique-effectiveness{text-align:right}
+.logging-technique-effectiveness b{font:700 17px 'Manrope',sans-serif;color:var(--accent-ink)}
+.logging-technique-card-body{display:grid;gap:12px;padding:12px}
+.logging-technique-card-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.logging-technique-card-metrics>div{display:grid;align-content:start;gap:5px;min-width:0;padding:10px;border-radius:9px;background:var(--surface-raised)}
+.logging-technique-card-metrics span,.logging-technique-triggers>b{color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase}
+.logging-technique-card-metrics b{color:var(--ink);font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.logging-technique-card-metrics small,.logging-technique-preventive{color:var(--muted);font-size:9px;line-height:1.5}
+.logging-technique-triggers{display:grid;gap:7px}
+.logging-technique-triggers>div{display:flex;gap:6px;flex-wrap:wrap}
+.logging-technique-triggers>div>span{display:grid;gap:3px;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--surface-raised);color:var(--ink);font-size:10px;font-weight:700}
+.logging-technique-triggers>div>span small{color:var(--muted);font-size:8px;font-weight:500}
+.logging-technique-triggers>p{margin:0;color:var(--muted);font-size:10px;line-height:1.5}
+.logging-technique-preventive{margin:0}
+.logging-technique-card-body>.text-button{display:inline-flex;align-items:center;gap:5px;justify-self:start}
+.logging-insight-toolbar :focus-visible,.logging-technique-card :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:650px){
+  .logging-insight-toolbar{align-items:stretch}
+  .logging-period-picker{justify-content:space-between;flex:1 1 100%}
+  .logging-period-picker select{flex:1;max-width:190px}
+  .logging-insight-filter-disclosure{flex:1 1 auto}
+  .logging-insight-filter-disclosure>summary{justify-content:center}
+  .logging-insight-filter-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .logging-insight-filter-fields .logging-date-field{grid-column:auto}
+  .logging-observation-grid{grid-template-columns:1fr}
+  .logging-technique-card-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .logging-technique-card-metrics>div:last-child{grid-column:1/-1}
+}
+@media(max-width:390px){
+  .logging-insight-filter-fields{grid-template-columns:1fr}
+  .logging-insight-filter-fields .logging-date-field{grid-column:1/-1}
+  .logging-technique-card>summary{gap:7px;padding:10px}
+  .logging-technique-card-metrics{grid-template-columns:1fr}
+  .logging-technique-card-metrics>div:last-child{grid-column:auto}
 }
