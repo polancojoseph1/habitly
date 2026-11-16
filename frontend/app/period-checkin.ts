@@ -1,4 +1,4 @@
-import { isRecoveryPrincipleApplication } from './behavioral-logging';
+import { isRecoveryPrincipleApplication } from './behavioral-logging.ts';
 
 type DayConfirmation = { status: 'no_occurrence' | 'occurred_recorded' | 'incomplete' | 'skip' };
 
