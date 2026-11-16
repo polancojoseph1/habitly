@@ -1455,3 +1455,39 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 :root[data-theme="dark"] .confetti-four,
 :root[data-theme="dark"] .confetti-five { background: #53465b; }
 :root[data-theme="dark"] .connection-error { border-color: #604149; background: rgba(67, 36, 46, .55); color: var(--ink); }
+
+/* Break plans use separate answer rows so examples stay readable on mobile. */
+.multi-answer-field { display: grid; gap: 8px; min-width: 0; }
+.multi-answer-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }
+.multi-answer-label { color: var(--ink); font-size: 14px; font-weight: 700; }
+.multi-answer-helper,.field-example { display: block; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.field-example { margin-top: 6px; }
+.multi-answer-list { display: grid; gap: 8px; min-width: 0; }
+.multi-answer-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) 36px; align-items: center; gap: 8px; min-width: 0; }
+.multi-answer-list-ordered .multi-answer-row { grid-template-columns: 28px minmax(0, 1fr) 32px 36px; }
+.multi-answer-index { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 9px; background: var(--accent-soft); color: var(--accent-ink); font-size: 11px; font-weight: 800; }
+.multi-answer-row input,.break-cue-pair input { width: 100%; min-width: 0; min-height: 44px; padding: 0 11px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-raised); color: var(--ink); font: inherit; font-size: 15px; }
+.multi-answer-row input::placeholder,.break-cue-pair input::placeholder { color: var(--muted); opacity: .8; }
+.multi-answer-row input:focus,.break-cue-pair input:focus { border-color: var(--accent-ink); outline: 0; box-shadow: var(--focus-ring); }
+.multi-answer-reorder { display: grid; gap: 2px; }
+.multi-answer-reorder button,.multi-answer-remove { display: grid; place-items: center; min-width: 32px; min-height: 32px; padding: 0; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-soft); color: var(--accent-ink); font: inherit; font-weight: 800; cursor: pointer; }
+.multi-answer-reorder button:disabled { opacity: .38; cursor: default; }
+.multi-answer-remove { min-width: 36px; min-height: 40px; color: var(--muted); font-size: 20px; }
+.multi-answer-add { display: inline-flex; align-items: center; justify-self: start; gap: 7px; min-height: 38px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 9px; background: transparent; color: var(--accent-ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.multi-answer-add span { font-size: 18px; line-height: 1; }
+.multi-answer-add:hover,.multi-answer-reorder button:not(:disabled):hover,.multi-answer-remove:hover { border-color: var(--accent-ink); background: var(--accent-soft); color: var(--ink); }
+.multi-answer-add:focus-visible,.multi-answer-reorder button:focus-visible,.multi-answer-remove:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
+.break-cue-pairs { display: grid; gap: 8px; }
+.break-cue-pair { display: grid; grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr) 36px; align-items: center; gap: 7px; min-width: 0; }
+.replacement-plan-steps { display: grid; gap: 7px; margin: 8px 0; padding-left: 24px; color: var(--ink); font-weight: 700; }
+.replacement-plan-steps li { padding-left: 3px; line-height: 1.45; }
+:root[data-theme="dark"] .multi-answer-row input,:root[data-theme="dark"] .break-cue-pair input { border-color: var(--line); background: var(--surface-raised); color: var(--ink); }
+:root[data-theme="dark"] .multi-answer-index { background: var(--accent-soft); color: var(--accent-ink); }
+@media (max-width: 480px) {
+  .multi-answer-row { grid-template-columns: 24px minmax(0, 1fr) 34px; gap: 6px; }
+  .multi-answer-list-ordered .multi-answer-row { grid-template-columns: 24px minmax(0, 1fr) 30px 34px; gap: 5px; }
+  .multi-answer-row input,.break-cue-pair input { min-height: 44px; padding: 0 9px; font-size: 14px; }
+  .multi-answer-index { width: 24px; height: 24px; }
+  .multi-answer-remove { min-width: 34px; }
+  .break-cue-pair { grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 34px; gap: 5px; }
+}

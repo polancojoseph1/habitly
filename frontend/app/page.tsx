@@ -14,13 +14,24 @@ import type { BehaviorLog, BehaviorType, DailyConfirmation, DailyConfirmationSta
 import { createSampleSmokingConfirmations, createSampleSmokingLogs } from './sample-smoking-data';
 
 type CueType = 'TIME_LOCATION' | 'STACK';
+type BreakPlanAnswers = {
+  cueTriggers: string[];
+  cueTimes: string[];
+  cueLocations: string[];
+  cuesToHide: string[];
+  underlyingNeeds: string[];
+  reframes: string[];
+  frictionIdeas: string[];
+  oldPayoffs: string[];
+  agreements: string[];
+};
 type Habit = {
   id: string; name: string; target: string; gateway: string; cueType: CueType;
   gatewayMinutes: number;
   cue: string; time?: string; location?: string; motive: string; reward: string;
   prep: string; completed: boolean; missedYesterday: boolean; streak: number;
   kind: 'BUILD' | 'BREAK'; hideCue?: string; friction?: string; contract?: string; aversionReminder?: string; frictionVotes?: number; rewardBundle?: string;
-  alternativeRoutine?: string;
+  alternativeRoutine?: string; replacementActions?: string[]; breakPlanAnswers?: Partial<BreakPlanAnswers>;
   ritual?: string; milestones?: string[]; milestoneIndex?: number; accountabilityPartner?: string; accountabilityEmail?: string; accountabilityCost?: string; inviteLink?: string;
   techniqueIds?: string[]; techniqueNotes?: Record<string, string>; baselineDaily?: number;
 };
@@ -106,6 +117,33 @@ function todayKeyFromDate(d: Date) { return `${d.getFullYear()}-${String(d.getMo
 function newRecordId(prefix: string) { return `${prefix}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`; }
 function splitTags(value: string) { return [...new Set(value.split(',').map(tag => tag.trim()).filter(Boolean))]; }
 function isSmokingHabit(habit: Habit) { return /smok|cigarette|tobacco/i.test(`${habit.name} ${habit.target}`); }
+function createEmptyBreakPlanAnswers(): BreakPlanAnswers {
+  return { cueTriggers: [''], cueTimes: [''], cueLocations: [''], cuesToHide: [''], underlyingNeeds: [''], reframes: [''], frictionIdeas: [''], oldPayoffs: [''], agreements: [''] };
+}
+function getReplacementActions(habit: Habit) {
+  const saved = habit.replacementActions?.map(action => action.trim()).filter(Boolean) ?? [];
+  if (saved.length) return saved;
+  const fallback = habit.alternativeRoutine?.trim() || habit.gateway?.trim();
+  return fallback ? [fallback] : [];
+}
+function getBreakPlanAnswers(habit: Habit): BreakPlanAnswers {
+  const saved = habit.breakPlanAnswers ?? {};
+  const withFallback = (key: keyof BreakPlanAnswers, fallback: string) => {
+    const values = saved[key];
+    return Array.isArray(values) && values.some(value => value.trim()) ? values : [fallback];
+  };
+  return {
+    cueTriggers: withFallback('cueTriggers', habit.cueType === 'STACK' ? habit.cue ?? '' : ''),
+    cueTimes: withFallback('cueTimes', habit.cueType === 'TIME_LOCATION' ? habit.time || habit.cue || '' : ''),
+    cueLocations: withFallback('cueLocations', habit.cueType === 'TIME_LOCATION' ? habit.location ?? '' : ''),
+    cuesToHide: withFallback('cuesToHide', habit.hideCue ?? ''),
+    underlyingNeeds: withFallback('underlyingNeeds', habit.motive ?? ''),
+    reframes: withFallback('reframes', habit.aversionReminder ?? ''),
+    frictionIdeas: withFallback('frictionIdeas', habit.friction ?? ''),
+    oldPayoffs: withFallback('oldPayoffs', habit.reward ?? ''),
+    agreements: withFallback('agreements', habit.contract ?? ''),
+  };
+}
 function occurrenceActionLabel(habit: Habit) {
   if (isSmokingHabit(habit)) return 'I Smoked';
   const name = habit.name.trim();
@@ -131,6 +169,40 @@ function getResilientStreak(history: Record<string, string[]>, habitId: string) 
   }
   const hasHistory = Object.values(history).some(statuses => statuses.includes(habitId) || statuses.includes(`missed:${habitId}`));
   return { count, warning: graceUsed, broken: false, hasHistory };
+}
+
+function MultiAnswerField({ label, helper, values, onChange, optional = false, ordered = false, placeholder = 'Add an answer', addLabel }: {
+  label: string; helper: string; values: string[]; onChange: (values: string[]) => void;
+  optional?: boolean; ordered?: boolean; placeholder?: string; addLabel?: string;
+}) {
+  const rows = values.length ? values : [''];
+  function updateAnswer(index: number, value: string) {
+    onChange(rows.map((answer, rowIndex) => rowIndex === index ? value : answer));
+  }
+  function removeAnswer(index: number) {
+    const next = rows.filter((_, rowIndex) => rowIndex !== index);
+    onChange(next.length ? next : ['']);
+  }
+  function moveAnswer(index: number, direction: -1 | 1) {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= rows.length) return;
+    const next = [...rows];
+    [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+    onChange(next);
+  }
+  return <div className="multi-answer-field">
+    <div className="multi-answer-heading"><span className="field-label multi-answer-label">{label}</span>{optional && <span className="optional">OPTIONAL</span>}</div>
+    <p className="multi-answer-helper">{helper}</p>
+    <div className={ordered ? 'multi-answer-list multi-answer-list-ordered' : 'multi-answer-list'}>
+      {rows.map((answer, index) => <div className="multi-answer-row" key={`${label}-${index}`}>
+        <span className="multi-answer-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+        <input value={answer} maxLength={300} required={ordered && index === 0} aria-label={`${label}, ${ordered ? 'step' : 'answer'} ${index + 1}`} placeholder={placeholder} onChange={event => updateAnswer(index, event.target.value)}/>
+        {ordered && <span className="multi-answer-reorder"><button type="button" aria-label={`Move step ${index + 1} up`} disabled={index === 0} onClick={() => moveAnswer(index, -1)}>↑</button><button type="button" aria-label={`Move step ${index + 1} down`} disabled={index === rows.length - 1} onClick={() => moveAnswer(index, 1)}>↓</button></span>}
+        <button type="button" className="multi-answer-remove" aria-label={`Remove ${ordered ? 'step' : 'answer'} ${index + 1} from ${label}`} onClick={() => removeAnswer(index)}>×</button>
+      </div>)}
+    </div>
+    <button type="button" className="multi-answer-add" onClick={() => onChange([...rows, ''])}><span aria-hidden="true">+</span>{addLabel ?? 'Add another answer'}</button>
+  </div>;
 }
 function demoHistory(): Record<string, string[]> {
   const h: Record<string, string[]> = { [todayKey()]: ['demo-write'] };
@@ -268,6 +340,8 @@ export default function Home() {
   const [habitName, setHabitName] = useState('');
   const [targetAction, setTargetAction] = useState('');
   const [gatewayAction, setGatewayAction] = useState('');
+  const [replacementActions, setReplacementActions] = useState<string[]>([]);
+  const [breakPlanAnswers, setBreakPlanAnswers] = useState<BreakPlanAnswers>(createEmptyBreakPlanAnswers);
   const [gatewayMinutes, setGatewayMinutes] = useState(2);
   const [durationDrafts, setDurationDrafts] = useState<Record<string, number>>({});
   const [targetDrafts, setTargetDrafts] = useState<Record<string, number>>({});
@@ -877,7 +951,7 @@ export default function Home() {
 
   function startNewHabit(mode: ChangeMode) {
     setEditingHabitId(''); setBuilderReturnTo(active); setHabitType(mode); setCueType('STACK');
-    setHabitName(''); setTargetAction(''); setGatewayAction(''); setGatewayMinutes(mode === 'BUILD' ? 2 : 0); setCue(''); setTime(''); setLocation(''); setMotive(''); setReward('');
+    setHabitName(''); setTargetAction(''); setGatewayAction(''); setReplacementActions(mode === 'BREAK' ? [''] : []); setBreakPlanAnswers(createEmptyBreakPlanAnswers()); setGatewayMinutes(mode === 'BUILD' ? 2 : 0); setCue(''); setTime(''); setLocation(''); setMotive(''); setReward('');
     setPrepStep(''); setBundle(''); setHideCue(''); setFriction(''); setContract(''); setAccountabilityPartner(''); setAccountabilityEmail('');
     setAccountabilityCost(''); setAlternativeRoutine(''); setAversionReminder(''); setRitual(''); setMilestoneDraft(''); setTechniqueIds([]);
     setTechniqueNotes({}); setBaselineDaily(''); setShowBuilder(true);
@@ -975,31 +1049,59 @@ export default function Home() {
     return <details className="habit-manage-menu"><summary aria-label={`Manage ${habit.name}`} title={`Manage ${habit.name}`}><span aria-hidden="true">⋯</span></summary><div role="group" aria-label={`Manage ${habit.name}`}><button type="button" onClick={event => { event.currentTarget.closest('details')?.removeAttribute('open'); editHabitPlan(habit); }}>Edit</button><button type="button" className="habit-delete-action" onClick={event => { event.currentTarget.closest('details')?.removeAttribute('open'); setHabitToDelete(habit); }}>Delete</button></div></details>;
   }
 
+  function updateBreakAnswer(key: keyof BreakPlanAnswers, values: string[]) {
+    setBreakPlanAnswers(current => ({ ...current, [key]: values }));
+  }
+
+  function updateBreakCuePair(index: number, key: 'cueTimes' | 'cueLocations', value: string) {
+    setBreakPlanAnswers(current => {
+      const next = [...current[key]];
+      next[index] = value;
+      return { ...current, [key]: next };
+    });
+  }
+
+  function addBreakCuePair() {
+    setBreakPlanAnswers(current => ({ ...current, cueTimes: [...current.cueTimes, ''], cueLocations: [...current.cueLocations, ''] }));
+  }
+
+  function removeBreakCuePair(index: number) {
+    setBreakPlanAnswers(current => {
+      const cueTimes = current.cueTimes.filter((_, rowIndex) => rowIndex !== index);
+      const cueLocations = current.cueLocations.filter((_, rowIndex) => rowIndex !== index);
+      return { ...current, cueTimes: cueTimes.length ? cueTimes : [''], cueLocations: cueLocations.length ? cueLocations : [''] };
+    });
+  }
+
   function editHabitPlan(habit: Habit) {
+    const answers = habit.kind === 'BREAK' ? getBreakPlanAnswers(habit) : createEmptyBreakPlanAnswers();
+    const actions = getReplacementActions(habit);
     setEditingHabitId(habit.id);
     setHabitType(habit.kind);
     setHabitName(habit.name);
     setTargetAction(habit.target);
-    setGatewayAction(habit.gateway ?? '');
+    setGatewayAction(habit.kind === 'BREAK' ? actions[0] ?? '' : habit.gateway ?? '');
+    setReplacementActions(habit.kind === 'BREAK' ? actions.length ? actions : [''] : []);
+    setBreakPlanAnswers(answers);
     setGatewayMinutes(habit.gatewayMinutes ?? 2);
     setCueType(habit.cueType ?? 'STACK');
-    setCue(habit.cueType === 'STACK' ? habit.cue : '');
+    setCue(habit.kind === 'BREAK' ? answers.cueTriggers[0] ?? '' : habit.cueType === 'STACK' ? habit.cue : '');
     const oldTime = habit.time ?? '';
     const parsedTime = oldTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-    setTime(parsedTime ? `${String((Number(parsedTime[1]) % 12) + (parsedTime[3].toUpperCase() === 'PM' ? 12 : 0)).padStart(2, '0')}:${parsedTime[2]}` : oldTime);
-    setLocation(habit.location ?? '');
-    setMotive(habit.motive ?? '');
-    setReward(habit.reward ?? '');
+    setTime(habit.kind === 'BREAK' ? answers.cueTimes[0] ?? '' : parsedTime ? `${String((Number(parsedTime[1]) % 12) + (parsedTime[3].toUpperCase() === 'PM' ? 12 : 0)).padStart(2, '0')}:${parsedTime[2]}` : oldTime);
+    setLocation(habit.kind === 'BREAK' ? answers.cueLocations[0] ?? '' : habit.location ?? '');
+    setMotive(habit.kind === 'BREAK' ? answers.underlyingNeeds[0] ?? '' : habit.motive ?? '');
+    setReward(habit.kind === 'BREAK' ? answers.oldPayoffs[0] ?? '' : habit.reward ?? '');
     setPrepStep(habit.prep ?? '');
     setBundle(habit.rewardBundle ?? '');
-    setHideCue(habit.hideCue ?? '');
-    setFriction(habit.friction ?? '');
-    setContract(habit.contract ?? '');
+    setHideCue(habit.kind === 'BREAK' ? answers.cuesToHide[0] ?? '' : habit.hideCue ?? '');
+    setFriction(habit.kind === 'BREAK' ? answers.frictionIdeas[0] ?? '' : habit.friction ?? '');
+    setContract(habit.kind === 'BREAK' ? answers.agreements[0] ?? '' : habit.contract ?? '');
     setAccountabilityPartner(habit.accountabilityPartner ?? '');
     setAccountabilityEmail(habit.accountabilityEmail ?? '');
     setAccountabilityCost(habit.accountabilityCost ?? '');
     setAlternativeRoutine(habit.alternativeRoutine ?? '');
-    setAversionReminder(habit.aversionReminder ?? '');
+    setAversionReminder(habit.kind === 'BREAK' ? answers.reframes[0] ?? '' : habit.aversionReminder ?? '');
     setRitual(habit.ritual ?? '');
     setMilestoneDraft((habit.milestones ?? []).slice(1, -1).join('\n'));
     setTechniqueIds(habit.techniqueIds ?? []);
@@ -1012,10 +1114,13 @@ export default function Home() {
   async function saveLawSection(law: Law) {
     const existing = habits.find(item => item.id === editingHabitId);
     if (!existing) { setToast('Finish the complete plan to save its law sections.'); return; }
-    const updated: Habit = { ...existing, name: habitName.trim() || existing.name, target: targetAction.trim() || existing.target, gateway: gatewayAction.trim() || targetAction.trim(), gatewayMinutes: habitType === 'BUILD' ? Math.max(1, Math.min(1440, gatewayMinutes || 2)) : gatewayMinutes, cueType, cue: cueType === 'STACK' ? cue.trim() : time.trim(), time: cueType === 'TIME_LOCATION' ? time : undefined, location: cueType === 'TIME_LOCATION' ? location : undefined, motive: motive.trim(), reward: reward.trim(), hideCue: cue.trim() || hideCue.trim(), friction: friction.trim(), contract: contract.trim(), alternativeRoutine: gatewayAction.trim() || alternativeRoutine.trim(), aversionReminder: aversionReminder.trim(), techniqueIds: [...techniqueIds], techniqueNotes: { ...techniqueNotes }, prep: prepStep.trim() };
+    const savedAnswers = Object.fromEntries(Object.entries(breakPlanAnswers).map(([key, values]) => [key, values.map(value => value.trim()).filter(Boolean)])) as BreakPlanAnswers;
+    const savedActions = replacementActions.map(action => action.trim()).filter(Boolean);
+    const first = (values: string[]) => values.find(Boolean) ?? '';
+    const updated: Habit = { ...existing, name: habitName.trim() || existing.name, target: targetAction.trim() || existing.target, gateway: habitType === 'BREAK' ? first(savedActions) || gatewayAction.trim() : gatewayAction.trim() || targetAction.trim(), replacementActions: habitType === 'BREAK' ? savedActions : [], breakPlanAnswers: habitType === 'BREAK' ? savedAnswers : {}, gatewayMinutes: habitType === 'BUILD' ? Math.max(1, Math.min(1440, gatewayMinutes || 2)) : gatewayMinutes, cueType, cue: cueType === 'STACK' ? habitType === 'BREAK' ? first(savedAnswers.cueTriggers) : cue.trim() : habitType === 'BREAK' ? first(savedAnswers.cueTimes) : time.trim(), time: cueType === 'TIME_LOCATION' ? habitType === 'BREAK' ? first(savedAnswers.cueTimes) : time : undefined, location: cueType === 'TIME_LOCATION' ? habitType === 'BREAK' ? first(savedAnswers.cueLocations) : location : undefined, motive: habitType === 'BREAK' ? first(savedAnswers.underlyingNeeds) : motive.trim(), reward: habitType === 'BREAK' ? first(savedAnswers.oldPayoffs) : reward.trim(), hideCue: habitType === 'BREAK' ? first(savedAnswers.cuesToHide) : hideCue.trim(), friction: habitType === 'BREAK' ? first(savedAnswers.frictionIdeas) : friction.trim(), contract: habitType === 'BREAK' ? first(savedAnswers.agreements) : contract.trim(), alternativeRoutine: habitType === 'BREAK' ? first(savedActions) : gatewayAction.trim() || alternativeRoutine.trim(), aversionReminder: habitType === 'BREAK' ? first(savedAnswers.reframes) : aversionReminder.trim(), techniqueIds: [...techniqueIds], techniqueNotes: { ...techniqueNotes }, prep: prepStep.trim() };
     setHabits(current => current.map(item => item.id === existing.id ? updated : item));
     if (apiUrl && remoteIdentityId && !existing.id.startsWith('demo-')) {
-      const payload = { display_name: updated.name, target_action: updated.target, gateway_action: updated.gateway, gateway_minutes: updated.gatewayMinutes, cue_type: updated.cueType, cue_trigger: updated.cue, location: updated.location ?? null, craving_motive: updated.motive, reward_payoff: updated.reward, cue_to_hide: updated.hideCue ?? null, friction_strategy: updated.friction ?? null, habit_contract: updated.contract ?? null, alternative_routine: updated.alternativeRoutine ?? null, aversion_reminder: updated.aversionReminder ?? null, technique_ids: updated.techniqueIds ?? [], technique_notes: updated.techniqueNotes ?? {} };
+      const payload = { display_name: updated.name, target_action: updated.target, gateway_action: updated.gateway, replacement_actions: updated.replacementActions ?? [], break_plan_answers: updated.breakPlanAnswers ?? {}, gateway_minutes: updated.gatewayMinutes, cue_type: updated.cueType, cue_trigger: updated.cue, location: updated.location ?? null, craving_motive: updated.motive, reward_payoff: updated.reward, cue_to_hide: updated.hideCue ?? null, friction_strategy: updated.friction ?? null, habit_contract: updated.contract ?? null, alternative_routine: updated.alternativeRoutine ?? null, aversion_reminder: updated.aversionReminder ?? null, technique_ids: updated.techniqueIds ?? [], technique_notes: updated.techniqueNotes ?? {} };
       try { const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits/${existing.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); if (!response.ok) throw new Error(); } catch { setToast(`${lawGroups.find(item => item.id === law)?.build ?? 'Law'} saved on this device; API sync is unavailable.`); return; }
     }
     setToast(`${lawGroups.find(item => item.id === law)?.[habitType === 'BUILD' ? 'build' : 'break'] ?? 'Law section'} saved. Keep editing or save the complete plan.`);
@@ -1023,7 +1128,10 @@ export default function Home() {
 
   async function createHabit() {
     if (!targetAction.trim()) return;
-    if (habitType === 'BREAK' && !gatewayAction.trim()) { setToast('Add a replacement action to use when the old cue appears.'); return; }
+    const savedReplacementActions = habitType === 'BREAK' ? replacementActions.map(action => action.trim()).filter(Boolean) : [];
+    const savedBreakPlanAnswers = Object.fromEntries(Object.entries(breakPlanAnswers).map(([key, values]) => [key, values.map(value => value.trim()).filter(Boolean)])) as BreakPlanAnswers;
+    const firstAnswer = (values: string[]) => values.find(Boolean) ?? '';
+    if (habitType === 'BREAK' && !savedReplacementActions.length) { setToast('Add a replacement action to use when the old cue appears.'); return; }
     if (habitType === 'BUILD' && /^(read|write|exercise|work out|study|meditate|eat|save|practice|journal|run|walk)\s*(more|better|regularly)?[.!]?$/i.test(targetAction.trim())) { setToast('Make the action specific, such as “Read one chapter” or “Walk for ten minutes.”'); return; }
     if (habitType === 'BUILD' && cueType === 'TIME_LOCATION' && (!time.trim() || !location.trim())) return;
     if (habitType === 'BUILD' && cueType === 'STACK' && !cue.trim()) return;
@@ -1031,12 +1139,20 @@ export default function Home() {
     const savedGatewayMinutes = habitType === 'BUILD' ? Math.max(1, Math.min(1440, gatewayMinutes || 2)) : gatewayMinutes;
     const existingHabit = habits.find(habit => habit.id === editingHabitId);
     const savedHabitName = editingHabitId ? habitName.trim() || existingHabit?.name || targetAction.trim() : targetAction.trim();
-    const starterAction = gatewayAction.trim() || (habitType === 'BUILD' ? suggestStarter(targetAction.trim()) : targetAction.trim());
+    const starterAction = habitType === 'BREAK' ? savedReplacementActions[0] ?? '' : gatewayAction.trim() || suggestStarter(targetAction.trim());
+    const savedCue = cueType === 'STACK' ? habitType === 'BREAK' ? firstAnswer(savedBreakPlanAnswers.cueTriggers) : cue.trim() : habitType === 'BREAK' ? firstAnswer(savedBreakPlanAnswers.cueTimes) : time.trim();
+    const savedLocation = cueType === 'TIME_LOCATION' ? habitType === 'BREAK' ? firstAnswer(savedBreakPlanAnswers.cueLocations) : location.trim() : '';
+    const savedMotive = habitType === 'BREAK' ? firstAnswer(savedBreakPlanAnswers.underlyingNeeds) : motive.trim();
+    const savedReward = habitType === 'BREAK' ? firstAnswer(savedBreakPlanAnswers.oldPayoffs) : reward.trim();
+    const savedHideCue = habitType === 'BREAK' ? firstAnswer(savedBreakPlanAnswers.cuesToHide) : hideCue.trim();
+    const savedFriction = habitType === 'BREAK' ? firstAnswer(savedBreakPlanAnswers.frictionIdeas) : friction.trim();
+    const savedContract = habitType === 'BREAK' ? firstAnswer(savedBreakPlanAnswers.agreements) : contract.trim();
+    const savedReframe = habitType === 'BREAK' ? firstAnswer(savedBreakPlanAnswers.reframes) : aversionReminder.trim();
     let habitId = editingHabitId || `habit-${Date.now()}`;
     let inviteLink = '';
     if (apiUrl && remoteIdentityId && !editingHabitId.startsWith('demo-')) {
       try {
-        const payload = { habit_type: habitType, display_name: savedHabitName, target_action: targetAction.trim(), gateway_action: starterAction, gateway_minutes: savedGatewayMinutes, cue_type: cueType, cue_trigger: cueType === 'STACK' ? cue.trim() : time.trim(), location: cueType === 'TIME_LOCATION' ? location.trim() || null : null, craving_motive: motive.trim(), reward_payoff: reward.trim(), prep_step: prepStep.trim() || null, reward_bundle: bundle.trim() || null, cue_to_hide: hideCue.trim() || null, friction_strategy: friction.trim() || null, habit_contract: contract.trim() || null, alternative_routine: gatewayAction.trim() || alternativeRoutine.trim() || null, aversion_reminder: aversionReminder.trim() || null, motivation_ritual: ritual.trim() || null, shaping_milestones: habitType === 'BUILD' ? [starterAction, ...milestoneDraft.split('\n').map(item => item.trim()).filter(Boolean), targetAction.trim()].filter((item, i, all) => all.indexOf(item) === i).join('\n') : null, shaping_current_step: existingHabit?.milestoneIndex ?? 0, accountability_partner: accountabilityPartner.trim() || null, accountability_partner_email: accountabilityEmail.trim() || null, accountability_cost: accountabilityCost.trim() || null, technique_ids: techniqueIds, technique_notes: techniqueNotes, baseline_daily: baselineDaily !== '' ? Number(baselineDaily) : null };
+        const payload = { habit_type: habitType, display_name: savedHabitName, target_action: targetAction.trim(), gateway_action: starterAction, replacement_actions: savedReplacementActions, break_plan_answers: habitType === 'BREAK' ? savedBreakPlanAnswers : {}, gateway_minutes: savedGatewayMinutes, cue_type: cueType, cue_trigger: savedCue, location: savedLocation || null, craving_motive: savedMotive, reward_payoff: savedReward, prep_step: prepStep.trim() || null, reward_bundle: bundle.trim() || null, cue_to_hide: savedHideCue || null, friction_strategy: savedFriction || null, habit_contract: savedContract || null, alternative_routine: habitType === 'BREAK' ? savedReplacementActions[0] : gatewayAction.trim() || alternativeRoutine.trim() || null, aversion_reminder: savedReframe || null, motivation_ritual: ritual.trim() || null, shaping_milestones: habitType === 'BUILD' ? [starterAction, ...milestoneDraft.split('\n').map(item => item.trim()).filter(Boolean), targetAction.trim()].filter((item, i, all) => all.indexOf(item) === i).join('\n') : null, shaping_current_step: existingHabit?.milestoneIndex ?? 0, accountability_partner: accountabilityPartner.trim() || null, accountability_partner_email: accountabilityEmail.trim() || null, accountability_cost: accountabilityCost.trim() || null, technique_ids: techniqueIds, technique_notes: techniqueNotes, baseline_daily: baselineDaily !== '' ? Number(baselineDaily) : null };
         const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits${editingHabitId ? `/${editingHabitId}` : ''}`, { method: editingHabitId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingHabitId ? payload : { ...payload, identity_id: remoteIdentityId, habit_type: habitType }) });
         if (!response.ok) throw new Error('Unable to save the habit to the server.');
         {
@@ -1051,10 +1167,10 @@ export default function Home() {
     const habit: Habit = {
       ...existingHabit,
       id: habitId, name: savedHabitName, target: targetAction.trim(), gateway: starterAction, gatewayMinutes: savedGatewayMinutes,
-      cueType, cue: cueType === 'STACK' ? cue.trim() : time.trim(), time: cueType === 'TIME_LOCATION' ? time : undefined,
-      location: cueType === 'TIME_LOCATION' ? location : undefined, motive: motive.trim(), reward: reward.trim(),
+      cueType, cue: savedCue, time: cueType === 'TIME_LOCATION' ? savedCue : undefined,
+      location: cueType === 'TIME_LOCATION' ? savedLocation : undefined, motive: savedMotive, reward: savedReward,
       prep: prepStep.trim(), completed: existingHabit?.completed ?? false, missedYesterday: existingHabit?.missedYesterday ?? false, streak: existingHabit?.streak ?? 0, kind: habitType,
-      hideCue: hideCue.trim(), friction: friction.trim(), contract: contract.trim(), alternativeRoutine: gatewayAction.trim() || alternativeRoutine.trim(), aversionReminder: aversionReminder.trim(), accountabilityEmail: accountabilityEmail.trim(), inviteLink: existingHabit?.inviteLink ?? inviteLink, frictionVotes: existingHabit?.frictionVotes ?? 0, rewardBundle: bundle.trim(),
+      hideCue: savedHideCue, friction: savedFriction, contract: savedContract, alternativeRoutine: habitType === 'BREAK' ? savedReplacementActions[0] : gatewayAction.trim() || alternativeRoutine.trim(), replacementActions: savedReplacementActions, breakPlanAnswers: habitType === 'BREAK' ? savedBreakPlanAnswers : {}, aversionReminder: savedReframe, accountabilityEmail: accountabilityEmail.trim(), inviteLink: existingHabit?.inviteLink ?? inviteLink, frictionVotes: existingHabit?.frictionVotes ?? 0, rewardBundle: bundle.trim(),
       ritual: ritual.trim(), milestones: habitType === 'BUILD' ? [starterAction, ...(milestoneDraft.split('\n').map(item => item.trim()).filter(Boolean)), targetAction.trim()].filter((item, i, all) => all.indexOf(item) === i) : [], milestoneIndex: existingHabit?.milestoneIndex ?? 0,
       accountabilityPartner: accountabilityPartner.trim(), accountabilityCost: accountabilityCost.trim(),
       techniqueIds: [...techniqueIds], techniqueNotes: { ...techniqueNotes }, baselineDaily: baselineDaily !== '' ? Number(baselineDaily) : undefined,
@@ -1069,7 +1185,7 @@ export default function Home() {
     }
     setShowBuilder(false); setActive(habitType === 'BREAK' ? 'Habit to break' : builderReturnTo === 'My habits' ? 'My habits' : 'Today');
     setToast(editingHabitId ? 'Your plan is updated.' : habitType === 'BUILD' ? 'Your new habit plan is ready.' : inviteLink ? 'Change plan saved. Partner link copied.' : 'Your change plan is ready.');
-    setHabitName(''); setTargetAction(''); setGatewayAction(''); setGatewayMinutes(2); setCue(''); setTime(''); setLocation(''); setMotive(''); setReward(''); setPrepStep(''); setBundle(''); setHideCue(''); setFriction(''); setContract(''); setAccountabilityPartner(''); setAccountabilityEmail(''); setAccountabilityCost(''); setAlternativeRoutine(''); setAversionReminder(''); setRitual(''); setMilestoneDraft(''); setTechniqueIds([]); setTechniqueNotes({}); setBaselineDaily(''); setEditingHabitId(''); setHabitType('BUILD'); setCueType('STACK');
+    setHabitName(''); setTargetAction(''); setGatewayAction(''); setReplacementActions([]); setBreakPlanAnswers(createEmptyBreakPlanAnswers()); setGatewayMinutes(2); setCue(''); setTime(''); setLocation(''); setMotive(''); setReward(''); setPrepStep(''); setBundle(''); setHideCue(''); setFriction(''); setContract(''); setAccountabilityPartner(''); setAccountabilityEmail(''); setAccountabilityCost(''); setAlternativeRoutine(''); setAversionReminder(''); setRitual(''); setMilestoneDraft(''); setTechniqueIds([]); setTechniqueNotes({}); setBaselineDaily(''); setEditingHabitId(''); setHabitType('BUILD'); setCueType('STACK');
   }
 
   function addScorecardEntry(event: FormEvent) {
@@ -1221,6 +1337,9 @@ export default function Home() {
 
   function renderHabitCard(habit: Habit, index: number) {
     const cueLine = habit.cueType === 'STACK' ? `After ${habit.cue}` : `At ${habit.time || habit.cue} · ${habit.location}`;
+    const planAnswers = getBreakPlanAnswers(habit);
+    const replacementSteps = getReplacementActions(habit);
+    const answerSummary = (values: string[]) => values.map(value => value.trim()).filter(Boolean).join(' · ');
     const streak = getResilientStreak(history, habit.id);
     const events = habitEvents.filter(event => event.habitId === habit.id);
     const habitVariations = variations.filter(item => item.habitId === habit.id);
@@ -1228,14 +1347,14 @@ export default function Home() {
       const laws = lawGroups.map(law => {
         const configured: Partial<Record<Law, string>> = habit.kind === 'BUILD'
           ? { cue: cueLine, craving: [habit.motive, habit.ritual].filter(Boolean).join(' · '), response: [habit.gateway, habit.prep && `Setup: ${habit.prep}`].filter(Boolean).join(' · '), reward: habit.reward }
-          : { cue: habit.hideCue || '', craving: habit.aversionReminder || '', response: [habit.friction, habit.alternativeRoutine && `Instead: ${habit.alternativeRoutine}`].filter(Boolean).join(' · '), reward: habit.contract || '' };
+          : { cue: answerSummary(planAnswers.cuesToHide), craving: [...planAnswers.underlyingNeeds, ...planAnswers.reframes].filter(Boolean).join(' · '), response: [answerSummary(planAnswers.frictionIdeas), replacementSteps.length ? `Instead: ${replacementSteps.join(' → ')}` : ''].filter(Boolean).join(' · '), reward: [...planAnswers.oldPayoffs, ...planAnswers.agreements].filter(Boolean).join(' · ') };
         const selected = (habit.techniqueIds ?? []).map(id => techniqueMap[id]).filter(item => item?.laws.includes(law.id));
         const methods = selected.map(item => ({ id: item.id, name: item.name, note: techniqueNoteFor(habit.techniqueNotes ?? {}, item.id, law.id) }));
         const setup = configured[law.id] ?? '';
         return setup || methods.length ? { law, setup, methods } : null;
       }).filter((item): item is { law: typeof lawGroups[number]; setup: string; methods: { id: string; name: string; note: string }[] } => !!item);
       const isBuild = habit.kind === 'BUILD';
-      const actionSummary = isBuild ? habit.gateway : (habit.alternativeRoutine || habit.gateway);
+      const actionSummary = isBuild ? habit.gateway : replacementSteps.join(' → ') || habit.alternativeRoutine || habit.gateway;
       const helpfulChoices = events.filter(event => event.type === 'URGE_PASSED' || event.type === 'REPLACEMENT_USED').length;
       return <article key={habit.id} className={`today-quick-card ${habit.completed ? 'today-quick-card-done' : ''} ${isBuild ? '' : 'today-quick-card-break'}`}>
         <span className={`today-quick-mark ${isBuild && habit.completed ? 'checked' : ''}`} aria-hidden="true">{isBuild && habit.completed ? <Icon name="check" size={15}/> : <Icon name="spark" size={15}/>}</span>
@@ -1811,14 +1930,19 @@ export default function Home() {
         const replacementsThisWeek = weekEvents.filter(event => event.type === 'REPLACEMENT_USED').length;
         const oldThisWeek = weekEvents.filter(event => event.type === 'OLD_HABIT').length;
         const weeklyReduction = typeof h.baselineDaily === 'number' && h.baselineDaily > 0 ? Math.max(0, Math.round((1 - oldThisWeek / (h.baselineDaily * 7)) * 100)) : null;
+        const planAnswers = getBreakPlanAnswers(h);
+        const replacementSteps = getReplacementActions(h);
+        const cueSummary = h.cueType === 'STACK'
+          ? planAnswers.cueTriggers.map(value => value.trim()).filter(Boolean).join(' · ')
+          : planAnswers.cueTimes.map((value, index) => [value, planAnswers.cueLocations[index]].map(part => part?.trim()).filter(Boolean).join(' · ')).filter(Boolean).join(' · ');
         return <article className="anti-card" key={h.id}><div className="anti-card-top"><div className="anti-card-icon"><Icon name="spark"/></div><div><span className="eyebrow">BEHAVIOR YOU’RE CHANGING</span><h3>{h.name}</h3></div>{renderHabitActions(h)}<span className="shield-badge">{h.techniqueIds?.length ?? 0} strategies</span></div>
           <div className="anti-stats"><div><b>{urgesPassedThisWeek}</b><span>urges passed this week</span></div><div><b>{replacementsThisWeek}</b><span>replacement actions</span></div><div><b>{oldThisWeek}</b><span>old routine episodes</span></div>{weeklyReduction !== null && <div><b>{weeklyReduction}%</b><span>below baseline</span></div>}</div><p className="anti-review">Use this seven day pattern to keep the methods that helped or adjust one of the four law levers.</p>
           <div className="anti-steps">{lawGroups.map((law, index) => {
             const selected = (h.techniqueIds ?? []).map(id => techniqueMap[id]).filter(item => item?.laws.includes(law.id));
-            const custom = law.id === 'cue' ? h.hideCue : law.id === 'craving' ? h.aversionReminder : law.id === 'response' ? h.friction : h.contract;
+            const custom = law.id === 'cue' ? planAnswers.cuesToHide.join(' · ') : law.id === 'craving' ? [...planAnswers.underlyingNeeds, ...planAnswers.reframes].filter(Boolean).join(' · ') : law.id === 'response' ? planAnswers.frictionIdeas.join(' · ') : [...planAnswers.oldPayoffs, ...planAnswers.agreements].filter(Boolean).join(' · ');
             return <div key={law.id}><span>0{index + 1} · {law.break.toUpperCase()}</span><p>{selected.length ? selected.map((item, itemIndex) => <span key={item.id} id={item.laws[0] === law.id ? `anti-technique-${h.id}-${item.id}` : undefined} tabIndex={item.laws[0] === law.id ? -1 : undefined}>{item.name}{itemIndex < selected.length - 1 ? ', ' : ''}</span>) : custom || 'Choose a method when you’re ready to expand this plan.'}</p>{selected.map(item => (h.techniqueNotes?.[`${law.id}:${item.id}`] ?? h.techniqueNotes?.[item.id]) && <small key={item.id}>{h.techniqueNotes?.[`${law.id}:${item.id}`] ?? h.techniqueNotes?.[item.id]}</small>)}</div>;
           })}</div>
-          <div className="replacement-plan"><span className="eyebrow">WHEN THE URGE SHOWS UP</span><p>{h.alternativeRoutine || h.gateway || 'Choose a small replacement action that meets the same need.'}</p>{h.cue && <small>Your cue: {h.cueType === 'STACK' ? `After ${h.cue}` : `${h.time || h.cue}${h.location ? ` · ${h.location}` : ''}`}</small>}</div>
+          <div className="replacement-plan"><span className="eyebrow">WHEN THE URGE SHOWS UP</span>{replacementSteps.length ? <ol className="replacement-plan-steps">{replacementSteps.map((action, index) => <li key={`${h.id}-replacement-${index}`}>{action}</li>)}</ol> : <p>Choose a small replacement action that meets the same need.</p>}{cueSummary && <small>Your cue: {cueSummary}</small>}</div>
           <div className="habit-checkin-workspace"><div className="checkin-controls"><label>What happened just now?<textarea value={checkinNotes[h.id] ?? ''} onChange={e => setCheckinNotes(current => ({ ...current, [h.id]: e.target.value }))} placeholder="Optional note about the moment" rows={2}/></label><div className="urge-actions"><span>Log an event</span><div><button type="button" onClick={() => void recordHabitEvent(h, 'URGE_PASSED')}>Urge passed</button><button type="button" onClick={() => void recordHabitEvent(h, 'REPLACEMENT_USED')}>Used replacement</button><button type="button" onClick={() => void recordHabitEvent(h, 'OLD_HABIT')}>Old behavior</button></div></div></div>
           <details className="variation-workspace" open={variations.some(v => v.habitId === h.id)}><summary>Try a variation <small>{variations.filter(v => v.habitId === h.id).length} saved</small></summary><div className="variation-create"><p>Your current plan stays in place. Save an alternative, then activate it when you want to try it.</p><div className="variation-fields"><select aria-label={`Variation law for ${h.name}`} value={(variationDrafts[h.id] ?? { law: 'response' }).law} onChange={e => setVariationDrafts(current => ({ ...current, [h.id]: { ...(current[h.id] ?? { law: 'response', name: '', techniqueId: '', setup: '' }), law: e.target.value as Law } }))}>{lawGroups.map(law => <option key={law.id} value={law.id}>{law.break}</option>)}</select><select aria-label={`Variation technique for ${h.name}`} value={variationDrafts[h.id]?.techniqueId ?? ''} onChange={e => setVariationDrafts(current => ({ ...current, [h.id]: { ...(current[h.id] ?? { law: 'response', name: '', techniqueId: '', setup: '' }), techniqueId: e.target.value } }))}><option value="">Custom setup</option>{techniques.filter(item => item.modes.includes('BREAK')).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select><input aria-label={`Variation name for ${h.name}`} placeholder="Name this alternative" value={variationDrafts[h.id]?.name ?? ''} onChange={e => setVariationDrafts(current => ({ ...current, [h.id]: { ...(current[h.id] ?? { law: 'response', name: '', techniqueId: '', setup: '' }), name: e.target.value } }))}/><textarea aria-label={`Variation setup for ${h.name}`} placeholder="What will you try?" value={variationDrafts[h.id]?.setup ?? ''} onChange={e => setVariationDrafts(current => ({ ...current, [h.id]: { ...(current[h.id] ?? { law: 'response', name: '', techniqueId: '', setup: '' }), setup: e.target.value } }))}/><button type="button" className="secondary-button" onClick={() => void createVariation(h)}>Save variation</button></div></div>{variations.filter(v => v.habitId === h.id).map(v => <article className="variation-row" id={`anti-variation-${v.id}`} tabIndex={-1} key={v.id}><div className="variation-row-main"><div><b>{v.name}</b>{v.isActive && <span className="variation-active">Testing now</span>}<p>{lawGroups.find(law => law.id === v.law)?.break}: {v.setup}</p>{v.techniqueId && <small>{techniqueMap[v.techniqueId]?.name}</small>}</div><button type="button" className={v.isActive ? 'secondary-button' : 'text-button'} onClick={() => void updateVariation(v, { isActive: !v.isActive })}>{v.isActive ? 'Active' : 'Make active'}</button></div><div className="variation-outcome"><span>{v.triedAt ? `Tried ${new Date(v.triedAt).toLocaleDateString()}` : 'Not tried yet'}</span><label>Did it help?<select value={v.helped === true ? 'yes' : v.helped === false ? 'no' : ''} onChange={e => void updateVariation(v, { helped: e.target.value === '' ? null : e.target.value === 'yes' })}><option value="">Not rated</option><option value="yes">Yes</option><option value="no">Not yet</option></select></label><button type="button" className="text-button" onClick={async () => { setVariations(current => current.filter(item => item.id !== v.id)); if (apiUrl && remoteIdentityId && !h.id.startsWith('demo-')) await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits/${h.id}/variations/${v.id}`, { method: 'DELETE' }).catch(() => {}); }}>Remove</button></div>{v.outcomeNote && <p className="variation-note">{v.outcomeNote}</p>}</article>)}</details>
           <details className="event-history"><summary>Today’s check-ins <small>{events.filter(event => new Date(event.at).toDateString() === new Date().toDateString()).length}</small></summary>{events.length ? <ol>{events.slice(0, 30).map(event => <li key={event.id}><b>{event.type === 'URGE_PASSED' ? 'Urge passed' : event.type === 'REPLACEMENT_USED' ? 'Replacement used' : 'Old behavior'}</b><time>{new Date(event.at).toLocaleString()}</time>{event.variationName && <small>Testing: {event.variationName}</small>}{event.strategy && !event.variationName && <small>Strategy: {event.strategy}</small>}{event.note && <p>{event.note}</p>}</li>)}</ol> : <p>No check-ins yet. Any number of events can be recorded each day.</p>}</details></div>
@@ -1874,23 +1998,23 @@ export default function Home() {
     {habitToDelete && <div className="modal-backdrop delete-habit-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setHabitToDelete(null); }}><section className="identity-modal delete-habit-modal" role="dialog" aria-modal="true" aria-labelledby="delete-habit-title"><h2 id="delete-habit-title">Delete this habit?</h2><p>“{habitToDelete.name}” will be removed from your active habits. Past activity is retained.</p><div className="delete-habit-actions"><button type="button" className="secondary-button" onClick={() => setHabitToDelete(null)}>Cancel</button><button type="button" className="delete-confirm-button" onClick={() => deleteHabit(habitToDelete)}>Delete habit</button></div></section></div>}
 
     {showBuilder && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setShowBuilder(false); }}><section className="builder-modal habit-builder" role="dialog" aria-modal="true" aria-labelledby="builder-title">
-      <header className="modal-header"><div><span className="eyebrow">YOUR HABIT PLAN</span><h2 id="builder-title">{editingHabitId ? 'Edit your plan' : habitType === 'BREAK' ? 'Change a habit' : 'Build a habit'}</h2><p>Name the habit, pick a starter action, and choose a cue. You can add more details later.</p></div><button type="button" className="modal-close" onClick={() => setShowBuilder(false)} aria-label="Close builder"><Icon name="x"/></button></header>
+      <header className="modal-header"><div><span className="eyebrow">YOUR HABIT PLAN</span><h2 id="builder-title">{editingHabitId ? 'Edit your plan' : habitType === 'BREAK' ? 'Change a habit' : 'Build a habit'}</h2><p>{habitType === 'BREAK' ? 'Name the habit you want to change, then make a replacement routine for the moments it shows up.' : 'Name the habit, pick a starter action, and choose a cue. You can add more details later.'}</p></div><button type="button" className="modal-close" onClick={() => setShowBuilder(false)} aria-label="Close builder"><Icon name="x"/></button></header>
       <div className="builder-form"><div className="basics-page">
         {!editingHabitId && <div className="form-kind-tabs"><button type="button" className={habitType === 'BUILD' ? 'selected' : ''} onClick={() => { setHabitType('BUILD'); setGatewayMinutes(2); setCueType('STACK'); setTechniqueIds([]); setTechniqueNotes({}); }}>Build a habit</button><button type="button" className={habitType === 'BREAK' ? 'selected' : ''} onClick={() => { setHabitType('BREAK'); setGatewayMinutes(0); setCueType('STACK'); setTechniqueIds([]); setTechniqueNotes({}); }}>Break a habit</button></div>}
         {editingHabitId && <label className="field-label">Habit name <span className="optional">SHOWN ON YOUR HABIT CARD</span><input value={habitName} onChange={e => setHabitName(e.target.value)} placeholder="Name this habit" required/></label>}
         <label className="field-label">{editingHabitId ? 'Target action' : habitType === 'BUILD' ? 'What do you want to do?' : 'What habit do you want to change?'}<input value={targetAction} onChange={e => setTargetAction(e.target.value)} placeholder={habitType === 'BUILD' ? 'e.g. Run three miles' : 'e.g. Scroll social media in bed'} required/></label>
         {habitType === 'BREAK' && <label className="field-label">How often does it happen now? <span className="optional">OPTIONAL ESTIMATE PER DAY</span><input type="number" min="0" max="1000" value={baselineDaily} onChange={e => setBaselineDaily(e.target.value)}/></label>}
-<label className="field-label">{habitType === 'BUILD' ? 'Starter action (optional)' : 'What better action can you switch to?'}<input value={gatewayAction} onChange={e => setGatewayAction(e.target.value)} placeholder={habitType === 'BUILD' ? (targetAction ? suggestStarter(targetAction) : 'Optional. We can suggest a starter for you.') : 'Choose a replacement action'} required={habitType === 'BREAK'}/></label>{habitType === 'BUILD' && targetAction && <p className="form-note">Starter idea: {suggestStarter(targetAction)}. Leave the field blank to use it.</p>}      </div><div className="laws-page">
+{habitType === 'BREAK' ? <MultiAnswerField label="What better action can you switch to?" helper="Try habit stacking: when a reliable cue appears, do step 1, then the next steps. Keep the first action small enough to repeat." values={replacementActions} onChange={setReplacementActions} ordered addLabel="Add another step" placeholder="Write one action"/> : <label className="field-label">Starter action (optional)<input value={gatewayAction} onChange={e => setGatewayAction(e.target.value)} placeholder={targetAction ? suggestStarter(targetAction) : 'Optional starter action'}/></label>}{habitType === 'BUILD' && targetAction && <p className="form-note">Starter idea: {suggestStarter(targetAction)}. Leave the field blank to use it.</p>}      </div><div className="laws-page">
         <section className="builder-law" data-law="cue"><div className="builder-law-heading"><span className="builder-law-index"><Icon name="clock" size={16}/></span><div><small>SET THE MOMENT</small><h3>{habitType === 'BUILD' ? 'When will you start?' : 'What usually triggers it?'}</h3></div></div><div className="law-fields">        <div className="field-label">{habitType === 'BUILD' ? 'Choose a cue for your routine' : 'Notice the cue that starts the old routine'}<div className="cue-tabs" role="group" aria-label="Choose a cue type"><button type="button" aria-pressed={cueType === 'STACK'} className={cueType === 'STACK' ? 'cue-tab-selected' : ''} onClick={() => setCueType('STACK')}>After a routine or cue</button><button type="button" aria-pressed={cueType === 'TIME_LOCATION'} className={cueType === 'TIME_LOCATION' ? 'cue-tab-selected' : ''} onClick={() => setCueType('TIME_LOCATION')}>At a time and place</button></div></div>
-        {cueType === 'TIME_LOCATION' ? <div className="field-two"><label className="field-label">Time<input type="text" inputMode="text" value={time} onChange={e => setTime(e.target.value)} placeholder="e.g. 7:30 AM" required={habitType === 'BUILD'}/></label><label className="field-label">Location<input value={location} onChange={e => setLocation(e.target.value)} placeholder="e.g. at my desk" required={habitType === 'BUILD'}/></label></div> : <label className="field-label">{habitType === 'BUILD' ? 'After this existing habit' : 'When this cue appears'}<input value={cue} onChange={e => setCue(e.target.value)} placeholder={habitType === 'BUILD' ? 'e.g. I pour my coffee' : 'e.g. I feel bored in bed'} required={habitType === 'BUILD'}/></label>}
+        {habitType === 'BREAK' && cueType === 'STACK' ? <MultiAnswerField label="When this cue appears" helper="Add each moment that can trigger the old routine. Examples: after I finish lunch; when I feel bored in bed." values={breakPlanAnswers.cueTriggers} onChange={values => updateBreakAnswer('cueTriggers', values)} addLabel="Add another cue" placeholder="Add a cue" optional/> : habitType === 'BREAK' && cueType === 'TIME_LOCATION' ? <div className="multi-answer-field"><div className="multi-answer-heading"><span className="field-label multi-answer-label">Time and place cues</span><span className="optional">OPTIONAL</span></div><p className="multi-answer-helper">Add a time and place for each situation. Examples: around 9 PM in bed; after work at my desk.</p><div className="break-cue-pairs">{breakPlanAnswers.cueTimes.map((value, index) => <div className="break-cue-pair" key={`break-cue-${index}`}><span className="multi-answer-index" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><input aria-label={`Cue ${index + 1} time`} value={value} placeholder="Add time" onChange={event => updateBreakCuePair(index, 'cueTimes', event.target.value)}/><input aria-label={`Cue ${index + 1} place`} value={breakPlanAnswers.cueLocations[index] ?? ''} placeholder="Add place" onChange={event => updateBreakCuePair(index, 'cueLocations', event.target.value)}/><button type="button" className="multi-answer-remove" aria-label={`Remove cue ${index + 1}`} onClick={() => removeBreakCuePair(index)}>×</button></div>)}</div><button type="button" className="multi-answer-add" onClick={addBreakCuePair}><span aria-hidden="true">+</span>Add another time and place</button></div> : cueType === 'TIME_LOCATION' ? <div className="field-two"><label className="field-label">Time<input type="text" inputMode="text" value={time} onChange={e => setTime(e.target.value)} placeholder="Add time" required={habitType === 'BUILD'}/></label><label className="field-label">Location<input value={location} onChange={e => setLocation(e.target.value)} placeholder="Add place" required={habitType === 'BUILD'}/></label></div> : <label className="field-label">After this existing habit<input value={cue} onChange={e => setCue(e.target.value)} placeholder="Add a cue" required={habitType === 'BUILD'}/><span className="field-example">Example: after I pour my first coffee.</span></label>}
 
 </div></section><section className="law-picker" aria-label="Choose habit laws to apply">
         <div className="law-picker-heading"><b>Choose which laws to apply</b><p>{habitType === 'BREAK' ? 'Open any laws you want to work on, then choose at least one strategy. You can keep multiple open.' : 'Your cue is already part of every plan. Open any law for extra details or strategies. You can keep multiple open.'}</p></div>
-        <details className="law-choice"><summary><span className="law-choice-index">01</span><span className="law-choice-label"><b>Cue</b><small>{lawGroups[0][habitType === 'BUILD' ? 'build' : 'break']}</small></span></summary><div className="law-choice-body">{habitType === 'BUILD' ? <label className="field-label">Prepare your environment <span className="optional">OPTIONAL</span><input value={prepStep} onChange={e => setPrepStep(e.target.value)} placeholder="e.g. leave my book on the pillow"/></label> : <label className="field-label">Cue to hide <span className="optional">OPTIONAL</span><input value={hideCue} onChange={e => setHideCue(e.target.value)} placeholder="What can you remove from view?"/></label>}<button type="button" className="text-button" onClick={() => setInfoModal({ type: 'law', law: lawGroups[0].id })}>Learn about this law</button>{renderTechniqueChooser(lawGroups[0].id)}</div></details>
+        <details className="law-choice"><summary><span className="law-choice-index">01</span><span className="law-choice-label"><b>Cue</b><small>{lawGroups[0][habitType === 'BUILD' ? 'build' : 'break']}</small></span></summary><div className="law-choice-body">{habitType === 'BUILD' ? <label className="field-label">Prepare your environment <span className="optional">OPTIONAL</span><input value={prepStep} onChange={e => setPrepStep(e.target.value)} placeholder="e.g. leave my book on the pillow"/></label> : <MultiAnswerField label="Cue to hide" helper="List reminders or triggers you can remove or make less visible. Example: keep my phone outside the bedroom." values={breakPlanAnswers.cuesToHide} onChange={values => updateBreakAnswer('cuesToHide', values)} optional placeholder="Add a cue to hide"/>}<button type="button" className="text-button" onClick={() => setInfoModal({ type: 'law', law: lawGroups[0].id })}>Learn about this law</button>{renderTechniqueChooser(lawGroups[0].id)}</div></details>
         <details className="law-choice"><summary><span className="law-choice-index">02</span><span className="law-choice-label"><b>Craving</b><small>{lawGroups[1][habitType === 'BUILD' ? 'build' : 'break']}</small></span></summary><div className="law-choice-body">
-        <section className="builder-law" data-law="craving"><div className="law-choice-info-row"><span>{lawGroups[1].prompt}</span><button type="button" className="law-info" aria-label={`Learn about ${habitType === 'BUILD' ? lawGroups[1].build : lawGroups[1].break}`} title="Learn about this law" onClick={() => setInfoModal({ type: 'law', law: lawGroups[1].id })}>i</button></div><div className="law-fields"><label className="field-label">{habitType === 'BUILD' ? <>Why do you want this? <span className="optional">OPTIONAL</span></> : 'What need does the old habit meet?'}<input value={motive} onChange={e => setMotive(e.target.value)} placeholder="The feeling or motivation underneath"/></label>{habitType === 'BUILD' ? <><label className="field-label">Motivation ritual <span className="optional">OPTIONAL</span><input value={ritual} onChange={e => setRitual(e.target.value)} placeholder="e.g. play a favorite song before starting"/></label><label className="field-label">Temptation bundle <span className="optional">OPTIONAL</span><input value={bundle} onChange={e => setBundle(e.target.value)} placeholder="Something enjoyable to pair with your habit"/></label></> : <label className="field-label">Reframe the old routine <span className="optional">OPTIONAL</span><input value={aversionReminder} onChange={e => setAversionReminder(e.target.value)} placeholder="What benefit will changing this bring?"/></label>}</div>{renderTechniqueChooser(lawGroups[1].id)}</section></div></details>
-        <details className="law-choice"><summary><span className="law-choice-index">03</span><span className="law-choice-label"><b>Response</b><small>{lawGroups[2][habitType === 'BUILD' ? 'build' : 'break']}</small></span></summary><div className="law-choice-body"><section className="builder-law" data-law="response"><div className="law-choice-info-row"><span>{lawGroups[2].prompt}</span><button type="button" className="law-info" aria-label={`Learn about ${habitType === 'BUILD' ? lawGroups[2].build : lawGroups[2].break}`} title="Learn about this law" onClick={() => setInfoModal({ type: 'law', law: lawGroups[2].id })}>i</button></div><div className="law-fields">{habitType === 'BUILD' ? <><label className="field-label">Two-minute rule target <span className="optional">MINUTES</span><input type="number" min="1" max="1440" step="1" value={gatewayMinutes || ''} onChange={e => setGatewayMinutes(e.target.value === '' ? 0 : Number(e.target.value))} placeholder="2"/></label><p className="duration-hint">Choose your starter length. Log each session and increase the target when you’re ready.</p><label className="field-label">Progression steps <span className="optional">OPTIONAL, ONE PER LINE</span><textarea value={milestoneDraft} onChange={e => setMilestoneDraft(e.target.value)} rows={3} placeholder={'Meditate for 5 minutes\nMeditate for 20 minutes'}/></label></> : <label className="field-label">Friction to add <span className="optional">OPTIONAL</span><input value={friction} onChange={e => setFriction(e.target.value)} placeholder="Make the old routine harder to start"/></label>}</div>{renderTechniqueChooser(lawGroups[2].id)}</section></div></details>
-        <details className="law-choice"><summary><span className="law-choice-index">04</span><span className="law-choice-label"><b>Reward</b><small>{lawGroups[3][habitType === 'BUILD' ? 'build' : 'break']}</small></span></summary><div className="law-choice-body"><section className="builder-law" data-law="reward"><div className="law-choice-info-row"><span>{lawGroups[3].prompt}</span><button type="button" className="law-info" aria-label={`Learn about ${habitType === 'BUILD' ? lawGroups[3].build : lawGroups[3].break}`} title="Learn about this law" onClick={() => setInfoModal({ type: 'law', law: lawGroups[3].id })}>i</button></div><div className="law-fields"><label className="field-label">{habitType === 'BUILD' ? <>What immediate reward will make this satisfying? <span className="optional">OPTIONAL</span></> : 'What payoff does the old routine give you?'}<input value={reward} onChange={e => setReward(e.target.value)} placeholder={habitType === 'BUILD' ? 'A small immediate reward' : 'e.g. relief, entertainment, connection'}/></label><label className="field-label">Habit contract <span className="optional">OPTIONAL</span><input value={contract} onChange={e => setContract(e.target.value)} placeholder="The commitment you are making"/></label><div className="field-two"><label className="field-label">Accountability partner <span className="optional">OPTIONAL</span><input value={accountabilityPartner} onChange={e => setAccountabilityPartner(e.target.value)} placeholder="Someone you trust"/></label><label className="field-label">Partner email <span className="optional">OPTIONAL</span><input type="email" value={accountabilityEmail} onChange={e => setAccountabilityEmail(e.target.value)} placeholder="friend@example.com"/></label></div><label className="field-label">Agreed consequence <span className="optional">OPTIONAL</span><input value={accountabilityCost} onChange={e => setAccountabilityCost(e.target.value)} placeholder="A specific, agreed stake"/></label><p className="contract-safety-note">Keep any stake safe, affordable, and agreed with your partner.</p></div>{renderTechniqueChooser(lawGroups[3].id)}</section></div></details>
+        <section className="builder-law" data-law="craving"><div className="law-choice-info-row"><span>{lawGroups[1].prompt}</span><button type="button" className="law-info" aria-label={`Learn about ${habitType === 'BUILD' ? lawGroups[1].build : lawGroups[1].break}`} title="Learn about this law" onClick={() => setInfoModal({ type: 'law', law: lawGroups[1].id })}>i</button></div><div className="law-fields">{habitType === 'BUILD' ? <label className="field-label">Why do you want this? <span className="optional">OPTIONAL</span><input value={motive} onChange={e => setMotive(e.target.value)} placeholder="Add your reason"/></label> : <MultiAnswerField label="What need does the old habit meet?" helper="Add each need it meets, such as relief, stimulation, comfort, or connection." values={breakPlanAnswers.underlyingNeeds} onChange={values => updateBreakAnswer('underlyingNeeds', values)} placeholder="Add a need"/>}{habitType === 'BUILD' ? <><label className="field-label">Motivation ritual <span className="optional">OPTIONAL</span><input value={ritual} onChange={e => setRitual(e.target.value)} placeholder="e.g. play a favorite song before starting"/></label><label className="field-label">Temptation bundle <span className="optional">OPTIONAL</span><input value={bundle} onChange={e => setBundle(e.target.value)} placeholder="Something enjoyable to pair with your habit"/></label></> : <MultiAnswerField label="Reframe the old routine" helper="Write benefits of changing that matter to you. Example: I have more energy when I sleep well." values={breakPlanAnswers.reframes} onChange={values => updateBreakAnswer('reframes', values)} optional placeholder="Add a reminder"/>}</div>{renderTechniqueChooser(lawGroups[1].id)}</section></div></details>
+        <details className="law-choice"><summary><span className="law-choice-index">03</span><span className="law-choice-label"><b>Response</b><small>{lawGroups[2][habitType === 'BUILD' ? 'build' : 'break']}</small></span></summary><div className="law-choice-body"><section className="builder-law" data-law="response"><div className="law-choice-info-row"><span>{lawGroups[2].prompt}</span><button type="button" className="law-info" aria-label={`Learn about ${habitType === 'BUILD' ? lawGroups[2].build : lawGroups[2].break}`} title="Learn about this law" onClick={() => setInfoModal({ type: 'law', law: lawGroups[2].id })}>i</button></div><div className="law-fields">{habitType === 'BUILD' ? <><label className="field-label">Two-minute rule target <span className="optional">MINUTES</span><input type="number" min="1" max="1440" step="1" value={gatewayMinutes || ''} onChange={e => setGatewayMinutes(e.target.value === '' ? 0 : Number(e.target.value))} placeholder="2"/></label><p className="duration-hint">Choose your starter length. Log each session and increase the target when you’re ready.</p><label className="field-label">Progression steps <span className="optional">OPTIONAL, ONE PER LINE</span><textarea value={milestoneDraft} onChange={e => setMilestoneDraft(e.target.value)} rows={3} placeholder={'Meditate for 5 minutes\nMeditate for 20 minutes'}/></label></> : <MultiAnswerField label="Friction to add" helper="List practical ways to make the old routine harder to start. Example: leave my phone charging in another room." values={breakPlanAnswers.frictionIdeas} onChange={values => updateBreakAnswer('frictionIdeas', values)} optional placeholder="Add a friction idea"/>}</div>{renderTechniqueChooser(lawGroups[2].id)}</section></div></details>
+        <details className="law-choice"><summary><span className="law-choice-index">04</span><span className="law-choice-label"><b>Reward</b><small>{lawGroups[3][habitType === 'BUILD' ? 'build' : 'break']}</small></span></summary><div className="law-choice-body"><section className="builder-law" data-law="reward"><div className="law-choice-info-row"><span>{lawGroups[3].prompt}</span><button type="button" className="law-info" aria-label={`Learn about ${habitType === 'BUILD' ? lawGroups[3].build : lawGroups[3].break}`} title="Learn about this law" onClick={() => setInfoModal({ type: 'law', law: lawGroups[3].id })}>i</button></div><div className="law-fields">{habitType === 'BUILD' ? <label className="field-label">What immediate reward will make this satisfying? <span className="optional">OPTIONAL</span><input value={reward} onChange={e => setReward(e.target.value)} placeholder="Add a small reward"/></label> : <MultiAnswerField label="What payoff does the old routine give you?" helper="List what it gives you in the moment. Examples: relief, entertainment, comfort, or connection." values={breakPlanAnswers.oldPayoffs} onChange={values => updateBreakAnswer('oldPayoffs', values)} placeholder="Add a payoff"/>}{habitType === 'BREAK' ? <MultiAnswerField label="Habit contract" helper="Add each clear commitment you want to make. Example: when the urge starts, I will wait five minutes before deciding." values={breakPlanAnswers.agreements} onChange={values => updateBreakAnswer('agreements', values)} optional placeholder="Add a commitment"/> : <label className="field-label">Habit contract <span className="optional">OPTIONAL</span><input value={contract} onChange={e => setContract(e.target.value)} placeholder="Add a commitment"/></label>}<div className="field-two"><label className="field-label">Accountability partner <span className="optional">OPTIONAL</span><input value={accountabilityPartner} onChange={e => setAccountabilityPartner(e.target.value)} placeholder="Someone you trust"/></label><label className="field-label">Partner email <span className="optional">OPTIONAL</span><input type="email" value={accountabilityEmail} onChange={e => setAccountabilityEmail(e.target.value)} placeholder="friend@example.com"/></label></div><label className="field-label">Agreed consequence <span className="optional">OPTIONAL</span><input value={accountabilityCost} onChange={e => setAccountabilityCost(e.target.value)} placeholder="A specific, agreed stake"/></label><p className="contract-safety-note">Keep any stake safe, affordable, and agreed with your partner.</p></div>{renderTechniqueChooser(lawGroups[3].id)}</section></div></details>
       </section></div>
       <div className="modal-actions"><button type="button" className="secondary-button" onClick={() => setShowBuilder(false)}>Cancel</button><button className="primary-button" type="button" onClick={e => { for (const field of Array.from(e.currentTarget.closest('.builder-form')?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input[required], textarea[required]') ?? [])) if (!field.reportValidity()) return; void createHabit(); }}>{editingHabitId ? 'Save changes' : habitType === 'BREAK' ? 'Save change plan' : 'Add my habit'} <Icon name="arrow" size={16}/></button></div></div></section></div>}
 

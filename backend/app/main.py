@@ -32,7 +32,7 @@ if settings.database_url.startswith("sqlite"):
         inspector = inspect(connection)
         local_additions = {
             "users": {"password_hash": "VARCHAR(256)", "api_token_hash": "VARCHAR(64)", "telegram_chat_id": "VARCHAR(64)"},
-            "habits": {"display_name": "VARCHAR(300)", "gateway_minutes": "INTEGER NOT NULL DEFAULT 2", "cue_to_hide": "VARCHAR(300)", "friction_strategy": "VARCHAR(300)", "habit_contract": "VARCHAR(300)", "motivation_ritual": "VARCHAR(300)", "shaping_milestones": "VARCHAR(1200)", "shaping_current_step": "INTEGER NOT NULL DEFAULT 0", "accountability_partner": "VARCHAR(200)", "accountability_cost": "VARCHAR(300)", "accountability_partner_email": "VARCHAR(320)", "alternative_routine": "VARCHAR(300)", "aversion_reminder": "VARCHAR(300)", "friction_votes": "INTEGER NOT NULL DEFAULT 0", "technique_ids": "JSON", "technique_notes": "JSON", "baseline_daily": "INTEGER"},
+            "habits": {"display_name": "VARCHAR(300)", "gateway_minutes": "INTEGER NOT NULL DEFAULT 2", "cue_to_hide": "VARCHAR(300)", "friction_strategy": "VARCHAR(300)", "habit_contract": "VARCHAR(300)", "motivation_ritual": "VARCHAR(300)", "shaping_milestones": "VARCHAR(1200)", "shaping_current_step": "INTEGER NOT NULL DEFAULT 0", "accountability_partner": "VARCHAR(200)", "accountability_cost": "VARCHAR(300)", "accountability_partner_email": "VARCHAR(320)", "alternative_routine": "VARCHAR(300)", "replacement_actions": "JSON NOT NULL DEFAULT '[]'", "break_plan_answers": "JSON NOT NULL DEFAULT '{}'", "aversion_reminder": "VARCHAR(300)", "friction_votes": "INTEGER NOT NULL DEFAULT 0", "technique_ids": "JSON", "technique_notes": "JSON", "baseline_daily": "INTEGER"},
             "habit_logs": {"environment_prepped": "BOOLEAN NOT NULL DEFAULT FALSE"},
             "habit_events": {"actual_minutes": "INTEGER", "strategy": "VARCHAR(300)", "variation_id": "VARCHAR(36)", "variation_name": "VARCHAR(160)"},
             "workspace_states": {"revision": "INTEGER NOT NULL DEFAULT 1"},
@@ -47,6 +47,8 @@ if settings.database_url.startswith("sqlite"):
         if "habits" in inspector.get_table_names():
             connection.execute(text("UPDATE habits SET technique_ids='[]' WHERE technique_ids IS NULL"))
             connection.execute(text("UPDATE habits SET technique_notes='{}' WHERE technique_notes IS NULL"))
+            connection.execute(text("UPDATE habits SET replacement_actions='[]' WHERE replacement_actions IS NULL"))
+            connection.execute(text("UPDATE habits SET break_plan_answers='{}' WHERE break_plan_answers IS NULL"))
 app = FastAPI(title="Habitly API", version="0.2.0", description="Four Laws habit building and behavior change API")
 app.add_middleware(
     CORSMiddleware,
@@ -206,6 +208,7 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
             "contract": habit.habit_contract, "aversionReminder": habit.aversion_reminder,
             "frictionVotes": habit.friction_votes, "rewardBundle": habit.reward_bundle,
             "alternativeRoutine": habit.alternative_routine, "ritual": habit.motivation_ritual,
+            "replacementActions": habit.replacement_actions or [], "breakPlanAnswers": habit.break_plan_answers or {},
             "milestones": habit.shaping_milestones.split("\n") if habit.shaping_milestones else [],
             "milestoneIndex": habit.shaping_current_step, "accountabilityPartner": habit.accountability_partner,
             "accountabilityEmail": habit.accountability_partner_email, "accountabilityCost": habit.accountability_cost,
@@ -305,6 +308,7 @@ def import_workspace(payload: dict, request: Request, db: Session = Depends(get_
             shaping_milestones="\n".join(row.get("milestones", [])) or None, shaping_current_step=row.get("milestoneIndex", 0) or 0,
             accountability_partner=row.get("accountabilityPartner"), accountability_partner_email=row.get("accountabilityEmail"),
             accountability_cost=row.get("accountabilityCost"), alternative_routine=row.get("alternativeRoutine"),
+            replacement_actions=row.get("replacementActions", []) or [], break_plan_answers=row.get("breakPlanAnswers", {}) or {},
             aversion_reminder=row.get("aversionReminder"), technique_ids=row.get("techniqueIds", []),
             technique_notes=row.get("techniqueNotes", {}), baseline_daily=row.get("baselineDaily"),
             friction_votes=row.get("frictionVotes", 0) or 0,
@@ -432,7 +436,7 @@ def update_identity(identity_id: str, payload: IdentityUpdate, db: Session = Dep
 def create_habit(payload: HabitCreate, db: Session = Depends(get_db)):
     if not db.get(Identity, payload.identity_id):
         raise HTTPException(404, "Identity not found")
-    if payload.cue_type == "TIME_LOCATION" and not payload.location:
+    if payload.habit_type == "BUILD" and payload.cue_type == "TIME_LOCATION" and not payload.location:
         raise HTTPException(422, "Time and location cues require a location")
     habit_data = payload.model_dump()
     habit_data["display_name"] = payload.display_name or payload.target_action

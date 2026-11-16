@@ -68,6 +68,8 @@ class Habit(Base):
     accountability_partner_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     accountability_cost: Mapped[str | None] = mapped_column(String(300), nullable=True)
     alternative_routine: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    replacement_actions: Mapped[list[str]] = mapped_column(JSON, default=list)
+    break_plan_answers: Mapped[dict[str, list[str]]] = mapped_column(JSON, default=dict)
     aversion_reminder: Mapped[str | None] = mapped_column(String(300), nullable=True)
     technique_ids: Mapped[list[str]] = mapped_column(JSON, default=list)
     technique_notes: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
