@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { Icon } from './icons';
 import type { TechniquePractice } from './insights';
 import { compareRecordedPeriods, primaryRecordedValue, resistancePercentage, techniqueOutcomePercentages, techniquePracticeNote, triggerInsightSentence } from './period-checkin';
 import styles from './period-info-popover.module.css';
@@ -238,7 +239,7 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
       </article>
 
       <button ref={techniqueButtonRef} type="button" className="period-secondary-card period-technique-card" aria-haspopup="dialog" aria-controls="period-technique-dialog" aria-label={`Techniques used, ${techniqueApplicationCount} applications. View technique outcomes.`} onClick={() => setTechniqueModalOpen(true)}>
-          <div className="period-technique-heading"><h3>Techniques used</h3><span className="period-technique-chevron" aria-hidden="true">↗</span></div>
+          <div className="period-technique-heading"><h3>Techniques used</h3><span className="period-technique-chevron" aria-hidden="true"><Icon name="arrow-up-right" size={15}/></span></div>
           <strong className="period-secondary-value">{techniqueApplicationCount.toLocaleString()} <span>applications</span></strong>
           <p>{hasTechniqueFilters ? 'Applications matching the selected filters during this period.' : `Techniques practiced during the selected ${periodLabel}.`}</p>
           <small>{techniquePracticeNote(configuredTechniques, usedTechniques.length, hasTechniqueFilters)}</small>
@@ -254,7 +255,7 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
           ? <><strong>{topTrigger.name}</strong><p>{triggerInsightSentence(topTrigger, periodLabel)}</p></>
           : <p>{triggerInsightSentence(undefined, periodLabel)}</p>}
       </div>
-      <a className="period-trigger-link" href="#logging-trigger-analytics">Explore triggers <span aria-hidden="true">↗</span></a>
+      <a className="period-trigger-link" href="#logging-trigger-analytics">Explore triggers <Icon name="arrow-up-right" size={14}/></a>
     </article>
 
     <div className="period-support-row" aria-label={`Additional logging context for the selected ${periodLabel}`}>
