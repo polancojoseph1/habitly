@@ -13,6 +13,15 @@ import {
   summarizeDay,
   withoutSampleBehaviorLogs,
 } from '../app/behavioral-logging.ts';
+import {
+  compareRecordedPeriods,
+  isOccurrenceDayConfirmed,
+  isPeriodOccurrenceCoverageComplete,
+  primaryRecordedValue,
+  resistancePercentage,
+  techniquePracticeNote,
+  triggerInsightSentence,
+} from '../app/period-checkin.ts';
 
 const craving = (id, episodeId, outcome = 'pending', at = '2026-11-15T16:00:00.000Z') => ({
   id, habitId: 'habit-a', type: 'craving', episodeId, outcome, at, localDate: '2026-11-15', timezone: 'America/New_York',
@@ -158,4 +167,64 @@ test('reapplying a stable craving and linked occurrence transaction does not dou
   assert.equal(saved.filter(log => log.type === 'craving').length, 1);
   assert.equal(saved.filter(log => log.type === 'habit_occurrence').length, 1);
   assert.equal(saved.reduce((sum, log) => sum + (log.type === 'habit_occurrence' ? log.quantity : 0), 0), 1);
+});
+
+test('primary smoking outcome uses cigarette quantity while other habits use occurrence count', () => {
+  assert.equal(primaryRecordedValue(true, 6, 3, false), 6);
+  assert.equal(primaryRecordedValue(false, 9, 3, false), 3);
+});
+
+test('an explicit smoke-free day can confirm zero while an unconfirmed empty day stays unknown', () => {
+  const confirmedZero = { knownOccurrenceCount: true, occurrenceEvents: 0, conflict: false, confirmation: { status: 'no_occurrence' } };
+  const unknownZero = { knownOccurrenceCount: false, occurrenceEvents: 0, conflict: false };
+  assert.equal(isOccurrenceDayConfirmed(confirmedZero), true);
+  assert.equal(isOccurrenceDayConfirmed(unknownZero), false);
+  assert.equal(primaryRecordedValue(true, 0, 0, true), 0);
+  assert.equal(primaryRecordedValue(true, 0, 0, false), undefined);
+});
+
+test('incomplete, skipped, or conflicting days cannot establish reliable occurrence coverage', () => {
+  const incomplete = { knownOccurrenceCount: true, occurrenceEvents: 1, conflict: false, confirmation: { status: 'incomplete' } };
+  const skipped = { knownOccurrenceCount: false, occurrenceEvents: 0, conflict: false, confirmation: { status: 'skip' } };
+  const conflict = { knownOccurrenceCount: true, occurrenceEvents: 1, conflict: true, confirmation: { status: 'no_occurrence' } };
+  assert.equal(isOccurrenceDayConfirmed(incomplete), false);
+  assert.equal(isOccurrenceDayConfirmed(skipped), false);
+  assert.equal(isOccurrenceDayConfirmed(conflict), false);
+  assert.equal(isPeriodOccurrenceCoverageComplete([incomplete]), false);
+});
+
+test('rolling 24 hour comparisons require explicit daily confirmations for every date touched', () => {
+  const confirmedEventDay = { knownOccurrenceCount: true, occurrenceEvents: 1, conflict: false, confirmation: { status: 'occurred_recorded' } };
+  const loggedButUnconfirmedDay = { knownOccurrenceCount: true, occurrenceEvents: 1, conflict: false };
+  assert.equal(isOccurrenceDayConfirmed(confirmedEventDay, true), true);
+  assert.equal(isOccurrenceDayConfirmed(loggedButUnconfirmedDay, true), false);
+  assert.equal(isPeriodOccurrenceCoverageComplete([confirmedEventDay, loggedButUnconfirmedDay], true), false);
+});
+
+test('craving resistance percentage only exists with a nonzero resolved denominator', () => {
+  assert.equal(resistancePercentage(9, 12), 75);
+  assert.equal(resistancePercentage(0, 0), undefined);
+  assert.equal(resistancePercentage(0, 3), 0);
+});
+
+test('a habit with no configured strategies reports that state without implying successful resistance', () => {
+  assert.equal(techniquePracticeNote(0, 0), 'No techniques are configured for this habit.');
+  assert.equal(techniquePracticeNote(2, 0), 'No technique applications recorded in this period.');
+  assert.equal(techniquePracticeNote(2, 1), '1 distinct technique practiced.');
+});
+
+test('trigger insight has a real empty state and preserves long trigger names', () => {
+  const longName = 'Social pressure during long late night commutes with friends';
+  assert.equal(triggerInsightSentence(undefined, '7 days'), 'No triggers were recorded during the selected 7 days.');
+  assert.equal(triggerInsightSentence({ name: longName, count: 2 }, '7 days'), `${longName} was your most frequently recorded trigger during this period. 2 entries included this trigger.`);
+});
+
+test('recorded comparisons show an absolute difference and avoid a percent when the previous count is zero', () => {
+  assert.deepEqual(compareRecordedPeriods(6, 12, true), { reliable: true, difference: -6, percentage: -50 });
+  assert.deepEqual(compareRecordedPeriods(5, 0, true), { reliable: true, difference: 5, percentage: undefined });
+  assert.deepEqual(compareRecordedPeriods(0, 0, true), { reliable: true, difference: 0, percentage: undefined });
+});
+
+test('incomplete previous period suppresses the comparative progress claim', () => {
+  assert.deepEqual(compareRecordedPeriods(6, 12, false), { reliable: false });
 });

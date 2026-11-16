@@ -288,6 +288,54 @@
 @media(max-width:650px){.logging-heading-compact{align-items:flex-end;flex-direction:row}.logging-quick-actions{grid-template-columns:1fr}.logging-quick-action{min-height:64px;padding:10px 12px}.logging-today-strip{align-items:flex-start;flex-direction:column}.logging-confirm-card,.logging-quick-panel,.logging-insight-section,.logging-history-section{padding:13px}.logging-confirm-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.logging-confirm-actions button{min-height:42px}.logging-insight-grid{grid-template-columns:1fr}.logging-insight-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.logging-insight-controls>.logging-quality-pill{grid-column:1/-1;margin-left:0;justify-self:start}.logging-history-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.logging-context-grid{grid-template-columns:1fr}.logging-quick-footer{align-items:flex-start;flex-direction:column;gap:4px}.logging-tag-manager{width:100%}.logging-tag-manager>div{align-items:stretch}.logging-tag-manager label,.logging-tag-manager input{width:100%}.logging-mini-summary>div{gap:5px}.logging-mini-summary b{font-size:18px}.logging-section-heading{align-items:flex-start}.logging-section-heading>.text-button{white-space:nowrap;font-size:10px}}
 @media(max-width:390px){.logging-heading-compact h1{font-size:25px}.logging-habit-picker{min-width:125px;font-size:9px}.logging-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.logging-law-grid{grid-template-columns:1fr}.logging-history-filters{grid-template-columns:1fr}}
 
+.period-checkin{display:grid;gap:10px;min-width:0;margin-top:14px}
+.period-primary-card,.period-secondary-card,.period-trigger-card{min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--surface-raised)}
+.period-primary-card{padding:clamp(14px,2.5vw,20px);background:linear-gradient(128deg,color-mix(in srgb,var(--accent-ink) 9%,var(--surface-raised)),var(--surface-raised) 74%)}
+.period-card-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-width:0}
+.period-card-heading>div{min-width:0}
+.period-primary-card .eyebrow,.period-trigger-card .eyebrow{font-size:9px;letter-spacing:.9px}
+.period-primary-card h3,.period-secondary-card h3,.period-trigger-card h3{margin:3px 0 0;color:var(--ink);font:700 14px/1.35 'Manrope',sans-serif;overflow-wrap:anywhere}
+.period-primary-value{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:12px 0 3px;color:var(--ink)}
+.period-primary-value strong{font:800 clamp(34px,6vw,44px)/1.05 'Manrope',sans-serif;letter-spacing:-1.4px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.period-primary-value strong.unavailable{font-size:clamp(20px,4vw,27px);letter-spacing:-.5px}
+.period-primary-value>span{color:var(--muted);font-size:14px;font-weight:700}
+.period-primary-support{margin:0;color:var(--muted);font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.period-comparison{display:grid;grid-template-columns:minmax(0,1fr);gap:3px;margin-top:13px;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft);min-width:0}
+.period-comparison-label{color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.55px;text-transform:uppercase}
+.period-comparison strong{color:var(--accent-ink);font-size:11px;line-height:1.45;overflow-wrap:anywhere}
+.period-comparison.up strong{color:#a45f46}
+.period-comparison.same strong,.period-comparison.unavailable strong{color:var(--muted)}
+[data-theme="dark"] .period-comparison.up strong{color:#e5aa83}
+.period-comparison small{color:var(--muted);font-size:9px;line-height:1.4}
+.period-info{position:relative;z-index:2;flex:0 0 auto}
+.period-info>summary{display:grid;place-items:center;width:36px;height:36px;border:1px solid var(--line);border-radius:50%;background:var(--surface-soft);color:var(--accent-ink);font:700 13px 'Manrope',sans-serif;cursor:pointer;list-style:none}
+.period-info>summary::-webkit-details-marker{display:none}
+.period-info>p{position:absolute;top:34px;right:0;z-index:5;width:min(260px,74vw);margin:0;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:var(--surface-raised);box-shadow:var(--shadow);color:var(--ink);font-size:10px;line-height:1.5}
+.period-secondary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;min-width:0}
+.period-secondary-card{display:flex;flex-direction:column;gap:4px;padding:12px;overflow-wrap:anywhere}
+.period-secondary-card h3{font-size:12px}
+.period-secondary-value{display:block;margin-top:4px;color:var(--ink);font:800 clamp(20px,4vw,26px)/1.1 'Manrope',sans-serif;letter-spacing:-.5px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.period-secondary-value>span{font-size:11px;letter-spacing:0}
+.period-secondary-value.unavailable{font-size:17px;letter-spacing:0}
+.period-secondary-card p{margin:1px 0 0;color:var(--muted);font-size:10px;line-height:1.45;overflow-wrap:anywhere}
+.period-secondary-card>small{margin-top:3px;color:var(--muted);font-size:9px;line-height:1.4;overflow-wrap:anywhere}
+.period-resistance-track{height:5px;margin-top:5px;border-radius:10px;background:var(--surface-soft);overflow:hidden}
+.period-resistance-track>span{display:block;height:100%;border-radius:inherit;background:var(--accent-ink);transition:width .2s ease}
+.period-trigger-card{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:13px}
+.period-trigger-copy{min-width:0;flex:1}
+.period-trigger-card h3{margin:2px 0 5px;font-size:12px}
+.period-trigger-card .period-trigger-copy>strong{display:block;color:var(--accent-ink);font:800 17px/1.3 'Manrope',sans-serif;overflow-wrap:anywhere;word-break:break-word}
+.period-trigger-card p{margin:4px 0 0;color:var(--muted);font-size:10px;line-height:1.45;overflow-wrap:anywhere;word-break:break-word}
+.period-trigger-link{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:0 0 auto;min-height:44px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);color:var(--accent-ink);font-size:10px;font-weight:800;text-decoration:none;white-space:nowrap}
+.period-trigger-link:hover{border-color:var(--accent-ink)}
+.period-support-row{display:flex;align-items:center;justify-content:space-between;gap:4px 12px;flex-wrap:wrap;padding:1px 2px;color:var(--muted);font-size:9px;line-height:1.4}
+.period-support-row i{padding:0 3px;color:var(--accent-ink);font-style:normal}
+.period-support-note{font-size:9px}
+.logging-section-heading>.logging-date-pill{max-width:100%;overflow-wrap:anywhere}
+#logging-trigger-analytics{scroll-margin-top:18px}
+@media(max-width:650px){.period-checkin{gap:8px}.period-secondary-grid{gap:8px}.period-secondary-card{padding:10px}.period-trigger-card{align-items:flex-start;flex-direction:column;gap:8px}.period-info>p{width:min(240px,72vw)}}
+@media(max-width:360px){.period-secondary-grid{grid-template-columns:1fr}}
+
 .law-save-section{display:block;margin:0 10px 10px auto;padding:8px 11px;border:1px solid var(--line);border-radius:9px;background:var(--surface-soft);color:var(--accent-ink);font-size:12px;font-weight:700}
 .habit-checkin-workspace{display:grid;gap:10px;margin-top:12px}
 .checkin-controls{display:grid;gap:8px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface-soft)}
