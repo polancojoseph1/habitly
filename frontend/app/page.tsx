@@ -88,7 +88,18 @@ const motiveOptions = [
 ] as const;
 
 const STORAGE = 'habitly-workspace-v2';
+const RECOVERY_STORAGE = 'habitly-workspace-before-account-sync-v1';
 const REFRESH_VIEW_STORAGE = 'habitly-refresh-view-v1';
+function preserveLocalWorkspace() {
+  try {
+    const raw = localStorage.getItem(STORAGE);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if ((data.behaviorLogs ?? []).some((log: BehaviorLog) => !log.id.startsWith('sample-log-')) || (data.habitEvents ?? []).length) {
+      if (!localStorage.getItem(RECOVERY_STORAGE)) localStorage.setItem(RECOVERY_STORAGE, raw);
+    }
+  } catch { /* Existing local data remains untouched if a recovery copy cannot be created. */ }
+}
 function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   let token = '';
   try { token = JSON.parse(localStorage.getItem(STORAGE) ?? '{}').remoteToken ?? ''; } catch { /* no saved account */ }
@@ -100,9 +111,9 @@ function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
     return response;
   }).catch(error => { report('The Habitly API is unreachable. Your device copy is retained; reconnect before relying on another browser.'); throw error; });
 }
-function localBackupHref() {
+function localBackupHref(storageKey = STORAGE) {
   try {
-    const snapshot = JSON.parse(localStorage.getItem(STORAGE) ?? '{}');
+    const snapshot = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
     delete snapshot.remoteToken;
     return `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify(snapshot, null, 2))}`;
   } catch { return 'data:application/json;charset=utf-8,%7B%7D'; }
@@ -489,6 +500,9 @@ export default function Home() {
   const [connectionMode, setConnectionMode] = useState<'create' | 'login'>('create');
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [workspaceRevision, setWorkspaceRevision] = useState(0);
+  const revisionRef = useRef(0);
+  const saveInFlight = useRef(false);
+  const queuedWorkspace = useRef<string | null>(null);
   const [serverHasWorkspace, setServerHasWorkspace] = useState(false);
   const [connectionError, setConnectionError] = useState('');
   const [telegramCommand, setTelegramCommand] = useState('');
@@ -719,16 +733,24 @@ export default function Home() {
   useEffect(() => {
     if (!hydrated || !workspaceReady || !apiUrl || !remoteToken) return;
     const payload = { habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, behaviorLogs, dailyConfirmations, customContextTags, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, dayKey: todayKey() };
+    queuedWorkspace.current = JSON.stringify(payload);
     const timer = window.setTimeout(async () => {
+      if (saveInFlight.current) return;
+      saveInFlight.current = true;
       try {
-        const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/workspace`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: payload, expected_revision: workspaceRevision }) });
-        if (!response.ok) throw new Error(`Server returned ${response.status}`);
-        const saved = await response.json(); setWorkspaceRevision(saved.revision);
+        while (queuedWorkspace.current !== null) {
+          const snapshot = queuedWorkspace.current;
+          queuedWorkspace.current = null;
+          const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/workspace`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ data: JSON.parse(snapshot), expected_revision: revisionRef.current }) });
+          if (!response.ok) { if (queuedWorkspace.current === null) queuedWorkspace.current = snapshot; throw new Error(`Server returned ${response.status}`); }
+          const saved = await response.json(); revisionRef.current = saved.revision; setWorkspaceRevision(saved.revision);
+        }
         setConnectionError('');
       } catch (error) { setConnectionError(error instanceof Error && error.message.includes('409') ? 'Another browser saved newer data. Reconnect to load the server copy before editing here. Your local backup is still available.' : 'Could not save to the server. Your device copy remains available; retry the connection before switching devices.'); }
+      finally { saveInFlight.current = false; }
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [hydrated, workspaceReady, apiUrl, remoteToken, habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, behaviorLogs, dailyConfirmations, customContextTags, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, workspaceRevision]);
+  }, [hydrated, workspaceReady, apiUrl, remoteToken, habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, habitEvents, behaviorLogs, dailyConfirmations, customContextTags, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand]);
 
   useEffect(() => {
     if (!hydrated || !apiUrl || !remoteToken) return;
@@ -743,8 +765,9 @@ export default function Home() {
         if (!live) return;
         const hasData = Object.keys(data).length > 0;
         setServerHasWorkspace(hasData);
-        setWorkspaceRevision(workspace.revision ?? 0);
+        revisionRef.current = workspace.revision ?? 0; setWorkspaceRevision(workspace.revision ?? 0);
         if (hasData) {
+          preserveLocalWorkspace();
           setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
           setHabits((data.habits ?? []).map(expandInviteLink).filter((habit: Habit) => !habit.id.startsWith('demo-')));
           setRewards((data.rewards ?? []).filter((reward: Reward) => !reward.id.startsWith('reward-show')));
@@ -831,10 +854,16 @@ export default function Home() {
     if (!apiUrl || !remoteToken) return;
     let local: any = {};
     try { local = backup ?? JSON.parse(localStorage.getItem(STORAGE) ?? '{}'); } catch { setConnectionError('Could not read this browser’s saved data. Export it from browser storage before retrying.'); return; }
-    const importHabits: Habit[] = (local.habits ?? habits).filter((h: Habit) => !h.id.startsWith('demo-')).map(expandInviteLink);
+    const sourceLogs: BehaviorLog[] = local.behaviorLogs ?? behaviorLogs;
+    const sourceEvents: HabitEvent[] = local.habitEvents ?? habitEvents;
+    const sourceHabits: Habit[] = local.habits ?? habits;
+    const personalDemoIds = new Set(sourceHabits.filter(h => h.id.startsWith('demo-') && (sourceLogs.some(log => log.habitId === h.id && !log.id.startsWith('sample-log-')) || sourceEvents.some(event => event.habitId === h.id))).map(h => h.id));
+    const remappedIds = new Map([...personalDemoIds].map(id => [id, newRecordId('habit')]));
+    const mappedHabitId = (id: string) => remappedIds.get(id) ?? id;
+    const importHabits: Habit[] = sourceHabits.filter(h => !h.id.startsWith('demo-') || personalDemoIds.has(h.id)).map(h => ({ ...expandInviteLink(h), id: mappedHabitId(h.id) }));
     const importHabitIds = new Set(importHabits.map(habit => habit.id));
-    const importLogs: BehaviorLog[] = (local.behaviorLogs ?? behaviorLogs).filter((log: BehaviorLog) => importHabitIds.has(log.habitId) && !log.id.startsWith('sample-log-'));
-    const payload = { habits: importHabits, rewards: (local.rewards ?? rewards).filter((r: Reward) => !r.id.startsWith('reward-show') && !r.habitId.startsWith('demo-')), identity: local.identity ?? identity, goal: local.goal ?? goal, votes: local.votes ?? votes, prepped: local.prepped ?? prepped, preppedHabits: local.preppedHabits ?? preppedHabits, history: local.history ?? history, habitEvents: local.habitEvents ?? habitEvents, behaviorLogs: importLogs, dailyConfirmations: (local.dailyConfirmations ?? dailyConfirmations).filter((item: DailyConfirmation) => importHabitIds.has(item.habitId)), customContextTags: local.customContextTags ?? customContextTags, variations: local.variations ?? variations, scorecard: local.scorecard ?? scorecard, joinedTribes: local.joinedTribes ?? joinedTribes, communityCircles: local.communityCircles ?? communityCircles, diagnostics: local.diagnostics ?? diagnostics, darkMode: local.darkMode ?? darkMode, palette: local.palette ?? palette, labs: local.labs ?? labs, telegramCommand: local.telegramCommand ?? telegramCommand, dayKey: local.dayKey ?? todayKey() };
+    const importLogs = sourceLogs.filter(log => !log.id.startsWith('sample-log-') && importHabitIds.has(mappedHabitId(log.habitId))).map(log => ({ ...log, habitId: mappedHabitId(log.habitId) }));
+    const payload = { habits: importHabits, rewards: (local.rewards ?? rewards).filter((r: Reward) => !r.id.startsWith('reward-show') && !r.habitId.startsWith('demo-')), identity: local.identity ?? identity, goal: local.goal ?? goal, votes: local.votes ?? votes, prepped: local.prepped ?? prepped, preppedHabits: local.preppedHabits ?? preppedHabits, history: local.history ?? history, habitEvents: sourceEvents.filter(event => importHabitIds.has(mappedHabitId(event.habitId))).map(event => ({ ...event, habitId: mappedHabitId(event.habitId) })), behaviorLogs: importLogs, dailyConfirmations: (local.dailyConfirmations ?? dailyConfirmations).filter((item: DailyConfirmation) => !item.habitId.startsWith('demo-') && importHabitIds.has(item.habitId)), customContextTags: local.customContextTags ?? customContextTags, variations: (local.variations ?? variations).filter((item: HabitVariation) => importHabitIds.has(mappedHabitId(item.habitId))).map((item: HabitVariation) => ({ ...item, habitId: mappedHabitId(item.habitId) })), scorecard: local.scorecard ?? scorecard, joinedTribes: local.joinedTribes ?? joinedTribes, communityCircles: local.communityCircles ?? communityCircles, diagnostics: local.diagnostics ?? diagnostics, darkMode: local.darkMode ?? darkMode, palette: local.palette ?? palette, labs: local.labs ?? labs, telegramCommand: local.telegramCommand ?? telegramCommand, dayKey: local.dayKey ?? todayKey() };
     try {
       const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/workspace/import`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${remoteToken}` }, body: JSON.stringify(payload) });
       if (!response.ok) throw new Error(`Import failed (${response.status})`);
@@ -844,7 +873,7 @@ export default function Home() {
       const importedHabits = payload.habits.map((habit: Habit) => { const token = inviteTokens.get(habit.id); return token ? { ...habit, inviteLink: `${window.location.origin}/?accountability=${token}` } : habit; });
       setHabits(importedHabits); setRewards(payload.rewards); setIdentity(payload.identity); setGoal(payload.goal); setVotes(payload.votes); setPrepped(payload.prepped); setPreppedHabits(payload.preppedHabits); setHistory(payload.history); setHabitEvents(payload.habitEvents); setBehaviorLogs(payload.behaviorLogs); setDailyConfirmations(payload.dailyConfirmations); setCustomContextTags(payload.customContextTags); setVariations(payload.variations); setScorecard(payload.scorecard); setJoinedTribes(payload.joinedTribes); setCommunityCircles(payload.communityCircles); setDiagnostics(payload.diagnostics); setDarkMode(payload.darkMode); if (palettes.some(option => option.id === payload.palette)) setPalette(payload.palette); setLabs(payload.labs); setTelegramCommand(payload.telegramCommand);
       setWorkspaceReady(true); setServerHasWorkspace(true); setConnectionError('');
-      setWorkspaceRevision(result.revision ?? 1);
+      revisionRef.current = result.revision ?? 1; setWorkspaceRevision(result.revision ?? 1);
       setToast(`Imported ${result.habits} user habits and ${result.rewards} rewards. This browser’s original copy was kept.`);
     } catch (error) { setConnectionError(`${error instanceof Error ? error.message : 'Import failed'}. Local data is still in this browser. Export it in Settings before clearing site data.`); }
   }
@@ -1542,10 +1571,11 @@ export default function Home() {
       if (!workspaceResponse.ok) throw new Error('Connected account could not load its saved data.');
       const workspace = await workspaceResponse.json();
       const data = workspace.data ?? {};
-      setWorkspaceRevision(workspace.revision ?? 0);
+      revisionRef.current = workspace.revision ?? 0; setWorkspaceRevision(workspace.revision ?? 0);
       const hasData = Object.keys(data).length > 0;
       setServerHasWorkspace(hasData);
       if (hasData) {
+        preserveLocalWorkspace();
         setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
         setHabits((data.habits ?? []).map(expandInviteLink).filter((h: Habit) => !h.id.startsWith('demo-'))); setRewards((data.rewards ?? []).filter((r: Reward) => !r.id.startsWith('reward-show')));
         setIdentity(data.identity ?? currentIdentity.identity_statement); setGoal(data.goal ?? ''); setVotes(data.votes ?? currentIdentity.total_votes ?? 0); setPrepped(data.prepped ?? false); setPreppedHabits(data.preppedHabits ?? {}); setHistory(data.history ?? {}); setHabitEvents(data.habitEvents ?? []); setBehaviorLogs(withoutSampleBehaviorLogs(data.behaviorLogs ?? [])); setDailyConfirmations(data.dailyConfirmations ?? []); setCustomContextTags(data.customContextTags ?? []); setVariations(data.variations ?? []); setScorecard(data.scorecard ?? []); setJoinedTribes(data.joinedTribes ?? []); setCommunityCircles(data.communityCircles ?? []); setDiagnostics(data.diagnostics ?? []); setWorkspaceReady(true);
@@ -2277,7 +2307,7 @@ export default function Home() {
   }
 
   function renderSettings() {
-    return <><div className="page-heading-row"><div><div className="eyebrow">YOUR SPACE, YOUR RULES</div><h1>Settings<span className="heading-period">.</span></h1><p className="page-subtitle">Manage your workspace and optional features.</p></div></div><section className="settings-card appearance-settings"><div className="appearance-heading"><div><span className="eyebrow">MAKE IT YOURS</span><h2>Appearance</h2><p>Choose a color mood and switch between light, dark, or a softer look.</p></div></div><div className="appearance-mode" role="group" aria-label="Display mode">{([{ id: false, name: 'Light', icon: 'sun' }, { id: true, name: 'Dark', icon: 'moon' }] as const).map(mode => <button type="button" key={mode.name} className={darkMode === mode.id ? 'appearance-mode-option selected' : 'appearance-mode-option'} aria-pressed={darkMode === mode.id} onClick={() => setDarkMode(mode.id)}><Icon name={mode.icon} size={17}/>{mode.name}</button>)}</div><div className="palette-heading"><b>Color themes</b><span>{palettes.find(option => option.id === palette)?.name}</span></div><div className="palette-options" role="group" aria-label="Color theme">{palettes.map(option => <button type="button" key={option.id} className={palette === option.id ? 'palette-option selected' : 'palette-option'} aria-pressed={palette === option.id} onClick={() => setPalette(option.id)}><span className="palette-swatches" aria-hidden="true">{option.colors.map(color => <i key={color} style={{ backgroundColor: color }}/>)}</span><span>{option.name}</span></button>)}</div></section><section className="settings-card"><label><input type="checkbox" checked={labs} onChange={e => setLabs(e.target.checked)}/> Experimental features</label><p>Enable optional Telegram linking.</p></section><section className="settings-card"><div className="settings-card-head"><div className="settings-icon"><Icon name="leaf"/></div><div><span className="eyebrow">HABITLY API</span><h2>Connect your data</h2><p>Create or sign in to an account to sync your habits across browsers and devices.</p></div><span className={`connection-badge ${workspaceReady && !connectionError ? 'connected' : ''}`}><i/>{connectionError ? 'Connection issue' : workspaceReady ? 'Synced account' : remoteUserId ? 'Import needed' : 'Local workspace'}</span></div><div className="settings-fields"><label className="field-label">API BASE URL<input value={apiUrl} onChange={e => setApiUrl(e.target.value)} placeholder="https://your-api.example.com"/></label><label className="field-label">EMAIL<input value={accountEmail} onChange={e => setAccountEmail(e.target.value)} placeholder="you@example.com" type="email" autoComplete="username"/></label><label className="field-label">PASSWORD<input value={accountPassword} onChange={e => setAccountPassword(e.target.value)} placeholder="At least 10 characters" type="password" autoComplete={connectionMode === 'create' ? 'new-password' : 'current-password'}/></label><div className="settings-actions"><button className="primary-button" disabled={settingsBusy || !apiUrl} onClick={setupAccount}>{settingsBusy ? 'Connecting…' : connectionMode === 'create' ? 'Create account' : 'Sign in'} <Icon name="arrow" size={15}/></button><button className="text-button" type="button" onClick={() => setConnectionMode(connectionMode === 'create' ? 'login' : 'create')}>{connectionMode === 'create' ? 'I already have an account' : 'Create a new account'}</button>{remoteUserId && <span className="settings-id">Account {remoteUserId.slice(0, 8)}…</span>}</div>{remoteToken && !serverHasWorkspace && <div className="import-panel"><p>Your server account has no saved workspace. Import habits and related data from this browser. Sample habits are excluded. Your local copy will remain in this browser until the server confirms the import.</p><button className="secondary-button" type="button" onClick={() => void importLocalWorkspace()}>Import this browser’s data</button><label className="text-button">Restore from backup<input type="file" accept="application/json,.json" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; try { await importLocalWorkspace(JSON.parse(await file.text())); } catch { setConnectionError("That backup file could not be read as Habitly JSON. The original file is unchanged."); } event.currentTarget.value = ""; }}/></label><a className="text-button" href={localBackupHref()} download="habitly-local-backup.json">Download local backup</a></div>}</div></section>{labs && <section className="settings-card telegram-settings"><div className="settings-card-head"><div className="telegram-icon"><Icon name="send" size={20}/></div><div><span className="eyebrow">HABIT CHANGER BOT</span><h2>Log from Telegram</h2><p>Link a private chat, then text “done” with the habit name.</p></div><span className={`connection-badge ${telegramCommand ? 'connected' : ''}`}><i/>{telegramCommand ? 'Link ready' : 'Not linked'}</span></div><div className="telegram-steps"><div><b>01</b><span>Configure <code>TELEGRAM_BOT_TOKEN</code> and <code>TELEGRAM_WEBHOOK_SECRET</code> on the API.</span></div><div><b>02</b><span>Generate a one-time link command below, then send it to your bot.</span></div><div><b>03</b><span>Send “done Read one page” to log a habit and get your resilient streak.</span></div></div><div className="settings-actions"><button className="secondary-button" disabled={settingsBusy || !remoteUserId} onClick={connectTelegram}>Generate Telegram link <Icon name="arrow" size={14}/></button>{telegramCommand && <code className="telegram-command">{telegramCommand}</code>}</div></section>}<section className="settings-card settings-privacy"><div><span className="eyebrow">YOUR DATA</span><h2>Identity is a practice, not a performance.</h2><p>Demo habits are sample data. User habits and workspace records sync to your authenticated Habitly account when connected. Offline edits stay on this device until you reconnect and are never presented as server saved.</p></div></section></>;
+    return <><div className="page-heading-row"><div><div className="eyebrow">YOUR SPACE, YOUR RULES</div><h1>Settings<span className="heading-period">.</span></h1><p className="page-subtitle">Manage your workspace and optional features.</p></div></div><section className="settings-card appearance-settings"><div className="appearance-heading"><div><span className="eyebrow">MAKE IT YOURS</span><h2>Appearance</h2><p>Choose a color mood and switch between light, dark, or a softer look.</p></div></div><div className="appearance-mode" role="group" aria-label="Display mode">{([{ id: false, name: 'Light', icon: 'sun' }, { id: true, name: 'Dark', icon: 'moon' }] as const).map(mode => <button type="button" key={mode.name} className={darkMode === mode.id ? 'appearance-mode-option selected' : 'appearance-mode-option'} aria-pressed={darkMode === mode.id} onClick={() => setDarkMode(mode.id)}><Icon name={mode.icon} size={17}/>{mode.name}</button>)}</div><div className="palette-heading"><b>Color themes</b><span>{palettes.find(option => option.id === palette)?.name}</span></div><div className="palette-options" role="group" aria-label="Color theme">{palettes.map(option => <button type="button" key={option.id} className={palette === option.id ? 'palette-option selected' : 'palette-option'} aria-pressed={palette === option.id} onClick={() => setPalette(option.id)}><span className="palette-swatches" aria-hidden="true">{option.colors.map(color => <i key={color} style={{ backgroundColor: color }}/>)}</span><span>{option.name}</span></button>)}</div></section><section className="settings-card"><label><input type="checkbox" checked={labs} onChange={e => setLabs(e.target.checked)}/> Experimental features</label><p>Enable optional Telegram linking.</p></section><section className="settings-card"><div className="settings-card-head"><div className="settings-icon"><Icon name="leaf"/></div><div><span className="eyebrow">HABITLY API</span><h2>Connect your data</h2><p>Create or sign in to an account to sync your habits across browsers and devices.</p></div><span className={`connection-badge ${workspaceReady && !connectionError ? 'connected' : ''}`}><i/>{connectionError ? 'Connection issue' : workspaceReady ? 'Synced account' : remoteUserId ? 'Import needed' : 'Local workspace'}</span></div><div className="settings-fields"><label className="field-label">API BASE URL<input value={apiUrl} onChange={e => setApiUrl(e.target.value)} placeholder="https://your-api.example.com"/></label><label className="field-label">EMAIL<input value={accountEmail} onChange={e => setAccountEmail(e.target.value)} placeholder="you@example.com" type="email" autoComplete="username"/></label><label className="field-label">PASSWORD<input value={accountPassword} onChange={e => setAccountPassword(e.target.value)} placeholder="At least 10 characters" type="password" autoComplete={connectionMode === 'create' ? 'new-password' : 'current-password'}/></label><div className="settings-actions"><button className="primary-button" disabled={settingsBusy || !apiUrl} onClick={setupAccount}>{settingsBusy ? 'Connecting…' : connectionMode === 'create' ? 'Create account' : 'Sign in'} <Icon name="arrow" size={15}/></button><button className="text-button" type="button" onClick={() => setConnectionMode(connectionMode === 'create' ? 'login' : 'create')}>{connectionMode === 'create' ? 'I already have an account' : 'Create a new account'}</button>{remoteUserId && <span className="settings-id">Account {remoteUserId.slice(0, 8)}…</span>}</div>{remoteToken && !serverHasWorkspace && <div className="import-panel"><p>Your server account has no saved workspace. Import habits and related data from this browser. Sample habits are excluded. Your local copy will remain in this browser until the server confirms the import.</p><button className="secondary-button" type="button" onClick={() => void importLocalWorkspace()}>Import this browser’s data</button><label className="text-button">Restore from backup<input type="file" accept="application/json,.json" onChange={async event => { const file = event.target.files?.[0]; if (!file) return; try { await importLocalWorkspace(JSON.parse(await file.text())); } catch { setConnectionError("That backup file could not be read as Habitly JSON. The original file is unchanged."); } event.currentTarget.value = ""; }}/></label><a className="text-button" href={localBackupHref()} download="habitly-local-backup.json">Download local backup</a></div>}</div></section>{labs && <section className="settings-card telegram-settings"><div className="settings-card-head"><div className="telegram-icon"><Icon name="send" size={20}/></div><div><span className="eyebrow">HABIT CHANGER BOT</span><h2>Log from Telegram</h2><p>Link a private chat, then text “done” with the habit name.</p></div><span className={`connection-badge ${telegramCommand ? 'connected' : ''}`}><i/>{telegramCommand ? 'Link ready' : 'Not linked'}</span></div><div className="telegram-steps"><div><b>01</b><span>Configure <code>TELEGRAM_BOT_TOKEN</code> and <code>TELEGRAM_WEBHOOK_SECRET</code> on the API.</span></div><div><b>02</b><span>Generate a one-time link command below, then send it to your bot.</span></div><div><b>03</b><span>Send “done Read one page” to log a habit and get your resilient streak.</span></div></div><div className="settings-actions"><button className="secondary-button" disabled={settingsBusy || !remoteUserId} onClick={connectTelegram}>Generate Telegram link <Icon name="arrow" size={14}/></button>{telegramCommand && <code className="telegram-command">{telegramCommand}</code>}</div></section>}<section className="settings-card"><h2>Back up logging data</h2><p>Download the current browser copy or the copy saved before account sync.</p><div className="settings-actions"><a className="text-button" href={localBackupHref()} download="habitly-local-backup.json">Download current browser copy</a>{typeof window !== 'undefined' && localStorage.getItem(RECOVERY_STORAGE) && <a className="text-button" href={localBackupHref(RECOVERY_STORAGE)} download="habitly-recovery-backup.json">Download pre-sync recovery copy</a>}</div></section><section className="settings-card settings-privacy"><div><span className="eyebrow">YOUR DATA</span><h2>Identity is a practice, not a performance.</h2><p>Demo habits are sample data. User habits and workspace records sync to your authenticated Habitly account when connected. Offline edits stay on this device until you reconnect and are never presented as server saved.</p></div></section></>;
   }
 
   function renderPage() {

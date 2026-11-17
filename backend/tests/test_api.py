@@ -107,6 +107,28 @@ def test_account_data_isolation_and_workspace_import_restart(client):
     restarted_engine.dispose()
 
 
+def test_behavior_log_fields_survive_workspace_save_and_reload(client):
+    _, identity = create_identity(client)
+    habit = create_habit(client, identity['id']).json()
+    entry = {
+        'id': 'behavior-roundtrip', 'habitId': habit['id'], 'type': 'craving',
+        'at': '2026-11-17T16:00:00Z', 'createdAt': '2026-11-17T16:00:00Z',
+        'localDate': '2026-11-17', 'timezone': 'America/New_York', 'episodeId': 'episode-one',
+        'trigger': 'after coffee', 'intensity': 7, 'outcome': 'resisted',
+        'resolvedAt': '2026-11-17T16:04:00Z', 'context': {'emotions': ['stressed'], 'environments': ['home'], 'social': ['alone'], 'activities': ['coffee'], 'bodilyState': 'tired', 'accessibility': 'nearby', 'motives': ['relief'], 'tags': ['routine']},
+        'automaticThought': 'I need one', 'belief': 'it helps', 'confidence': 5,
+        'reframing': 'wait', 'intensityAfter': 3, 'urgeFollowUpDueAt': '2026-11-17T16:19:00Z',
+        'urgeFollowUpStatus': 'stayed_gone', 'urgeFollowUpAt': '2026-11-17T16:20:00Z',
+        'postEngagementSatisfaction': 'neutral', 'postEngagementSatisfactionAt': '2026-11-17T16:21:00Z',
+        'note': 'recorded', 'questionnaireVersion': 1,
+    }
+    technique = {'id': 'technique-roundtrip', 'habitId': habit['id'], 'type': 'technique_applied', 'at': entry['at'], 'episodeId': entry['episodeId'], 'technique': 'Delay', 'techniqueId': 'delay', 'law': 'response', 'laws': ['response'], 'variationId': 'variation-one', 'timing': 'responsive', 'intensity': 7}
+    occurrence = {'id': 'occurrence-roundtrip', 'habitId': habit['id'], 'type': 'habit_occurrence', 'at': entry['at'], 'episodeId': entry['episodeId'], 'quantity': 2, 'trigger': 'after coffee'}
+    saved = client.put('/api/workspace', json={'expected_revision': 0, 'data': {'behaviorLogs': [entry, technique, occurrence]}})
+    assert saved.status_code == 200
+    assert client.get('/api/workspace').json()['data']['behaviorLogs'] == [entry, technique, occurrence]
+
+
 def test_health_checks_database_connectivity(client, monkeypatch):
     response = client.get("/health")
     assert response.status_code == 200
