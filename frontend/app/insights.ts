@@ -23,7 +23,8 @@ export type TriggerInsight = {
 };
 
 export type CueDimension = 'Time of day' | 'Location' | 'Emotional state' | 'Other people' | 'Immediately preceding action' | 'Physical state' | 'Access to the habit' | 'Underlying motive';
-export type CuePattern = { dimension: CueDimension; value?: string; count: number; recorded: number; days: number };
+export type CuePatternValue = { value: string; count: number; days: number };
+export type CuePattern = { dimension: CueDimension; value?: string; count: number; recorded: number; days: number; values: CuePatternValue[] };
 export type CuePatternSummary = { cravings: number; observationDays: number; patterns: CuePattern[] };
 export type UrgeCheckInSummary = {
   scheduled: number;
@@ -164,8 +165,11 @@ export function summarizeCuePatterns(logs: BehaviorLog[], dateKeys: string[]): C
         counts.set(key, entry);
       }
     }
-    const top = [...counts.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'en', { sensitivity: 'base' }))[0];
-    return { dimension, value: top?.label, count: top?.count ?? 0, recorded, days: top?.days.size ?? 0 };
+    const rankedValues = [...counts.values()]
+      .map(entry => ({ value: entry.label, count: entry.count, days: entry.days.size }))
+      .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value, 'en', { sensitivity: 'base' }));
+    const top = rankedValues[0];
+    return { dimension, value: top?.value, count: top?.count ?? 0, recorded, days: top?.days ?? 0, values: rankedValues };
   });
 
   return { cravings: cravings.length, observationDays, patterns };
@@ -175,7 +179,9 @@ export function summarizeUrgeCheckIns(logs: BehaviorLog[], allLogs: BehaviorLog[
   const cravings = logs.filter(log => log.type === 'craving');
   const scheduled = cravings.filter(log => Boolean(log.urgeFollowUpDueAt));
   const answered = scheduled.filter(log => log.urgeFollowUpStatus === 'stayed_gone' || log.urgeFollowUpStatus === 'lingering_or_returned');
-  const engagedCravings = cravings.filter(log => !log.id.startsWith('sample-log-') && log.questionnaireVersion === 1 && outcomeForCraving(allLogs, log) === 'smoked');
+  const engagedCravings = cravings.filter(log => log.questionnaireVersion === 1
+    && outcomeForCraving(allLogs, log) === 'smoked'
+    && (!log.id.startsWith('sample-log-') || Boolean(log.postEngagementSatisfaction)));
   const rated = engagedCravings.filter(log => log.postEngagementSatisfaction && log.postEngagementSatisfaction !== 'skipped');
   return {
     scheduled: scheduled.length,

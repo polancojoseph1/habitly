@@ -1,4 +1,4 @@
-import { behaviorDayKey, dateKeyInZone } from './behavioral-logging';
+import { behaviorDayKey, dateKeyInZone } from './behavioral-logging.ts';
 import type { BehaviorLog, DailyConfirmation } from './behavioral-logging';
 
 const TIMEZONE = 'America/New_York';
@@ -11,6 +11,9 @@ const emotions = ['stressed', 'restless', 'bored', 'tense', 'frustrated', 'lonel
 const environments = ['at home', 'outside the office', 'on the sidewalk', 'in the car', 'at a café', 'near the train'];
 const activities = ['after lunch', 'working', 'commuting', 'drinking coffee', 'socializing', 'taking a break'];
 const social = ['alone', 'with coworkers', 'with friends', 'around smokers', 'with family'];
+const bodilyStates = ['tired', 'hungry_thirsty', 'restless', 'typical', 'unsure'];
+const accessibilities = ['in_hand', 'nearby', 'out_of_reach', 'not_applicable'];
+const motives = ['relief', 'distraction', 'stimulation', 'connection', 'comfort', 'something_else'];
 const thoughts = [
   'One cigarette will take the edge off.',
   'I can wait a few minutes and see if the urge changes.',
@@ -88,6 +91,11 @@ export function createSampleSmokingLogs(referenceDate = new Date()): BehaviorLog
         environments: [environments[(number * 2 + dayNumber) % environments.length]],
         activities: [activities[(number + dayNumber * 2) % activities.length]],
         social: [social[(number * 3 + dayNumber) % social.length]],
+        bodilyState: bodilyStates[(number * 2 + dayNumber) % bodilyStates.length],
+        accessibility: accessibilities[(number + dayNumber * 3) % accessibilities.length],
+        motives: number % 11 === 0
+          ? ['unsure']
+          : [motives[(number + dayNumber) % motives.length], ...(number % 3 === 0 ? [motives[(number + dayNumber + 2) % motives.length]] : [])],
         tags: ['sample analytics', ['after work', 'routine cue', 'strong urge', 'social setting'][number % 4]],
       };
       const isUnknown = number % 29 === 0;
@@ -97,12 +105,24 @@ export function createSampleSmokingLogs(referenceDate = new Date()): BehaviorLog
         : resistanceSlot < resistedPerTwelve[weekNumber] ? 'resisted' : 'smoked';
       const intensity = 2 + ((number * 7 + dayNumber) % 9);
       const thought = thoughts[(number * 3 + emotionIndex) % thoughts.length];
+      const resolvedAt = outcome === 'resisted' ? addMinutes(cravingAt, 6 + (number * 11) % 34) : undefined;
+      const urgeFollowUpDueAt = resolvedAt ? addMinutes(resolvedAt, 15) : undefined;
+      const urgeFollowUpStatus: BehaviorLog['urgeFollowUpStatus'] = resolvedAt
+        ? number % 7 === 0 ? 'skipped' : number % 3 === 0 ? 'lingering_or_returned' : 'stayed_gone'
+        : undefined;
+      const urgeFollowUpAt = urgeFollowUpDueAt && urgeFollowUpStatus ? addMinutes(urgeFollowUpDueAt, 2 + number % 8) : undefined;
+      const occurrenceAt = outcome === 'smoked' ? addMinutes(cravingAt, 5 + (number * 7) % 18) : undefined;
+      const satisfactionRatings = ['worse_than_expected', 'neutral', 'as_expected', 'skipped'] as const;
+      const postEngagementSatisfaction = occurrenceAt ? satisfactionRatings[number % satisfactionRatings.length] : undefined;
+      const postEngagementSatisfactionAt = occurrenceAt ? addMinutes(occurrenceAt, 3 + number % 6) : undefined;
 
       records.push({
         id: baseId + '-craving', habitId: 'demo-smoking', type: 'craving',
-        at: cravingAt, createdAt: cravingAt, localDate, timezone: TIMEZONE,
+        questionnaireVersion: 1, at: cravingAt, createdAt: cravingAt, localDate, timezone: TIMEZONE,
         episodeId, trigger, intensity, outcome,
-        resolvedAt: outcome === 'resisted' ? addMinutes(cravingAt, 6 + (number * 11) % 34) : undefined,
+        resolvedAt,
+        urgeFollowUpDueAt, urgeFollowUpStatus, urgeFollowUpAt,
+        postEngagementSatisfaction, postEngagementSatisfactionAt,
         context, automaticThought: thought,
         belief: thought,
         confidence: 35 + ((number * 17) % 66),
@@ -112,10 +132,9 @@ export function createSampleSmokingLogs(referenceDate = new Date()): BehaviorLog
       });
 
       if (outcome === 'smoked') {
-        const occurrenceAt = addMinutes(cravingAt, 5 + (number * 7) % 18);
         records.push({
           id: baseId + '-occurrence', habitId: 'demo-smoking', type: 'habit_occurrence',
-          at: occurrenceAt, createdAt: occurrenceAt, localDate, timezone: TIMEZONE,
+          at: occurrenceAt!, createdAt: occurrenceAt!, localDate, timezone: TIMEZONE,
           episodeId, trigger, quantity: 1 + ((number * 3 + dayNumber) % 4), context,
           outcome: 'smoked', note: 'Synthetic sample for analytics preview.',
         });

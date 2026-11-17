@@ -615,7 +615,13 @@ export default function Home() {
         } else setHabits(savedHabits);
         const savedBehaviorLogs: BehaviorLog[] = data.behaviorLogs ?? [];
         const isUnconnectedSmokingSample = !data.remoteToken && isSampleWorkspace && originalHabits.some(habit => habit.id === 'demo-smoking');
-        const hasCurrentSmokingSample = savedBehaviorLogs.some(log => log.id.startsWith('sample-log-smoking-') && log.techniqueId === 'commitment-device');
+        const savedSampleCravings = savedBehaviorLogs.filter(log => log.id.startsWith('sample-log-smoking-') && log.type === 'craving');
+        const hasCurrentSmokingSample = savedSampleCravings.length > 0 && savedSampleCravings.every(log => log.questionnaireVersion === 1
+          && Boolean(log.context?.bodilyState)
+          && Boolean(log.context?.accessibility)
+          && Boolean(log.context?.motives?.length)
+          && (log.outcome !== 'resisted' || Boolean(log.urgeFollowUpDueAt && log.urgeFollowUpStatus))
+          && (log.outcome !== 'smoked' || Boolean(log.postEngagementSatisfaction)));
         const sampleSmokingLogs = isUnconnectedSmokingSample
           ? hasCurrentSmokingSample ? savedBehaviorLogs.filter(log => log.id.startsWith('sample-log-smoking-')) : createSampleSmokingLogs()
           : [];
@@ -1998,18 +2004,15 @@ export default function Home() {
           <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">01 · {periodEyebrow} · OVERVIEW</span><h2>Period Check-in</h2></div><span className="logging-date-pill">{periodRangeText}</span></div><PeriodCheckin habitName={selectedHabit.name} isSmoking={isSmoke} periodLabel={periodLabel} current={currentPeriod} previous={previousPeriod} configuredTechniques={configured.size} techniqueApplicationCount={techniqueApplicationLogs.length} hasTechniqueFilters={hasTechniqueFilters} usedTechniques={techniquePractice.techniques} topTrigger={topTriggers[0] ? { name: topTriggers[0][0], count: topTriggers[0][1] } : undefined}/></section>
           <section className="logging-insight-section logging-cue-insight">
             <div className="logging-section-heading"><div><span className="eyebrow">CUE OBSERVATION · LAST 5 DAYS</span><h2>What tends to come before the urge?</h2></div><span className="logging-quality-pill">{cuePattern.observationDays} of 5 days observed</span></div>
-            <p className="logging-cue-insight-intro">{cuePattern.cravings} {cuePattern.cravings === 1 ? 'urge' : 'urges'} logged in this five day window. Record cues when you can; blank details stay unknown.</p>
-            {cuePattern.observationDays < 3
-              ? <p className="logging-cue-insight-prompt">Log an urge on at least 3 different days to see an early summary. More observations can make the pattern easier to read.</p>
-              : <>
-                <div className="logging-cue-pattern-grid">{cuePattern.patterns.map(pattern => <article key={pattern.dimension}>
-                  <span className="eyebrow">{pattern.dimension}</span>
-                  {pattern.value
-                    ? <><b>{pattern.value}</b><p>Recorded in {pattern.count} of {pattern.recorded} entries with this detail, across {pattern.days} {pattern.days === 1 ? 'day' : 'days'}.</p></>
-                    : <p>No {pattern.dimension.toLocaleLowerCase()} detail was recorded in this window.</p>}
-                </article>)}</div>
-                <p className="logging-cue-method-note">These summaries describe what appears in your entries. They do not show that a cue caused an urge.</p>
-              </>}
+            <p className="logging-cue-insight-intro">{cuePattern.cravings} {cuePattern.cravings === 1 ? 'urge' : 'urges'} logged in this five day window. The cards show every recorded value; blank details stay unknown.</p>
+            <div className="logging-cue-pattern-grid">{cuePattern.patterns.map(pattern => <article key={pattern.dimension}>
+              <span className="eyebrow">{pattern.dimension}</span>
+              {pattern.values.length
+                ? <><div className="logging-cue-pattern-values">{pattern.values.map(entry => <div key={entry.value}><b>{entry.value}</b><small>{entry.count} of {pattern.recorded} entries · {entry.days} {entry.days === 1 ? 'day' : 'days'}</small></div>)}</div><p>Recorded in {pattern.recorded} {pattern.recorded === 1 ? 'entry' : 'entries'} total.</p></>
+                : <p>No {pattern.dimension.toLocaleLowerCase()} detail was recorded in this window.</p>}
+            </article>)}</div>
+            {cuePattern.observationDays < 3 && <p className="logging-cue-insight-prompt">Early summary from {cuePattern.observationDays} of 5 observed days. More entries can make patterns easier to read.</p>}
+            <p className="logging-cue-method-note">These summaries describe what appears in your entries. They do not show that a cue caused an urge.</p>
           </section>
           <section className="logging-insight-section logging-follow-up-insights">
             <div className="logging-section-heading"><div><span className="eyebrow">CHECK-IN OUTCOMES · {periodEyebrow}</span><h2>What happened after the urge?</h2></div></div>

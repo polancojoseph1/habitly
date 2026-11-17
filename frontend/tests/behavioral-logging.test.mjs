@@ -35,6 +35,7 @@ import {
   summarizeCuePatterns,
   summarizeUrgeCheckIns,
 } from '../app/insights.ts';
+import { createSampleSmokingLogs } from '../app/sample-smoking-data.ts';
 
 const insightLog = (id, type, fields = {}) => ({
   id,
@@ -209,9 +210,40 @@ test('cue analytics include physical state, habit accessibility, and underlying 
   }
   assert.deepEqual(summary.patterns.find(pattern => pattern.dimension === 'Physical state'), {
     dimension: 'Physical state', value: 'Tired or short on sleep', count: 1, recorded: 1, days: 1,
+    values: [{ value: 'Tired or short on sleep', count: 1, days: 1 }],
   });
   assert.equal(summary.patterns.find(pattern => pattern.dimension === 'Access to the habit').recorded, 1);
-  assert.equal(summary.patterns.find(pattern => pattern.dimension === 'Underlying motive').recorded, 1);
+  const motives = summary.patterns.find(pattern => pattern.dimension === 'Underlying motive');
+  assert.equal(motives.recorded, 1);
+  assert.deepEqual(motives.values.map(value => value.value), ['Physical pleasure or comfort', 'Relief from stress or anxiety']);
+});
+
+test('Smoking sample data fills every cue and check-in analytics section', () => {
+  const logs = createSampleSmokingLogs(new Date('2026-11-16T17:00:00.000Z'));
+  const dates = [...new Set(logs.filter(log => log.type === 'craving').map(log => log.localDate))].sort().slice(-5);
+  const lastFiveDays = new Set(dates);
+  const recentLogs = logs.filter(log => lastFiveDays.has(log.localDate));
+  const cues = summarizeCuePatterns(recentLogs, dates);
+  assert.equal(cues.patterns.length, 8);
+  for (const pattern of cues.patterns) {
+    assert.ok(pattern.recorded > 0, `${pattern.dimension} should have recorded demo values`);
+    assert.ok(pattern.values.length > 0, `${pattern.dimension} should list its demo values`);
+  }
+
+  const lastThirtyDays = new Set([...new Set(logs.filter(log => log.type === 'craving').map(log => log.localDate))].sort().slice(-30));
+  const periodLogs = logs.filter(log => lastThirtyDays.has(log.localDate));
+  const checkIns = summarizeUrgeCheckIns(periodLogs, periodLogs);
+  assert.ok(checkIns.scheduled > 0);
+  assert.ok(checkIns.stayedGone > 0);
+  assert.ok(checkIns.lingeringOrReturned > 0);
+  assert.ok(checkIns.skipped > 0);
+  assert.ok(checkIns.engaged > 0);
+  assert.ok(checkIns.satisfactionWorse > 0);
+  assert.ok(checkIns.satisfactionNeutral > 0);
+  assert.ok(checkIns.satisfactionAsExpected > 0);
+  assert.ok(checkIns.satisfactionSkipped > 0);
+  assert.equal(checkIns.awaiting, 0);
+  assert.equal(checkIns.satisfactionAwaiting, 0);
 });
 
 test('follow-up answers persist on the craving without replacing its cue data', () => {
