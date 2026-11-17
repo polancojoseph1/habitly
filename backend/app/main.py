@@ -23,6 +23,7 @@ from .schemas import (UserCreate, UserOut, IdentityCreate, IdentityOut, HabitCre
 from .schemas import (AccountabilityInviteCreate, CircleCreate, CircleOut, DiagnosticCreate, DiagnosticOut,
                       HabitVariationCreate, HabitVariationOut, HabitVariationUpdate)
 from .streaks import calculate_streak
+from .workspace_cleanup import purge_legacy_smoking_data
 
 if settings.database_url.startswith("sqlite"):
     Base.metadata.create_all(bind=engine)
@@ -49,6 +50,7 @@ if settings.database_url.startswith("sqlite"):
             connection.execute(text("UPDATE habits SET technique_notes='{}' WHERE technique_notes IS NULL"))
             connection.execute(text("UPDATE habits SET replacement_actions='[]' WHERE replacement_actions IS NULL"))
             connection.execute(text("UPDATE habits SET break_plan_answers='{}' WHERE break_plan_answers IS NULL"))
+    purge_legacy_smoking_data(engine)
 app = FastAPI(title="Habitly API", version="0.2.0", description="Four Laws habit building and behavior change API")
 app.add_middleware(
     CORSMiddleware,

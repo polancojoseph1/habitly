@@ -37,7 +37,6 @@ import {
   summarizeCuePatterns,
   summarizeUrgeCheckIns,
 } from '../app/insights.ts';
-import { createSampleSmokingLogs, hasCurrentSmokingSample } from '../app/sample-smoking-data.ts';
 
 const insightLog = (id, type, fields = {}) => ({
   id,
@@ -170,40 +169,6 @@ test('a real log for a sample habit survives while seeded sample logs are exclud
   assert.deepEqual(withoutSampleBehaviorLogs([realUseOfSampleHabit, seededSample]), [realUseOfSampleHabit]);
 });
 
-test('personal Smoking imports remap daily confirmations and legacy check-ins with the habit', () => {
-  const result = prepareBehavioralWorkspaceImport(
-    [{ id: 'demo-smoking', name: 'Smoking', kind: 'BREAK' }],
-    [
-      { ...craving('behavior-craving-1', 'episode-1', 'smoked'), habitId: 'demo-smoking' },
-      { ...occurrence('behavior-cigarettes-1', 'episode-1', 3), habitId: 'demo-smoking' },
-      { id: 'behavior-technique-1', habitId: 'demo-smoking', type: 'technique_applied', techniqueId: 'delay', at: '2026-11-15T16:02:00Z' },
-    ],
-    [{ id: 'legacy-1', habitId: 'demo-smoking', type: 'OLD_HABIT', at: '2026-11-14T16:00:00Z' }],
-    [{ habitId: 'demo-smoking', date: '2026-11-15', status: 'occurred_recorded', updatedAt: '2026-11-15T23:00:00Z' }],
-    () => 'habit-imported-smoking',
-  );
-
-  assert.equal(result.habits[0].id, 'habit-imported-smoking');
-  assert.ok(result.behaviorLogs.every(log => log.habitId === 'habit-imported-smoking'));
-  assert.equal(result.behaviorLogs.find(log => log.type === 'habit_occurrence').quantity, 3);
-  assert.equal(result.habitEvents[0].habitId, 'habit-imported-smoking');
-  assert.deepEqual(result.dailyConfirmations, [{ habitId: 'habit-imported-smoking', date: '2026-11-15', status: 'occurred_recorded', updatedAt: '2026-11-15T23:00:00Z' }]);
-});
-
-test('sample Smoking confirmations are excluded when their only matching logs are synthetic', () => {
-  const result = prepareBehavioralWorkspaceImport(
-    [{ id: 'demo-smoking', name: 'Smoking', kind: 'BREAK' }],
-    [{ ...craving('sample-log-smoking-1', 'sample-episode'), habitId: 'demo-smoking' }],
-    [],
-    [{ habitId: 'demo-smoking', date: '2026-11-15', status: 'no_occurrence', updatedAt: '2026-11-16T03:00:00Z' }],
-    () => 'habit-should-not-exist',
-  );
-
-  assert.deepEqual(result.habits, []);
-  assert.deepEqual(result.behaviorLogs, []);
-  assert.deepEqual(result.dailyConfirmations, []);
-});
-
 test('technique applications preserve the configured technique, law and usage context', () => {
   const entry = { id: 't1', habitId: 'habit-a', type: 'technique_applied', episodeId: 'ep1', technique: 'Increase Friction', techniqueId: 'increase-friction', law: 'response', laws: ['response'], timing: 'preventive', at: '2026-11-15T16:00:00.000Z' };
   const saved = applyBehaviorLogChanges([], [entry]);
@@ -278,47 +243,6 @@ test('cue analytics include physical state, habit accessibility, and underlying 
   const motives = summary.patterns.find(pattern => pattern.dimension === 'Underlying motive');
   assert.equal(motives.recorded, 1);
   assert.deepEqual(motives.values.map(value => value.value), ['Physical pleasure or comfort', 'Relief from stress or anxiety']);
-});
-
-test('Smoking sample data fills every cue and check-in analytics section', () => {
-  const referenceDate = new Date('2026-11-16T17:00:00.000Z');
-  const logs = createSampleSmokingLogs(referenceDate);
-  assert.equal(hasCurrentSmokingSample(logs, referenceDate), true);
-  assert.equal(hasCurrentSmokingSample(logs.filter(log => log.localDate !== '2026-11-16'), referenceDate), false, 'older saved demo data should refresh when today’s sample is expected');
-  const earlyReference = new Date('2026-11-16T13:00:00.000Z');
-  assert.equal(hasCurrentSmokingSample(createSampleSmokingLogs(earlyReference), earlyReference), true, 'early morning demo sets are current before same day entries are generated');
-  const recent24Hours = logs.filter(log => {
-    const at = new Date(log.at).getTime();
-    return at >= referenceDate.getTime() - 24 * 60 * 60 * 1000 && at <= referenceDate.getTime();
-  });
-  assert.ok(recent24Hours.some(log => log.type === 'craving'), 'the 24 hour demo period should include craving data');
-  assert.ok(recent24Hours.some(log => log.type === 'habit_occurrence' || log.type === 'technique_applied'), 'the 24 hour demo period should include related analytics data');
-  assert.ok(logs.filter(log => log.localDate === '2026-11-16').every(log => new Date(log.at).getTime() <= referenceDate.getTime()), 'today’s sample timestamps must not be in the future');
-
-  const dates = [...new Set(logs.filter(log => log.type === 'craving').map(log => log.localDate))].sort().slice(-5);
-  const lastFiveDays = new Set(dates);
-  const recentLogs = logs.filter(log => lastFiveDays.has(log.localDate));
-  const cues = summarizeCuePatterns(recentLogs, dates);
-  assert.equal(cues.patterns.length, 8);
-  for (const pattern of cues.patterns) {
-    assert.ok(pattern.recorded > 0, `${pattern.dimension} should have recorded demo values`);
-    assert.ok(pattern.values.length > 0, `${pattern.dimension} should list its demo values`);
-  }
-
-  const lastThirtyDays = new Set([...new Set(logs.filter(log => log.type === 'craving').map(log => log.localDate))].sort().slice(-30));
-  const periodLogs = logs.filter(log => lastThirtyDays.has(log.localDate));
-  const checkIns = summarizeUrgeCheckIns(periodLogs, periodLogs);
-  assert.ok(checkIns.scheduled > 0);
-  assert.ok(checkIns.stayedGone > 0);
-  assert.ok(checkIns.lingeringOrReturned > 0);
-  assert.ok(checkIns.skipped > 0);
-  assert.ok(checkIns.engaged > 0);
-  assert.ok(checkIns.satisfactionWorse > 0);
-  assert.ok(checkIns.satisfactionNeutral > 0);
-  assert.ok(checkIns.satisfactionAsExpected > 0);
-  assert.ok(checkIns.satisfactionSkipped > 0);
-  assert.equal(checkIns.awaiting, 0);
-  assert.equal(checkIns.satisfactionAwaiting, 0);
 });
 
 test('follow-up answers persist on the craving without replacing its cue data', () => {

@@ -8,10 +8,10 @@ import { isPeriodOccurrenceCoverageComplete } from './period-checkin';
 import { PeriodCheckin } from './period-checkin-view';
 import notebookLMContent from './notebooklm-content.json';
 import { lawGroups, techniques, techniqueMap } from './techniques';
+import { removeSmokingWorkspaceData } from './workspace-cleanup';
 import type { ChangeMode, Law } from './techniques';
 import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, legacyHabitEventsToBehaviorLogs, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, prepareBehavioralWorkspaceImport, recordPostEngagementSatisfaction, recordUrgeFollowUp, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, withoutSampleBehaviorLogs } from './behavioral-logging';
 import type { BehaviorLog, BehaviorType, DailyConfirmation, DailyConfirmationStatus, PostEngagementSatisfaction, UrgeFollowUpStatus } from './behavioral-logging';
-import { createSampleSmokingConfirmations, createSampleSmokingLogs, hasCurrentSmokingSample } from './sample-smoking-data';
 
 type CueType = 'TIME_LOCATION' | 'STACK';
 type BreakPlanAnswers = {
@@ -90,6 +90,17 @@ const motiveOptions = [
 const STORAGE = 'habitly-workspace-v2';
 const RECOVERY_STORAGE = 'habitly-workspace-before-account-sync-v1';
 const REFRESH_VIEW_STORAGE = 'habitly-refresh-view-v1';
+const SMOKING_CLEANUP_STORAGE = 'habitly-smoking-cleanup-v1';
+function cleanLegacySmokingStorage() {
+  try {
+    if (localStorage.getItem(SMOKING_CLEANUP_STORAGE) === 'done') return;
+    for (const key of [STORAGE, RECOVERY_STORAGE]) {
+      const raw = localStorage.getItem(key);
+      if (raw) localStorage.setItem(key, JSON.stringify(removeSmokingWorkspaceData(JSON.parse(raw))));
+    }
+    localStorage.setItem(SMOKING_CLEANUP_STORAGE, 'done');
+  } catch { /* Keep the original browser copy if a cleanup cannot be saved. */ }
+}
 function preserveLocalWorkspace() {
   try {
     const raw = localStorage.getItem(STORAGE);
@@ -99,7 +110,7 @@ function preserveLocalWorkspace() {
     const hasLocalData = logs.some((log: BehaviorLog) => !log.id.startsWith('sample-log-'))
       || (data.habitEvents ?? []).length > 0
       || (data.dailyConfirmations ?? []).length > 0
-      || (data.habits ?? []).some((habit: Habit) => !habit.id.startsWith('demo-') || habit.id === 'demo-smoking')
+      || (data.habits ?? []).some((habit: Habit) => !habit.id.startsWith('demo-'))
       || (data.variations ?? []).length > 0
       || (data.customContextTags ?? []).length > 0;
     if (!hasLocalData) return;
@@ -142,19 +153,16 @@ function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   }).catch(error => { report('The Habitly API is unreachable. Your device copy is retained; reconnect before relying on another browser.'); throw error; });
 }
 function expandInviteLink(habit: Habit): Habit {
-  const demoDefaults = habit.id === 'demo-smoking' ? demoHabits.find(item => item.id === habit.id) : undefined;
   const normalized = {
-    ...demoDefaults,
     ...habit,
-    techniqueIds: [...new Set([...(habit.techniqueIds ?? []), ...(demoDefaults?.techniqueIds ?? [])].filter(id => id !== 'never-miss-twice'))],
-    techniqueNotes: { ...(demoDefaults?.techniqueNotes ?? {}), ...(habit.techniqueNotes ?? {}) },
+    techniqueIds: [...new Set((habit.techniqueIds ?? []).filter(id => id !== 'never-miss-twice'))],
+    techniqueNotes: { ...(habit.techniqueNotes ?? {}) },
   };
   return normalized.inviteLink?.startsWith('/?') && typeof window !== 'undefined'
     ? { ...normalized, inviteLink: `${window.location.origin}${normalized.inviteLink}` }
     : normalized;
 }
 const demoHabits: Habit[] = [
-  { id: 'demo-smoking', name: 'Smoking', target: 'Quit smoking', gateway: 'Wait ten minutes and take a short walk', gatewayMinutes: 0, cueType: 'STACK', cue: 'I finish a meal or feel stressed', motive: '', reward: '', prep: 'Keep gum and water nearby', completed: false, missedYesterday: false, streak: 0, kind: 'BREAK', hideCue: 'Keep cigarettes and lighters out of reach', friction: 'Keep cigarettes and lighters out of the home, and take a route that avoids the shop.', alternativeRoutine: 'Walk outside without cigarettes or chew gum', techniqueIds: ['increase-friction', 'reframe-mindset', 'habit-tracking', 'commitment-device'], techniqueNotes: { 'increase-friction': 'Keep cigarettes and lighters out of the home; take a route that avoids the shop.', 'reframe-mindset': 'When stressed, remind myself that a craving passes without a cigarette.', 'habit-tracking': 'Mark each craving I resist on the calendar right away.', 'commitment-device': 'Set a ten-minute delay before opening cigarette delivery sites.' }, baselineDaily: 12 },
   { id: 'demo-write', name: 'Write one sentence', target: 'Write for 30 minutes', gateway: 'Open my journal and write one sentence', gatewayMinutes: 2, cueType: 'STACK', cue: 'I pour my first coffee', motive: 'Feel like a writer before the day gets loud', reward: 'A fresh coffee and a clear head', prep: 'Leave journal open on the desk', ritual: 'Play my focus playlist', techniqueIds: ['two-minute-rule', 'motivation-ritual', 'immediate-reinforcement'], techniqueNotes: { 'two-minute-rule': 'One sentence is enough to begin.' }, completed: true, missedYesterday: false, streak: 5, kind: 'BUILD' },
   { id: 'demo-move', name: 'Move my body', target: 'Go for a run', gateway: 'Put on my running shoes', gatewayMinutes: 2, cueType: 'TIME_LOCATION', cue: '7:30 AM', time: '7:30 AM', location: 'By the front door', motive: 'Have more energy for the day', reward: 'Play my favorite playlist', prep: 'Lay out running clothes tonight', completed: false, missedYesterday: true, streak: 3, kind: 'BUILD' },
   { id: 'demo-read', name: 'Read one page', target: 'Read a chapter', gateway: 'Open my book to the bookmark', gatewayMinutes: 2, cueType: 'TIME_LOCATION', cue: '9:00 PM', time: '9:00 PM', location: 'In bed', motive: 'Wind down without a screen', reward: 'A quiet end to the day', prep: 'Put book on my pillow', completed: false, missedYesterday: false, streak: 8, kind: 'BUILD' },
@@ -415,7 +423,7 @@ export default function Home() {
   const [logMotives, setLogMotives] = useState<string[]>([]);
   const [loggingClock, setLoggingClock] = useState(Date.now());
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [loggingHabitId, setLoggingHabitId] = useState('demo-smoking');
+  const [loggingHabitId, setLoggingHabitId] = useState('demo-scroll');
   const [loggingView, setLoggingView] = useState<'Log' | 'Insights' | 'History'>('Log');
   const [logType, setLogType] = useState<BehaviorLog['type']>('craving');
   const [logTrigger, setLogTrigger] = useState('');
@@ -635,6 +643,7 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    cleanLegacySmokingStorage();
     let hasLocalWorkspace = false;
     try {
       const saved = localStorage.getItem(STORAGE);
@@ -643,7 +652,6 @@ export default function Home() {
         const data = JSON.parse(saved);
         setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
         const originalHabits: Habit[] = data.habits ?? demoHabits;
-        const isSampleWorkspace = originalHabits.every(habit => habit.id.startsWith('demo-'));
         const savedHabits: Habit[] = originalHabits.map(expandInviteLink);
         const savedHistory: Record<string, string[]> = data.history ?? demoHistory();
         if (data.dayKey && data.dayKey !== todayKey()) {
@@ -651,21 +659,11 @@ export default function Home() {
           setHabits(savedHabits.map(h => ({ ...h, completed: false, missedYesterday: missedIds.includes(`missed:${h.id}`) })));
         } else setHabits(savedHabits);
         const savedBehaviorLogs: BehaviorLog[] = data.behaviorLogs ?? [];
-        const isUnconnectedSmokingSample = !data.remoteToken && isSampleWorkspace && originalHabits.some(habit => habit.id === 'demo-smoking');
-        const hasCurrentSample = hasCurrentSmokingSample(savedBehaviorLogs);
-        const sampleSmokingLogs = isUnconnectedSmokingSample
-          ? hasCurrentSample ? savedBehaviorLogs.filter(log => log.id.startsWith('sample-log-smoking-')) : createSampleSmokingLogs()
-          : [];
-        const loadedBehaviorLogs = isUnconnectedSmokingSample
-          ? [...savedBehaviorLogs.filter(log => !log.id.startsWith('sample-log-smoking-')), ...sampleSmokingLogs]
-          : withoutSampleBehaviorLogs(savedBehaviorLogs);
+        const loadedBehaviorLogs = withoutSampleBehaviorLogs(savedBehaviorLogs);
         const savedConfirmations: DailyConfirmation[] = data.dailyConfirmations ?? [];
-        const sampleConfirmations = createSampleSmokingConfirmations(sampleSmokingLogs);
-        const confirmationByDate = new Map(sampleConfirmations.map(item => [`${item.habitId}:${item.date}`, item]));
-        savedConfirmations.forEach(item => confirmationByDate.set(`${item.habitId}:${item.date}`, item));
         const accountConfirmations = savedConfirmations.filter(item => !item.habitId.startsWith('demo-'));
         setHistory(savedHistory); setHabitEvents(data.habitEvents ?? []); setBehaviorLogs(loadedBehaviorLogs); setVariations(data.variations ?? []); setPreppedHabits(data.preppedHabits ?? {}); setRewards(data.rewards ?? demoRewards);
-        setDailyConfirmations(isUnconnectedSmokingSample ? [...confirmationByDate.values()] : accountConfirmations); setCustomContextTags(data.customContextTags ?? []);
+        setDailyConfirmations(accountConfirmations); setCustomContextTags(data.customContextTags ?? []);
         setIdentity(data.identity ?? 'The Writer'); setGoal(data.goal ?? 'Write a book');
         setVotes(data.votes ?? 45); setPrepped(data.prepped ?? false);
         setScorecard(data.scorecard ?? []); setJoinedTribes(data.joinedTribes ?? []);
@@ -678,10 +676,7 @@ export default function Home() {
         setRemoteToken(data.remoteToken ?? '');
       }
     } catch { /* Start with the guided sample workspace. */ }
-    if (!hasLocalWorkspace) {
-      const sampleLogs = createSampleSmokingLogs();
-      setHistory(demoHistory()); setBehaviorLogs(sampleLogs); setDailyConfirmations(createSampleSmokingConfirmations(sampleLogs));
-    }
+    if (!hasLocalWorkspace) setHistory(demoHistory());
     if (!apiUrl && !process.env.NEXT_PUBLIC_API_URL) setApiUrl(window.location.origin);
     try {
       const savedView = sessionStorage.getItem(REFRESH_VIEW_STORAGE);
@@ -918,7 +913,7 @@ export default function Home() {
   async function importLocalWorkspace(backup?: any) {
     if (!apiUrl || !remoteToken) return;
     let local: any = {};
-    try { local = backup ?? JSON.parse(localStorage.getItem(STORAGE) ?? '{}'); } catch { setConnectionError('Could not read this browser’s saved data. Export it from browser storage before retrying.'); return; }
+    try { local = removeSmokingWorkspaceData(backup ?? JSON.parse(localStorage.getItem(STORAGE) ?? '{}')); } catch { setConnectionError('Could not read this browser’s saved data. Export it from browser storage before retrying.'); return; }
     preserveLocalWorkspace();
     const sourceLogs: BehaviorLog[] = local.behaviorLogs ?? behaviorLogs;
     const sourceEvents: HabitEvent[] = local.habitEvents ?? habitEvents;
@@ -1768,7 +1763,6 @@ export default function Home() {
     const cueCaptureLog = logs.find(log => log.id === quickCueCaptureLogId && log.type === 'craving');
     const dueUrgeFollowUp = logs.filter(log => log.type === 'craving' && log.urgeFollowUpDueAt && new Date(log.urgeFollowUpDueAt).getTime() <= loggingClock && !log.urgeFollowUpStatus && outcomeForCraving(logs, log) === 'resisted').sort((a, b) => (a.urgeFollowUpDueAt ?? '').localeCompare(b.urgeFollowUpDueAt ?? ''))[0];
     const pendingEngagementCheck = [...logs].filter(log => log.type === 'craving' && !log.id.startsWith('sample-log-') && log.questionnaireVersion === 1 && outcomeForCraving(logs, log) === 'smoked' && !log.postEngagementSatisfaction).sort((a, b) => b.at.localeCompare(a.at))[0];
-    const hasSampleSmokingData = selectedHabit.id === 'demo-smoking' && logs.some(log => log.id.startsWith('sample-log-smoking-'));
     const today = todayKey();
     const todaySummary = summarizeDay(analyticsLogs, selectedHabit.id, today, dailyConfirmations);
     const currentConfirmation = dailyConfirmations.find(row => row.habitId === selectedHabit.id && row.date === today);
@@ -2062,7 +2056,6 @@ export default function Home() {
         <div><div className="eyebrow">BEHAVIORAL LOG</div><h1>Notice the pattern<span className="heading-period">.</span></h1></div>
         <label className="logging-habit-picker">HABIT<select aria-label="Select habit to break" value={selectedHabit.id} onChange={event => { setLoggingHabitId(event.target.value); setQuickCueCaptureLogId(''); setHistoryLimit(30); }}>{habits.filter(habit => habit.kind === 'BREAK').map(habit => <option key={habit.id} value={habit.id}>{habit.name}</option>)}</select></label>
       </div>
-      {hasSampleSmokingData && <p className="logging-caveat">Sample analytics preview: eight weeks of varied Smoking cravings, outcomes, cigarette counts, triggers, contexts, and technique use. These synthetic records stay in this browser’s sample workspace and are filtered out of account imports.</p>}
       <section className={`logging-sync-banner ${connectionError ? 'has-error' : workspaceReady && remoteToken ? 'is-connected' : 'is-local'}`} role="status">
         <div><b>{connectionError ? 'Sync needs attention' : workspaceReady && remoteToken ? 'Account sync is active' : remoteToken ? 'Device data import is pending' : 'Saved on this device only'}</b><p>{connectionError ? `${connectionError} Your browser copy is still available.` : workspaceReady && remoteToken ? 'New logging entries sync to this Habitly account.' : remoteToken ? 'The account is connected, but its workspace has not been loaded. Review the local data import in Settings before logging here.' : 'This browser’s logging records are not reaching the server yet. Connect an account in Settings to sync this device’s data.'}</p></div>
         <div className="logging-sync-actions"><button type="button" className="text-button" onClick={() => void exportWorkspaceBackup()}>Save a backup</button><button type="button" className="text-button" onClick={() => { setActive('Settings'); setMobileNav(false); }}>{remoteToken && !workspaceReady ? 'Review import' : remoteToken ? 'Connection settings' : 'Connect account'} <Icon name="arrow" size={14}/></button></div>
