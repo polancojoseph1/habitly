@@ -95,7 +95,7 @@
 .logging-sync-banner>div{min-width:0}
 .logging-sync-banner b{display:block;margin-bottom:2px;color:var(--ink);font-size:12px}
 .logging-sync-banner p{margin:0}
-.logging-sync-banner .text-button{flex-shrink:0;white-space:nowrap}
+.logging-sync-banner .text-button{flex-shrink:0;white-space:nowrap}.logging-sync-actions{display:flex;align-items:center;gap:12px;flex-shrink:0}.backup-export-card>p{margin:7px 0 12px;color:var(--muted);font-size:14px;line-height:1.45}
 .logging-sync-banner.has-error{border-color:#c98975}
 .logging-sync-banner.is-connected{border-color:#7770b2}
 .logging-legacy-note{margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface-soft);color:var(--muted);font-size:10px;line-height:1.5}
@@ -159,7 +159,7 @@
 [data-theme="dark"] .behavior-type-mark.technique_applied{background:#2c3935;border-color:#3c4d46;color:#a9d0b8}
 [data-theme="dark"] .behavior-outcome.resisted{background:#2b3a33;color:#a9d0b8}.behavior-outcome.smoked{background:#40322c;color:#e4b38f}
 @media(max-width:800px){.logging-layout{grid-template-columns:1fr}.logging-insights-column{grid-template-columns:1fr 1fr}.logging-today-card{grid-column:1/-1}}
-@media(max-width:600px){.logging-heading{align-items:flex-start;flex-direction:column}.logging-habit-picker{width:100%}.logging-intro{padding:17px}.logging-intro h2{font-size:18px}.logging-intro-mark{flex-basis:42px;width:42px;height:42px}.logging-form{padding:14px}.logging-insights-column{grid-template-columns:1fr}.logging-today-card{grid-column:auto}.logging-timeline-section{padding:14px}.logging-timeline-section>.logging-card-heading{align-items:flex-start;flex-direction:column;gap:5px}.logging-stat-grid{gap:5px}.logging-stat-grid>div{padding:10px 7px}.logging-stat-grid b{font-size:20px}.logging-field-row{grid-template-columns:1fr}.logging-live{font-size:9px}.logging-sync-banner{align-items:flex-start;flex-direction:column;gap:6px}.behavior-log-title{align-items:flex-start;flex-direction:column;gap:2px}}
+@media(max-width:600px){.logging-heading{align-items:flex-start;flex-direction:column}.logging-habit-picker{width:100%}.logging-intro{padding:17px}.logging-intro h2{font-size:18px}.logging-intro-mark{flex-basis:42px;width:42px;height:42px}.logging-form{padding:14px}.logging-insights-column{grid-template-columns:1fr}.logging-today-card{grid-column:auto}.logging-timeline-section{padding:14px}.logging-timeline-section>.logging-card-heading{align-items:flex-start;flex-direction:column;gap:5px}.logging-stat-grid{gap:5px}.logging-stat-grid>div{padding:10px 7px}.logging-stat-grid b{font-size:20px}.logging-field-row{grid-template-columns:1fr}.logging-live{font-size:9px}.logging-sync-banner{align-items:flex-start;flex-direction:column;gap:6px}.logging-sync-actions{width:100%;justify-content:space-between;flex-wrap:wrap}.behavior-log-title{align-items:flex-start;flex-direction:column;gap:2px}}
 
 /* Behavioral logging refresh */
 .logging-heading-compact{margin-bottom:14px}
