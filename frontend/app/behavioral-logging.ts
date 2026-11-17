@@ -24,6 +24,7 @@ export type BehaviorLog = {
   timezone?: string;
   episodeId?: string;
   trigger?: string;
+  replacementAction?: string;
   intensity?: number;
   outcome?: BehaviorOutcome;
   technique?: string;

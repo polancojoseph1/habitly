@@ -107,6 +107,22 @@ class HabitEvent(Base):
     variation_name: Mapped[str | None] = mapped_column(String(160), nullable=True)
 
 
+class UnifiedHabitEvent(Base):
+    """Additive event stream for new writes and idempotent legacy ingestion."""
+    __tablename__ = "v2_habit_event"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    habit_id: Mapped[str] = mapped_column(ForeignKey("habits.id", ondelete="CASCADE"), index=True)
+    event_type: Mapped[str] = mapped_column(String(40), index=True)
+    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    effective_date: Mapped[date] = mapped_column(Date, index=True)
+    intensity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    context_payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    verification_15m: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    source: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
 class HabitVariation(Base):
     __tablename__ = "habit_variations"
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)

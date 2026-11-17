@@ -3,6 +3,7 @@ import secrets
 import hashlib
 import hmac
 import os
+from uuid import NAMESPACE_URL, uuid5
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, inspect, select, text
@@ -14,7 +15,7 @@ from .database import Base, engine, get_db
 import httpx
 
 from .models import (AccountabilityInvite, CircleMembership, CommunityCircle, Habit, HabitContract, HabitEvent, HabitVariation,
-                     HabitDiagnostic, HabitLog, Identity, Reward, TelegramLink, User)
+                     HabitDiagnostic, HabitLog, Identity, Reward, TelegramLink, UnifiedHabitEvent, User)
 from .models import WorkspaceState, AccountToken
 from .models import new_id
 from .schemas import (UserCreate, UserOut, IdentityCreate, IdentityOut, HabitCreate, HabitOut,
@@ -23,7 +24,6 @@ from .schemas import (UserCreate, UserOut, IdentityCreate, IdentityOut, HabitCre
 from .schemas import (AccountabilityInviteCreate, CircleCreate, CircleOut, DiagnosticCreate, DiagnosticOut,
                       HabitVariationCreate, HabitVariationOut, HabitVariationUpdate)
 from .streaks import calculate_streak
-from .workspace_cleanup import purge_legacy_smoking_data
 
 if settings.database_url.startswith("sqlite"):
     Base.metadata.create_all(bind=engine)
@@ -50,7 +50,6 @@ if settings.database_url.startswith("sqlite"):
             connection.execute(text("UPDATE habits SET technique_notes='{}' WHERE technique_notes IS NULL"))
             connection.execute(text("UPDATE habits SET replacement_actions='[]' WHERE replacement_actions IS NULL"))
             connection.execute(text("UPDATE habits SET break_plan_answers='{}' WHERE break_plan_answers IS NULL"))
-    purge_legacy_smoking_data(engine)
 app = FastAPI(title="Habitly API", version="0.2.0", description="Four Laws habit building and behavior change API")
 app.add_middleware(
     CORSMiddleware,
@@ -76,6 +75,83 @@ def password_matches(password: str, stored: str | None) -> bool:
         return False
     salt_hex, expected = stored.split(":", 1)
     return hmac.compare_digest(password_digest(password, bytes.fromhex(salt_hex)).split(":", 1)[1], expected)
+
+
+def sync_unified_events(db: Session, user_id: str, workspace: dict | None = None,
+                        journal_source: str = "LEGACY_MIGRATION") -> None:
+    """Idempotently expose legacy records and workspace journal logs in v2."""
+    identity_ids = select(Identity.id).where(Identity.user_id == user_id)
+    habits = list(db.scalars(select(Habit).where(Habit.identity_id.in_(identity_ids))))
+    habit_ids = {habit.id for habit in habits}
+    if not habit_ids:
+        return
+
+    def upsert(event_id: str, habit_id: str, event_type: str, occurred_at: datetime, effective_date: date,
+               context: dict, source: str, intensity: int | None = None, verification: dict | None = None,
+               created_at: datetime | None = None) -> None:
+        if occurred_at.tzinfo is None:
+            occurred_at = occurred_at.replace(tzinfo=timezone.utc)
+        if created_at and created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        existing = db.get(UnifiedHabitEvent, event_id)
+        if existing:
+            previous_moment = existing.occurred_at
+            if previous_moment.tzinfo is None:
+                previous_moment = previous_moment.replace(tzinfo=timezone.utc)
+            changed = (existing.event_type != event_type or previous_moment != occurred_at
+                       or existing.effective_date != effective_date or existing.context_payload != context
+                       or existing.intensity != intensity or existing.verification_15m != verification)
+            if changed:
+                existing.event_type = event_type
+                existing.occurred_at = occurred_at
+                existing.effective_date = effective_date
+                existing.context_payload = context
+                existing.intensity = intensity
+                existing.verification_15m = verification
+                existing.updated_at = datetime.now(timezone.utc)
+            return
+        db.add(UnifiedHabitEvent(id=event_id, habit_id=habit_id, event_type=event_type,
+                                 occurred_at=occurred_at, effective_date=effective_date,
+                                 intensity=intensity, context_payload=context, verification_15m=verification,
+                                 source=source, created_at=created_at or datetime.now(timezone.utc)))
+
+    for row in db.scalars(select(HabitLog).where(HabitLog.habit_id.in_(habit_ids))):
+        moment = datetime.combine(row.logged_date, datetime.min.time(), tzinfo=timezone.utc).replace(hour=12)
+        event_id = str(uuid5(NAMESPACE_URL, f"habitly:legacy-log:{row.id}"))
+        upsert(event_id, row.habit_id, "DAILY_CHECKIN", moment, row.logged_date,
+               {"status": row.status, "completed_via": row.completed_via,
+                "environment_prepped": row.environment_prepped}, "LEGACY_MIGRATION")
+    for row in db.scalars(select(HabitEvent).where(HabitEvent.habit_id.in_(habit_ids))):
+        moment = row.occurred_at if row.occurred_at.tzinfo else row.occurred_at.replace(tzinfo=timezone.utc)
+        event_id = str(uuid5(NAMESPACE_URL, f"habitly:legacy-event:{row.id}"))
+        upsert(event_id, row.habit_id, row.event_type, moment, moment.date(),
+               {"note": row.note, "strategy": row.strategy, "replacement_action": row.variation_name},
+               "LEGACY_MIGRATION")
+
+    payload = workspace or {}
+    for row in payload.get("behaviorLogs", []):
+        if not isinstance(row, dict) or row.get("habitId") not in habit_ids or not row.get("id") or not row.get("at"):
+            continue
+        try:
+            moment = datetime.fromisoformat(str(row["at"]).replace("Z", "+00:00"))
+            if moment.tzinfo is None:
+                moment = moment.replace(tzinfo=timezone.utc)
+            local_day = date.fromisoformat(row.get("localDate", "")) if row.get("localDate") else moment.date()
+        except (TypeError, ValueError):
+            continue
+        outcome = row.get("outcome")
+        kind = row.get("type")
+        event_type = ("URGE_RESISTED" if outcome == "resisted" else "URGE_SLIPPED" if outcome == "smoked"
+                      else "URGE_LOGGED") if kind == "craving" else "PROACTIVE_REPLACEMENT" if kind == "technique_applied" else "HABIT_OCCURRENCE"
+        context = {key: row.get(key) for key in ("trigger", "replacementAction", "context", "note", "episodeId", "timezone", "createdAt") if row.get(key) is not None}
+        verification = {key: row.get(key) for key in ("urgeFollowUpStatus", "urgeFollowUpAt", "urgeFollowUpDueAt", "intensityAfter") if row.get(key) is not None}
+        try:
+            created_at = datetime.fromisoformat(str(row.get("createdAt", "")).replace("Z", "+00:00")) if row.get("createdAt") else None
+        except ValueError:
+            created_at = None
+        event_id = str(uuid5(NAMESPACE_URL, f"habitly:behavior:{row['habitId']}:{row['id']}"))
+        upsert(event_id, row["habitId"], event_type, moment, local_day, context,
+               journal_source, row.get("intensity"), verification or None, created_at)
 
 
 @app.middleware("http")
@@ -249,6 +325,8 @@ def list_identities(request: Request, db: Session = Depends(get_db)):
 @app.get("/api/workspace")
 def read_workspace(request: Request, db: Session = Depends(get_db)):
     state = db.get(WorkspaceState, request.state.user_id)
+    sync_unified_events(db, request.state.user_id, state.payload if state else {})
+    db.commit()
     data = build_workspace(db, request.state.user_id, state)
     return {"data": data, "revision": state.revision if state else 0}
 
@@ -267,6 +345,7 @@ def write_workspace(payload: dict, request: Request, db: Session = Depends(get_d
         if expected_revision != 0:
             raise HTTPException(409, "This workspace was created in another browser. Reconnect to load it before saving again.")
         state = WorkspaceState(user_id=request.state.user_id, payload=workspace, revision=1); db.add(state)
+    sync_unified_events(db, request.state.user_id, workspace, "JOURNAL_LOGGER")
     db.commit()
     return {"saved": True, "updated_at": state.updated_at, "revision": state.revision}
 
@@ -517,6 +596,8 @@ def create_habit_event(habit_id: str, payload: HabitEventCreate, db: Session = D
         raise HTTPException(404, "Habit not found")
     event = HabitEvent(habit_id=habit_id, **payload.model_dump())
     db.add(event)
+    db.flush()
+    sync_unified_events(db, habit.identity.user_id)
     db.commit()
     db.refresh(event)
     return event
@@ -647,6 +728,8 @@ def log_habit(habit_id: str, payload: LogCreate, db: Session = Depends(get_db)):
     if payload.status in {"COMPLETED", "RECOVERED"} and previous_status not in {"COMPLETED", "RECOVERED"}:
         habit.identity.total_votes += 1
     log.environment_prepped = payload.environment_prepped or (existing.environment_prepped if existing else False)
+    db.flush()
+    sync_unified_events(db, habit.identity.user_id)
     db.commit()
     db.refresh(log)
     rows = list(db.scalars(select(HabitLog).where(HabitLog.habit_id == habit_id).order_by(HabitLog.logged_date.desc())))

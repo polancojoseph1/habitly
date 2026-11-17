@@ -8,7 +8,6 @@ import { isPeriodOccurrenceCoverageComplete } from './period-checkin';
 import { PeriodCheckin } from './period-checkin-view';
 import notebookLMContent from './notebooklm-content.json';
 import { lawGroups, techniques, techniqueMap } from './techniques';
-import { removeSmokingWorkspaceData } from './workspace-cleanup';
 import type { ChangeMode, Law } from './techniques';
 import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, legacyHabitEventsToBehaviorLogs, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, prepareBehavioralWorkspaceImport, recordPostEngagementSatisfaction, recordUrgeFollowUp, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, withoutSampleBehaviorLogs } from './behavioral-logging';
 import type { BehaviorLog, BehaviorType, DailyConfirmation, DailyConfirmationStatus, PostEngagementSatisfaction, UrgeFollowUpStatus } from './behavioral-logging';
@@ -56,7 +55,7 @@ type ScorecardEntry = { id: string; behavior: string; rating: '+' | '-' | '=' };
 type Diagnostic = { id: string; routine: string; craving: string; rewardExperiment: string; cueTime: string; cueLocation: string; cueEmotion: string; cuePeople: string; plan: string };
 type Circle = { id: string; name: string; category: string; members: number; detail: string };
 type Reward = { id: string; name: string; habitId: string; detail: string };
-type Tab = 'Today' | 'Logging' | 'My habits' | 'Habit scorecard' | 'Community' | 'Recovery' | 'Reward vault' | 'Habit to break' | 'Playbook' | 'Settings';
+type Tab = 'Today' | 'Logging' | 'Journal' | 'Tracker' | 'History' | 'My habits' | 'Habit scorecard' | 'Community' | 'Recovery' | 'Reward vault' | 'Habit to break' | 'Playbook' | 'Settings';
 type Palette = 'lavender' | 'ocean' | 'rose' | 'amber' | 'sage';
 const palettes: { id: Palette; name: string; colors: [string, string, string] }[] = [
   { id: 'lavender', name: 'Lavender', colors: ['#6256c8', '#b8adff', '#efedff'] },
@@ -91,17 +90,6 @@ const motiveOptions = [
 const STORAGE = 'habitly-workspace-v2';
 const RECOVERY_STORAGE = 'habitly-workspace-before-account-sync-v1';
 const REFRESH_VIEW_STORAGE = 'habitly-refresh-view-v1';
-const SMOKING_CLEANUP_STORAGE = 'habitly-smoking-cleanup-v1';
-function cleanLegacySmokingStorage() {
-  try {
-    if (localStorage.getItem(SMOKING_CLEANUP_STORAGE) === 'done') return;
-    for (const key of [STORAGE, RECOVERY_STORAGE]) {
-      const raw = localStorage.getItem(key);
-      if (raw) localStorage.setItem(key, JSON.stringify(removeSmokingWorkspaceData(JSON.parse(raw))));
-    }
-    localStorage.setItem(SMOKING_CLEANUP_STORAGE, 'done');
-  } catch { /* Keep the original browser copy if a cleanup cannot be saved. */ }
-}
 function preserveLocalWorkspace() {
   try {
     const raw = localStorage.getItem(STORAGE);
@@ -179,7 +167,7 @@ const tribes = [
   { id: 'makers-hour', name: 'Makers’ Hour', category: 'Creative work', members: 76, detail: 'Show up for one focused creative session.' },
 ];
 const nav: { title: Tab; icon: string }[] = [
-  { title: 'Today', icon: 'grid' }, { title: 'Logging', icon: 'clock' }, { title: 'My habits', icon: 'leaf' },
+  { title: 'Today', icon: 'grid' }, { title: 'Tracker', icon: 'grid' }, { title: 'Journal', icon: 'spark' }, { title: 'History', icon: 'clock' }, { title: 'My habits', icon: 'leaf' },
   { title: 'Habit to break', icon: 'spark' }, { title: 'Recovery', icon: 'heart' }, { title: 'Habit scorecard', icon: 'check' },
   { title: 'Reward vault', icon: 'lock' }, { title: 'Community', icon: 'heart' },
   { title: 'Playbook', icon: 'spark' }, { title: 'Settings', icon: 'heart' },
@@ -433,6 +421,7 @@ export default function Home() {
   const [loggingView, setLoggingView] = useState<'Log' | 'Insights' | 'History'>('Log');
   const [logType, setLogType] = useState<BehaviorLog['type']>('craving');
   const [logTrigger, setLogTrigger] = useState('');
+  const [logReplacement, setLogReplacement] = useState('');
   const [logIntensity, setLogIntensity] = useState('');
   const [logOutcome, setLogOutcome] = useState<BehaviorLog['outcome']>('pending');
   const [logTechnique, setLogTechnique] = useState('');
@@ -651,7 +640,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    cleanLegacySmokingStorage();
     let hasLocalWorkspace = false;
     try {
       const saved = localStorage.getItem(STORAGE);
@@ -921,7 +909,7 @@ export default function Home() {
   async function importLocalWorkspace(backup?: any) {
     if (!apiUrl || !remoteToken) return;
     let local: any = {};
-    try { local = removeSmokingWorkspaceData(backup ?? JSON.parse(localStorage.getItem(STORAGE) ?? '{}')); } catch { setConnectionError('Could not read this browser’s saved data. Export it from browser storage before retrying.'); return; }
+    try { local = backup ?? JSON.parse(localStorage.getItem(STORAGE) ?? '{}'); } catch { setConnectionError('Could not read this browser’s saved data. Export it from browser storage before retrying.'); return; }
     preserveLocalWorkspace();
     const sourceLogs: BehaviorLog[] = local.behaviorLogs ?? behaviorLogs;
     const sourceEvents: HabitEvent[] = local.habitEvents ?? habitEvents;
@@ -1017,7 +1005,7 @@ export default function Home() {
   }
 
   function resetBehaviorDraft() {
-    setEditingLogId(''); setLogTrigger(''); setLogIntensity(''); setLogOutcome('pending'); setLogTechnique(''); setLogTechniqueId(''); setLogVariationId(''); setLogTiming('responsive'); setLogQuantity(1); setLogNote(''); setLogTimestamp(''); setLogResolvedTimestamp(''); setLogEpisodeId('');
+    setEditingLogId(''); setLogTrigger(''); setLogReplacement(''); setLogIntensity(''); setLogOutcome('pending'); setLogTechnique(''); setLogTechniqueId(''); setLogVariationId(''); setLogTiming('responsive'); setLogQuantity(1); setLogNote(''); setLogTimestamp(''); setLogResolvedTimestamp(''); setLogEpisodeId('');
     setLogEmotions(''); setLogEnvironments(''); setLogActivities(''); setLogSocial(''); setLogContextTags(''); setLogBodilyState(''); setLogAccessibility(''); setLogMotives([]); setLogAutomaticThought(''); setLogBelief(''); setLogConfidence(''); setLogReframing(''); setLogIntensityAfter(''); setLogFormOpen(false);
   }
 
@@ -1071,6 +1059,7 @@ export default function Home() {
       trigger: (quick ? '' : logTrigger.trim()) || (type === 'technique_applied' && logTiming === 'responsive' ? latestOpenCraving?.trigger : undefined) || undefined,
       ...(type === 'craving' || type === 'technique_applied' ? { intensity: !quick && logIntensity !== '' ? Number(logIntensity) : undefined } : {}),
       outcome: type === 'craving' ? (quick ? 'pending' : logOutcome) : undefined,
+      replacementAction: type === 'craving' && !quick ? logReplacement.trim() || undefined : undefined,
       resolvedAt: !quick && type === 'craving' && logOutcome !== 'pending' && resolvedDate ? resolvedDate.toISOString() : undefined,
       technique: type === 'technique_applied' ? (variation?.name || technique?.name || logTechnique.trim() || undefined) : undefined,
       techniqueId: type === 'technique_applied' ? (technique?.id || variation?.techniqueId || logTechniqueId || undefined) : undefined,
@@ -1179,7 +1168,7 @@ export default function Home() {
 
   function editBehaviorLog(log: BehaviorLog) {
     setQuickCueCaptureLogId('');
-    setLoggingView('Log'); setLogFormOpen(true); setEditingLogId(log.id); setLogType(log.type); setLogTrigger(log.trigger ?? ''); setLogIntensity(log.intensity === undefined ? '' : String(log.intensity));
+    setActive('Journal'); setLoggingView('Log'); setLogFormOpen(true); setEditingLogId(log.id); setLogType(log.type); setLogTrigger(log.trigger ?? ''); setLogReplacement(log.replacementAction ?? ''); setLogIntensity(log.intensity === undefined ? '' : String(log.intensity));
     setLogOutcome(log.outcome ?? 'pending'); setLogTechnique(log.technique ?? ''); setLogTechniqueId(log.techniqueId ?? ''); setLogVariationId(log.variationId ?? ''); setLogTiming(log.timing ?? 'responsive');
     setLogQuantity(log.quantity ?? 1); setLogNote(log.note ?? ''); setLogEpisodeId(log.episodeId ?? '');
     setLogEmotions(log.context?.emotions?.join(', ') ?? ''); setLogEnvironments(log.context?.environments?.join(', ') ?? ''); setLogActivities(log.context?.activities?.join(', ') ?? ''); setLogSocial(log.context?.social?.join(', ') ?? ''); setLogContextTags(log.context?.tags?.join(', ') ?? '');
@@ -2032,11 +2021,17 @@ export default function Home() {
     const firstHistoryPage = historyLogs.slice(0, historyLimit);
     const firstPageEpisodes = new Set(firstHistoryPage.map(episodeKey));
     const visibleHistory = historyLogs.filter((log, index) => index < historyLimit || (log.episodeId && firstPageEpisodes.has(log.episodeId)));
-    const historyDays = [...new Set(visibleHistory.map(behaviorDayKey))];
+    const dailyHistory = Object.entries(history).flatMap(([day, records]) => records.flatMap(value => {
+      const missed = value.startsWith('missed:');
+      const habitId = missed ? value.slice(7) : value;
+      const habit = habits.find(item => item.id === habitId);
+      return habit && habit.id === selectedHabit.id && (!historyFrom || day >= historyFrom) && (!historyTo || day <= historyTo) && historyTypeFilter === 'all' ? [{ day, habit, missed }] : [];
+    })).sort((a, b) => b.day.localeCompare(a.day));
+    const historyDays = [...new Set([...visibleHistory.map(behaviorDayKey), ...dailyHistory.map(item => item.day)])].sort((a, b) => b.localeCompare(a));
     const timelineGroups = historyDays.map(day => {
       const rows = visibleHistory.filter(log => behaviorDayKey(log) === day);
       const ids = [...new Set(rows.map(episodeKey))];
-      return { day, episodes: ids.map(id => ({ id, rows: rows.filter(log => episodeKey(log) === id).sort((a, b) => a.at.localeCompare(b.at)) })) };
+      return { day, checkins: dailyHistory.filter(item => item.day === day), episodes: ids.map(id => ({ id, rows: rows.filter(log => episodeKey(log) === id).sort((a, b) => a.at.localeCompare(b.at)) })) };
     });
     const formatDay = (key: string) => new Date(key + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     const formatTime = (value: string, timezone?: string) => {
@@ -2056,6 +2051,7 @@ export default function Home() {
         if (law) bits.push(law.break);
       }
       if (log.trigger) bits.push(log.trigger);
+      if (log.replacementAction) bits.push('Replacement: ' + log.replacementAction);
       return bits.join(' · ');
     };
     const contextDetails = (log: BehaviorLog) => {
@@ -2068,11 +2064,16 @@ export default function Home() {
       ].filter(Boolean).join(' · ');
     };
     const outcomeLabel = (outcome: string) => outcome === 'resisted' ? 'Resisted' : outcome === 'smoked' ? (isSmoke ? 'Smoked' : 'Engaged in habit') : 'Outcome unknown';
+    const buildDays = localDateKeys(28).map(day => ({ day, status: (history[day] ?? []).includes(selectedHabit.id) ? 'completed' : (history[day] ?? []).includes(`missed:${selectedHabit.id}`) ? 'missed' : 'unknown' }));
+    const completedDays = buildDays.filter(day => day.status === 'completed').length;
+    const unknownDays = buildDays.filter(day => day.status === 'unknown').length;
+    const missOpportunities = buildDays.slice(0, -1).filter((day, index, days) => day.status === 'missed' && days[index + 1].status !== 'unknown');
+    const nextDayRebounds = missOpportunities.filter((day, index) => buildDays[index + 1].status === 'completed').length;
     const configuredOpenEpisodes = [...new Set(logs.filter(log => log.episodeId).map(log => log.episodeId!))];
     return <>
       <div className="page-heading-row logging-heading logging-heading-compact">
-        <div><div className="eyebrow">BEHAVIORAL LOG</div><h1>Notice the pattern<span className="heading-period">.</span></h1></div>
-        <label className="logging-habit-picker">HABIT<select aria-label="Select habit to break" value={selectedHabit.id} onChange={event => { setLoggingHabitId(event.target.value); setQuickCueCaptureLogId(''); setHistoryLimit(30); }}>{habits.filter(habit => habit.kind === 'BREAK').map(habit => <option key={habit.id} value={habit.id}>{habit.name}</option>)}</select></label>
+        <div><div className="eyebrow">{loggingView === 'Log' ? 'UNDERSTAND YOUR BEHAVIOR' : loggingView === 'Insights' ? 'MEASURE YOUR PROGRESS' : 'REVIEW PAST EVENTS'}</div><h1>{loggingView === 'Log' ? 'Habit Journal' : loggingView === 'Insights' ? 'Habit Tracker' : 'Habit History'}<span className="heading-period">.</span></h1></div>
+        <label className="logging-habit-picker">HABIT<select aria-label="Select habit" value={selectedHabit.id} onChange={event => { setLoggingHabitId(event.target.value); setQuickCueCaptureLogId(''); setHistoryLimit(30); }}>{habits.map(habit => <option key={habit.id} value={habit.id}>{habit.name}</option>)}</select></label>
       </div>
       <section className={`logging-sync-banner ${connectionError ? 'has-error' : workspaceReady && remoteToken ? 'is-connected' : 'is-local'}`} role="status">
         <div><b>{connectionError ? 'Sync needs attention' : workspaceReady && remoteToken ? 'Account sync is active' : remoteToken ? 'Device data import is pending' : 'Saved on this device only'}</b><p>{connectionError ? `${connectionError} Your browser copy is still available.` : workspaceReady && remoteToken ? 'New logging entries sync to this Habitly account.' : remoteToken ? 'The account is connected, but its workspace has not been loaded. Review the local data import in Settings before logging here.' : 'This browser’s logging records are not reaching the server yet. Connect an account in Settings to sync this device’s data.'}</p></div>
@@ -2080,7 +2081,7 @@ export default function Home() {
       </section>
       {legacyAnalyticsLogs.length > 0 && <p className="logging-legacy-note">Included {legacyAnalyticsLogs.length} older check-in{legacyAnalyticsLogs.length === 1 ? '' : 's'} from the previous Smoking logger. Urge-passed and replacement-used entries now count in insights. Cigarette quantities and structured triggers remain unknown unless those fields were recorded.</p>}
       <div className="logging-view-tabs" role="tablist" aria-label="Behavioral logging views">
-        {(['Log', 'Insights', 'History'] as const).map(view => <button key={view} type="button" role="tab" id={'logging-tab-' + view.toLowerCase()} aria-selected={loggingView === view} aria-controls="logging-view-panel" className={loggingView === view ? 'selected' : ''} onClick={() => setLoggingView(view)}>{view}{view === 'History' && <span>{analyticsLogs.length}</span>}</button>)}
+        {(['Log', 'Insights', 'History'] as const).map(view => <button key={view} type="button" role="tab" id={'logging-tab-' + view.toLowerCase()} aria-selected={loggingView === view} aria-controls="logging-view-panel" className={loggingView === view ? 'selected' : ''} onClick={() => { setLoggingView(view); setActive(view === 'Log' ? 'Journal' : view === 'Insights' ? 'Tracker' : 'History'); }}>{view}{view === 'History' && <span>{analyticsLogs.length}</span>}</button>)}
       </div>
       <div id="logging-view-panel" role="tabpanel" aria-labelledby={'logging-tab-' + loggingView.toLowerCase()}>
         {loggingView === 'Log' && <>
@@ -2090,12 +2091,12 @@ export default function Home() {
           </div>
           <section className="logging-quick-panel">
             <div className="logging-section-heading"><div><span className="eyebrow">ONE TAP TO RECORD</span><h2>What’s happening?</h2></div><span className="logging-live"><i/>{connectionError ? 'Sync issue' : workspaceReady && remoteToken ? 'Synced with account' : remoteToken ? 'Import required' : 'Saved on this device'}</span></div>
-            <div className="logging-quick-actions">
+            {selectedHabit.kind === 'BUILD' ? <div className="logging-quick-actions"><button type="button" className="logging-quick-action technique" onClick={() => void completeHabit(selectedHabit)} disabled={selectedHabit.completed}><span><b>{selectedHabit.completed ? 'Completed today' : 'Complete today'}</b><small>{selectedHabit.gateway}</small></span></button><button type="button" className="logging-quick-action" onClick={() => void recordHabitEvent(selectedHabit, 'ACTION_COMPLETED')}><span><b>Record an extra action</b><small>For another action today</small></span></button></div> : <div className="logging-quick-actions">
               <button type="button" className="logging-quick-action craving" onClick={() => quickLog('craving')}><span className="logging-action-icon"><Icon name="spark" size={20}/></span><span><b>Craving</b><small>Save an unresolved urge</small></span><Icon name="plus" size={18}/></button>
               <button type="button" className="logging-quick-action occurrence" onClick={() => quickLog('habit_occurrence')}><span className="logging-action-icon"><Icon name="arrow-up-right" size={20}/></span><span><b>{occurrenceActionLabel(selectedHabit)}</b><small>One {occurrenceUnit} by default</small></span><Icon name="plus" size={18}/></button>
               <button type="button" className="logging-quick-action technique" onClick={() => quickLog('technique_applied')}><span className="logging-action-icon"><Icon name="check" size={20}/></span><span><b>Used a technique</b><small>Choose from your strategy</small></span><Icon name="plus" size={18}/></button>
-            </div>
-            {cueCaptureLog && <form className="logging-cue-capture" onSubmit={saveCueCapture}>
+            </div>}
+            {selectedHabit.kind === 'BREAK' && cueCaptureLog && <form className="logging-cue-capture" onSubmit={saveCueCapture}>
               <div className="logging-form-head"><div><span className="eyebrow">URGE EPISODE CHECK-IN</span><h2>What was happening when the urge started?</h2></div><button type="button" className="text-button" onClick={dismissCueCapture}>Close</button></div>
               <p className="logging-cue-time">Time recorded automatically: <time dateTime={cueCaptureLog.at}>{formatTime(cueCaptureLog.at, cueCaptureLog.timezone)}</time></p>
               <div className="logging-cue-grid">
@@ -2116,7 +2117,7 @@ export default function Home() {
             {hydrated && (notificationsEnabled ? <p className="logging-reminder-note">Browser reminders are on while Habitly is open. Unanswered check-ins remain here for your next visit.</p> : <button type="button" className="logging-reminder-enable" onClick={enableBrowserReminders}>Enable browser reminders for 15-minute check-ins</button>)}
             {recentSavedLogId && recentSavedLogId !== quickCueCaptureLogId && <p className="logging-save-confirmation" role="status"><Icon name="check" size={16}/> Saved just now. <button type="button" onClick={() => { const saved = behaviorLogs.find(log => log.id === recentSavedLogId); if (saved) editBehaviorLog(saved); }}>Add details or change outcome</button></p>}
           </section>
-          <section className="logging-confirm-card">
+          {selectedHabit.kind === 'BREAK' && <section className="logging-confirm-card">
             <div><span className="eyebrow">OPTIONAL DAILY CONFIRMATION</span><h2>Confirm today’s record</h2><p>Only confirmed days count as habit free. You can change this later.</p></div>
             <div className="logging-confirm-actions" role="group" aria-label="Daily habit confirmation">
               {([
@@ -2127,7 +2128,7 @@ export default function Home() {
               ] as [DailyConfirmationStatus, string][]).map(([status, title]) => <button key={status} type="button" className={currentConfirmation?.status === status ? 'selected' : ''} aria-pressed={currentConfirmation?.status === status} onClick={() => saveDailyConfirmation(status)}>{title}</button>)}
             </div>
             {todaySummary.conflict && <p className="logging-conflict" role="alert">Your {currentConfirmation?.status === 'no_occurrence' ? 'no occurrence' : 'occurred and recorded'} confirmation conflicts with {todaySummary.occurrenceEvents} logged occurrence events. Correct either record above.</p>}
-          </section>
+          </section>}
           <div className="logging-quick-footer">
             <button type="button" className="text-button" aria-expanded={logFormOpen} onClick={() => setLogFormOpen(value => !value)}>{logFormOpen ? 'Hide entry details' : 'Add context, backdate, or edit an entry'} <Icon name="chevron" size={14}/></button>
             <details className="logging-tag-manager"><summary>Manage custom context tags <span>{customContextTags.length}</span></summary><div><label>NEW TAG<input aria-label="New custom context tag" value={customTagDraft} onChange={event => setCustomTagDraft(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addCustomContextTag(); } }} placeholder="e.g. after a long commute"/></label><button type="button" className="secondary-button" onClick={addCustomContextTag}>Add tag</button><div className="logging-custom-tags">{customContextTags.map(tag => <button type="button" key={tag} onClick={() => setCustomContextTags(current => current.filter(item => item !== tag))} aria-label={'Remove custom tag ' + tag}>{tag}<span aria-hidden="true">×</span></button>)}</div></div></details>
@@ -2137,6 +2138,7 @@ export default function Home() {
             <div className="logging-type-tabs" role="group" aria-label="Choose event type">{([{ id: 'craving', title: 'Craving', icon: 'spark' }, { id: 'habit_occurrence', title: occurrenceActionLabel(selectedHabit), icon: 'arrow-up-right' }, { id: 'technique_applied', title: 'Technique', icon: 'check' }] as const).map(item => <button type="button" key={item.id} className={logType === item.id ? 'selected' : ''} aria-pressed={logType === item.id} onClick={() => { setLogType(item.id); setLogOutcome('pending'); }}><Icon name={item.icon} size={17}/><span>{item.title}</span></button>)}</div>
             <label className="logging-field">Trigger <span>OPTIONAL</span><input list="behavior-triggers" value={logTrigger} onChange={event => setLogTrigger(event.target.value)} placeholder="What was happening?"/><datalist id="behavior-triggers">{['After eating', 'Stress', 'Boredom', 'Coffee', 'Waking up', 'Social break', ...customContextTags].map(value => <option key={value} value={value}/>)}</datalist></label>
             {logType === 'craving' && <div className="logging-field-row"><label className="logging-field">Craving intensity <span>OPTIONAL · 0 TO 10</span><input type="number" min="0" max="10" value={logIntensity} onChange={event => setLogIntensity(event.target.value)} placeholder="Not recorded"/></label><label className="logging-field">Outcome<select value={logOutcome ?? 'pending'} onChange={event => setLogOutcome(event.target.value as BehaviorLog['outcome'])}><option value="pending">Still experiencing it</option><option value="resisted">Resisted without engaging</option><option value="smoked">{isSmoke ? 'Smoked' : 'Engaged in the habit'}</option></select></label></div>}{logType === 'craving' && logOutcome !== 'pending' && <label className="logging-field">Resolution time <span>OPTIONAL · LEAVE EMPTY IF UNKNOWN</span><input type="datetime-local" value={logResolvedTimestamp} onChange={event => setLogResolvedTimestamp(event.target.value)}/><small>Used for time to resolution only when you know when the craving ended.</small></label>}
+            {logType === 'craving' && <label className="logging-field">Replacement action <span>OPTIONAL</span><input value={logReplacement} onChange={event => setLogReplacement(event.target.value)} placeholder="What did you try instead?"/></label>}
             {logType === 'habit_occurrence' && <label className="logging-field">{isSmoke ? 'Cigarettes' : 'Quantity'}<span>DEFAULT 1</span><input type="number" min="1" max="100" value={logQuantity} onChange={event => setLogQuantity(Number(event.target.value))}/></label>}
             {logType === 'technique_applied' && <><label className="logging-field">Strategy technique<select aria-label="Choose a technique from this habit strategy" value={selectedTechniqueKey} onChange={event => { const choice = techniqueChoices.find(item => item.key === event.target.value); setLogTechniqueId(choice?.techniqueId ?? ''); setLogVariationId(choice?.variationId ?? ''); setLogTechnique(choice?.name ?? ''); }}><option value="">Choose a configured technique</option>{techniqueChoices.map(choice => <option key={choice.key} value={choice.key}>{choice.name} · {choice.laws.map(id => lawGroups.find(law => law.id === id)?.break).filter(Boolean).join(', ')}</option>)}{editingLogId && logTechnique && !techniqueChoices.some(item => item.key === selectedTechniqueKey) && <option value={selectedTechniqueKey}>{logTechnique} · historical technique</option>}</select>{!techniqueChoices.length && <small>Configure techniques under this habit’s strategy before logging an application.</small>}</label><div className="logging-field-row"><label className="logging-field">When was it used?<select value={logTiming} onChange={event => setLogTiming(event.target.value as 'preventive' | 'responsive')}><option value="responsive">During a craving or event</option><option value="preventive">Before a craving or risk</option></select></label><label className="logging-field">Craving intensity <span>OPTIONAL</span><input type="number" min="0" max="10" value={logIntensity} onChange={event => setLogIntensity(event.target.value)} placeholder="Not recorded"/></label></div></>}
             <label className="logging-field">Related episode <span>OPTIONAL · LEAVE AUTO TO LINK A RECENT OPEN CRAVING</span><select value={logEpisodeId} onChange={event => setLogEpisodeId(event.target.value)}><option value="">Auto link or start a new episode</option><option value="__new__">Start a new episode</option>{configuredOpenEpisodes.map(id => { const episodeEvent = logs.find(log => log.episodeId === id); return <option key={id} value={id}>Existing episode · {episodeEvent?.trigger || formatTime(episodeEvent?.at ?? new Date().toISOString(), episodeEvent?.timezone)}</option>; })}</select></label>
@@ -2148,7 +2150,8 @@ export default function Home() {
             <p className="logging-privacy">Unknown outcomes stay unknown. A missing log is never treated as abstinence.</p>
           </form>}
         </>}
-        {loggingView === 'Insights' && <div className="logging-insights-page">
+        {loggingView === 'Insights' && selectedHabit.kind === 'BUILD' && <section className="calendar-card"><div className="calendar-heading"><div><span className="eyebrow">LAST 28 DAYS</span><h2>{selectedHabit.name}</h2><p>{completedDays} of 28 active days completed. {unknownDays} days have no status and remain unconfirmed.</p></div><strong>{Math.round(completedDays / 28 * 100)}%</strong></div><div className="activity-calendar">{buildDays.map(day => <div key={day.day} title={`${day.day}: ${day.status}`} aria-label={`${day.day}: ${day.status}`} className={`activity-cell ${day.status === 'completed' ? 'activity-done' : day.status === 'missed' ? 'activity-missed' : ''}`}><span>{Number(day.day.slice(-2))}</span></div>)}</div><p>Consistency rate counts completed days over the full 28-day window. Unrecorded days are not treated as completed.</p><div className="logging-follow-up-metrics"><article><span className="eyebrow">NEXT-DAY REBOUND</span><b>{missOpportunities.length ? `${Math.round(nextDayRebounds / missOpportunities.length * 100)}%` : 'No miss opportunities'}</b><p>{nextDayRebounds} next-day returns of {missOpportunities.length} misses followed by a recorded day.</p></article></div></section>}
+        {loggingView === 'Insights' && selectedHabit.kind === 'BREAK' && <div className="logging-insights-page">
           <div className="logging-insight-toolbar">
             <label className="logging-period-picker">PERIOD<select aria-label="Insights period" value={insightFrom || insightTo ? 'custom' : insightDays} onChange={event => { setInsightDays(event.target.value === '24h' ? '24h' : event.target.value === 'all' ? 'all' : Number(event.target.value)); setInsightFrom(''); setInsightTo(''); }}><option value="24h">24 hours</option>{(insightFrom || insightTo) && <option value="custom" disabled>Custom date range</option>}<option value="all">All time</option><option value={7}>7 days</option><option value={14}>14 days</option><option value={30}>30 days</option><option value={90}>90 days</option></select></label>
             <details className="logging-insight-filter-disclosure">
@@ -2165,6 +2168,7 @@ export default function Home() {
             </details>
             <span className="logging-quality-pill" title="Descriptive evidence is based only on records in the selected period and the outcomes you entered">{rating}</span>
           </div>
+          <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">REPLACEMENT ROUTINES</span><h2>Replacement success</h2></div></div><p>{resolvedCravings.filter(log => Boolean(log.replacementAction) && getOutcome(log) === 'resisted').length} of {resolvedCravings.length} resolved urges were resisted with a replacement recorded{resolvedCravings.length ? ` (${Math.round(resolvedCravings.filter(log => Boolean(log.replacementAction) && getOutcome(log) === 'resisted').length / resolvedCravings.length * 100)}%)` : ''}.</p><small>This is a descriptive association in your logs. Unresolved urges are excluded, and it does not establish that the replacement caused the outcome.</small></section>
           <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">01 · {periodEyebrow} · OVERVIEW</span><h2>Period Check-in</h2></div><span className="logging-date-pill">{periodRangeText}</span></div><PeriodCheckin habitName={selectedHabit.name} isSmoking={isSmoke} periodLabel={periodLabel} current={currentPeriod} previous={previousPeriod} configuredTechniques={configured.size} techniqueApplicationCount={techniqueApplicationLogs.length} hasTechniqueFilters={hasTechniqueFilters} usedTechniques={techniquePractice.techniques} topTrigger={topTriggers[0] ? { name: topTriggers[0][0], count: topTriggers[0][1] } : undefined}/></section>
           <section className="logging-insight-section logging-cue-insight">
             <div className="logging-section-heading"><div><span className="eyebrow">CUE OBSERVATION · {periodEyebrow}</span><h2>What tends to come before the urge?</h2></div><span className="logging-quality-pill">{cuePattern.observationDays} of {insightKeys.length} days with cravings</span></div>
@@ -2310,12 +2314,12 @@ export default function Home() {
             ['No-occurrence confirmations', previousPeriod.noOccurrenceConfirmations, currentPeriod.noOccurrenceConfirmations, delta(currentPeriod.noOccurrenceConfirmations, previousPeriod.noOccurrenceConfirmations)],
             ['Days with logs / confirmations', previousPeriod.loggedDays + ' / ' + previousPeriod.days + ', ' + previousPeriod.confirmations + ' confirmed', currentPeriod.loggedDays + ' / ' + currentPeriod.days + ', ' + currentPeriod.confirmations + ' confirmed', 'Completeness'],
           ] as [string, string | number, string | number, string][]).map(row => <div className="logging-week-row" key={row[0]}><b>{row[0]}</b><span>{row[1]}</span><span>{row[2]}</span><span>{row[3]}</span></div>)}</div><p className="logging-caveat">The selected {periodLabel} is compared with the immediately previous equally long period. The 24 hour option compares exact rolling windows. A zero previous value has no percentage change.</p></section>
-          {confirmationConflicts.length > 0 && <section className="logging-insight-section logging-conflict-list"><div className="logging-section-heading"><div><span className="eyebrow">DATA CHECK</span><h2>Confirmation conflicts</h2></div><span className="logging-chart-note">{confirmationConflicts.length} day{confirmationConflicts.length === 1 ? '' : 's'}</span></div><p className="logging-caveat">A daily confirmation disagrees with occurrence records on a date covered by this period. Correct either side; Habitly keeps both until you do.</p>{confirmationConflicts.map(day => <div className="logging-conflict-row" key={day.key}><div><b>{formatDay(day.key)}</b><small>{day.summary.confirmation?.status === 'no_occurrence' ? day.summary.occurrenceEvents + ' occurrence events are logged' : 'You confirmed an occurrence was recorded, but none is logged'}</small></div>{day.summary.confirmation?.status === 'no_occurrence' ? <><button type="button" onClick={() => saveDailyConfirmation('occurred_recorded', day.key)}>Occurred, logged</button><button type="button" onClick={() => saveDailyConfirmation('incomplete', day.key)}>Records incomplete</button></> : <><button type="button" onClick={() => saveDailyConfirmation('no_occurrence', day.key)}>No occurrence</button><button type="button" onClick={() => saveDailyConfirmation('incomplete', day.key)}>Records incomplete</button></>}<button type="button" className="text-button" onClick={() => { setHistoryFrom(day.key); setHistoryTo(day.key); setLoggingView('History'); }}>Review events</button></div>)}</section>}
+          {confirmationConflicts.length > 0 && <section className="logging-insight-section logging-conflict-list"><div className="logging-section-heading"><div><span className="eyebrow">DATA CHECK</span><h2>Confirmation conflicts</h2></div><span className="logging-chart-note">{confirmationConflicts.length} day{confirmationConflicts.length === 1 ? '' : 's'}</span></div><p className="logging-caveat">A daily confirmation disagrees with occurrence records on a date covered by this period. Correct either side; Habitly keeps both until you do.</p>{confirmationConflicts.map(day => <div className="logging-conflict-row" key={day.key}><div><b>{formatDay(day.key)}</b><small>{day.summary.confirmation?.status === 'no_occurrence' ? day.summary.occurrenceEvents + ' occurrence events are logged' : 'You confirmed an occurrence was recorded, but none is logged'}</small></div>{day.summary.confirmation?.status === 'no_occurrence' ? <><button type="button" onClick={() => saveDailyConfirmation('occurred_recorded', day.key)}>Occurred, logged</button><button type="button" onClick={() => saveDailyConfirmation('incomplete', day.key)}>Records incomplete</button></> : <><button type="button" onClick={() => saveDailyConfirmation('no_occurrence', day.key)}>No occurrence</button><button type="button" onClick={() => saveDailyConfirmation('incomplete', day.key)}>Records incomplete</button></>}<button type="button" className="text-button" onClick={() => { setHistoryFrom(day.key); setHistoryTo(day.key); setActive('History'); setLoggingView('History'); }}>Review events</button></div>)}</section>}
         </div>}
         {loggingView === 'History' && <section className="logging-history-section">
           <div className="logging-section-heading"><div><span className="eyebrow">REVIEW AND CORRECT</span><h2>Behavior history <span className="soft-count">{historyLogs.length}</span></h2></div><span className="logging-chart-note">Grouped by local day and behavioral episode</span></div>
           <div className="logging-history-filters"><label>TYPE<select value={historyTypeFilter} onChange={event => { setHistoryTypeFilter(event.target.value); setHistoryLimit(30); }}><option value="all">All events</option><option value="craving">Cravings</option><option value="habit_occurrence">Habit occurrences</option><option value="technique_applied">Techniques</option><option value="recovery">Recovery actions</option></select></label><label>TRIGGER<input value={historyTriggerFilter} onChange={event => setHistoryTriggerFilter(event.target.value)} list="history-trigger-options" placeholder="All triggers"/><datalist id="history-trigger-options">{allTriggers.map(value => <option key={value} value={value}/>)}</datalist></label><label>TECHNIQUE<input value={historyTechniqueFilter} onChange={event => setHistoryTechniqueFilter(event.target.value)} placeholder="Any technique"/></label><label>LAW<select value={historyLawFilter} onChange={event => setHistoryLawFilter(event.target.value)}><option value="all">All laws</option>{lawGroups.slice(0, 4).map(item => <option key={item.id} value={item.id}>{item.break}</option>)}</select></label><label>OUTCOME<select value={historyOutcomeFilter} onChange={event => setHistoryOutcomeFilter(event.target.value)}><option value="all">All outcomes</option><option value="resisted">Resisted</option><option value="smoked">{isSmoke ? 'Smoked' : 'Engaged'}</option><option value="unknown">Unknown or unresolved</option></select></label><label className="logging-date-field">FROM<input type="date" value={historyFrom} onChange={event => setHistoryFrom(event.target.value)}/></label><label className="logging-date-field">TO<input type="date" value={historyTo} onChange={event => setHistoryTo(event.target.value)}/></label><button type="button" className="text-button logging-clear-filters" onClick={() => { setHistoryTypeFilter('all'); setHistoryTriggerFilter(''); setHistoryTechniqueFilter(''); setHistoryLawFilter('all'); setHistoryOutcomeFilter('all'); setHistoryFrom(''); setHistoryTo(''); }}>Clear filters</button></div>
-          {timelineGroups.length ? <div className="logging-history-days">{timelineGroups.map(day => <section key={day.day}><h3>{formatDay(day.day)}</h3>{day.episodes.map(episode => { const multi = episode.rows.length > 1; const episodeTitle = multi ? 'Behavioral episode · ' + episode.rows.length + ' linked events' : eventLabel(episode.rows[0]); const outcome = episode.rows.map(getOutcome).find(value => value !== 'unknown') ?? resolvedEpisodeOutcome(analyticsLogs, episode.id); const expanded = expandedEpisodes.includes(episode.id); return <details key={episode.id} className="logging-episode" open={expanded || undefined} onToggle={event => { const isOpen = event.currentTarget.open; setExpandedEpisodes(current => isOpen ? [...new Set([...current, episode.id])] : current.filter(id => id !== episode.id)); }}><summary><span className="logging-episode-mark"><Icon name={multi ? 'refresh' : episode.rows[0].type === 'craving' ? 'spark' : episode.rows[0].type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={17}/></span><span><b>{episodeTitle}</b><small>{formatTime(episode.rows[0].at, episode.rows[0].timezone)}{episode.rows[0].trigger ? ' · ' + episode.rows[0].trigger : ''}</small></span>{outcome !== 'unknown' && <em className={'behavior-outcome ' + outcome}>{outcomeLabel(outcome)}</em>}<Icon name="chevron" size={16}/></summary><ol className="behavior-timeline">{episode.rows.map(log => <li key={log.id}><span className={'behavior-type-mark ' + log.type}><Icon name={log.type === 'craving' ? 'spark' : log.type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={16}/></span><div className="behavior-log-main"><div className="behavior-log-title"><b>{eventLabel(log)}</b><time>{formatTime(log.at, log.timezone)}</time></div><p>{eventDetails(log)}</p>{log.legacyEvent && <small>From an older check-in. Original record kept unchanged.</small>}{log.type === 'craving' && <span className={'behavior-outcome ' + getOutcome(log)}>{outcomeLabel(getOutcome(log))}</span>}{log.context && <small>{contextDetails(log)}</small>}{(log.automaticThought || log.belief || log.reframing) && <small>{[log.automaticThought, log.belief, log.reframing].filter(Boolean).join(' · ')}</small>}{log.note && <small>{log.note}</small>}{!log.legacyEvent && <div className="behavior-log-actions"><button type="button" onClick={() => editBehaviorLog(log)}>Edit</button><button type="button" onClick={() => deleteBehaviorLog(log.id)}>Remove</button></div>}</div></li>)}</ol></details>; })}</section>)}</div> : <div className="logging-empty-state"><Icon name="clock" size={23}/><b>No matching events</b><span>Adjust the filters or record a new event in the Log tab.</span><button type="button" className="text-button" onClick={() => setLoggingView('Log')}>Go to Log <Icon name="arrow" size={14}/></button></div>}
+          {timelineGroups.length ? <div className="logging-history-days">{timelineGroups.map(day => <section key={day.day}><h3>{formatDay(day.day)}</h3>{day.checkins.map(({habit, missed}) => <article className="logging-episode" key={`checkin-${day.day}-${habit.id}`}><div className="logging-episode-summary"><span className="logging-episode-mark"><Icon name={missed ? 'refresh' : 'check'} size={17}/></span><span><b>{habit.name} · {missed ? 'Missed' : 'Completed'}</b><small>Daily check-in · Time not recorded</small></span><button type="button" className="text-button" onClick={() => { setLoggingHabitId(habit.id); setActive('Tracker'); setLoggingView('Insights'); }}>View tracker</button></div></article>)}{day.episodes.map(episode => { const multi = episode.rows.length > 1; const episodeTitle = multi ? 'Behavioral episode · ' + episode.rows.length + ' linked events' : eventLabel(episode.rows[0]); const outcome = episode.rows.map(getOutcome).find(value => value !== 'unknown') ?? resolvedEpisodeOutcome(analyticsLogs, episode.id); const expanded = expandedEpisodes.includes(episode.id); return <details key={episode.id} className="logging-episode" open={expanded || undefined} onToggle={event => { const isOpen = event.currentTarget.open; setExpandedEpisodes(current => isOpen ? [...new Set([...current, episode.id])] : current.filter(id => id !== episode.id)); }}><summary><span className="logging-episode-mark"><Icon name={multi ? 'refresh' : episode.rows[0].type === 'craving' ? 'spark' : episode.rows[0].type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={17}/></span><span><b>{episodeTitle}</b><small>{formatTime(episode.rows[0].at, episode.rows[0].timezone)}{episode.rows[0].trigger ? ' · ' + episode.rows[0].trigger : ''}</small></span>{outcome !== 'unknown' && <em className={'behavior-outcome ' + outcome}>{outcomeLabel(outcome)}</em>}<Icon name="chevron" size={16}/></summary><ol className="behavior-timeline">{episode.rows.map(log => <li key={log.id}><span className={'behavior-type-mark ' + log.type}><Icon name={log.type === 'craving' ? 'spark' : log.type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={16}/></span><div className="behavior-log-main"><div className="behavior-log-title"><b>{eventLabel(log)}</b><time>{formatTime(log.at, log.timezone)}</time></div><p>{eventDetails(log)}</p>{log.legacyEvent && <small>From an older check-in. Original record kept unchanged.</small>}{log.type === 'craving' && <span className={'behavior-outcome ' + getOutcome(log)}>{outcomeLabel(getOutcome(log))}</span>}{log.context && <small>{contextDetails(log)}</small>}{(log.automaticThought || log.belief || log.reframing) && <small>{[log.automaticThought, log.belief, log.reframing].filter(Boolean).join(' · ')}</small>}{log.note && <small>{log.note}</small>}{!log.legacyEvent && <div className="behavior-log-actions"><button type="button" onClick={() => editBehaviorLog(log)}>Edit</button><button type="button" onClick={() => deleteBehaviorLog(log.id)}>Remove</button></div>}</div></li>)}</ol></details>; })}</section>)}</div> : <div className="logging-empty-state"><Icon name="clock" size={23}/><b>No matching events</b><span>Adjust the filters or record a new event in the Log tab.</span><button type="button" className="text-button" onClick={() => { setActive('Journal'); setLoggingView('Log'); }}>Go to Journal <Icon name="arrow" size={14}/></button></div>}
           {historyLogs.length > visibleHistory.length && <button type="button" className="secondary-button logging-load-more" onClick={() => setHistoryLimit(value => value + 30)}>Load 30 more events</button>}
         </section>}
       </div>
@@ -2431,7 +2435,7 @@ export default function Home() {
   }
 
   function renderPage() {
-    if (active === 'Logging') return renderLogging();
+    if (active === 'Logging' || active === 'Journal' || active === 'Tracker' || active === 'History') return renderLogging();
     if (active === 'My habits') return renderHabits();
     if (active === 'Habit scorecard') return renderScorecard();
     if (active === 'Community') return renderCommunity();
@@ -2447,7 +2451,7 @@ export default function Home() {
     <aside id="main-navigation" className={`sidebar ${mobileNav ? 'sidebar-open' : ''}`}>
       <a className="brand" href="#today" onClick={e => { e.preventDefault(); setActive('Today'); setMobileNav(false); }}><span className="brand-mark">h</span><span>habitly<span className="brand-dot">.</span></span></a>
       <div className="sidebar-caption">YOUR SPACE</div>
-      <nav className="side-nav">{nav.map(item => <button key={item.title} className={`nav-item ${active === item.title ? 'nav-active' : ''}`} onClick={() => { setActive(item.title); setMobileNav(false); }}><Icon name={item.icon}/><span>{item.title === 'Recovery' ? 'History' : item.title === 'My habits' ? 'Habits' : item.title === 'Habit scorecard' ? 'Scorecard' : item.title === 'Reward vault' ? 'Rewards' : item.title}</span>{item.title === 'Recovery' && needRecovery && <i className="nav-alert"/>}{item.title === 'Reward vault' && unlockedRewards.length > 0 && <i className="nav-unlocked"/>}</button>)}</nav>
+      <nav className="side-nav">{nav.map(item => <button key={item.title} className={`nav-item ${active === item.title ? 'nav-active' : ''}`} onClick={() => { setActive(item.title); if (item.title === 'Journal') setLoggingView('Log'); if (item.title === 'Tracker') setLoggingView('Insights'); if (item.title === 'History') setLoggingView('History'); setMobileNav(false); }}><Icon name={item.icon}/><span>{item.title === 'Recovery' ? 'Recovery' : item.title === 'My habits' ? 'Habits' : item.title === 'Habit scorecard' ? 'Scorecard' : item.title === 'Reward vault' ? 'Rewards' : item.title}</span>{item.title === 'Recovery' && needRecovery && <i className="nav-alert"/>}{item.title === 'Reward vault' && unlockedRewards.length > 0 && <i className="nav-unlocked"/>}</button>)}</nav>
       <button className="sidebar-new" onClick={() => { setMobileNav(false); startNewHabit('BUILD'); }}><span><Icon name="plus" size={17}/></span><span>Build a habit</span><kbd>⌘ K</kbd></button>
       <div className="sidebar-bottom"><button className="identity-link" onClick={() => { setMobileNav(false); setShowIdentity(true); }}>Edit identity</button></div>
     </aside>

@@ -170,6 +170,27 @@ CREATE TABLE habit_logs (
 	FOREIGN KEY(habit_id) REFERENCES habits (id) ON DELETE CASCADE
 );
 
+-- Additive unified event stream. Existing history tables remain intact.
+CREATE TABLE v2_habit_event (
+	id VARCHAR(36) NOT NULL,
+	habit_id VARCHAR(36) NOT NULL,
+	event_type VARCHAR(40) NOT NULL,
+	occurred_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	effective_date DATE NOT NULL,
+	intensity INTEGER,
+	context_payload JSON NOT NULL,
+	verification_15m JSON,
+	source VARCHAR(32) NOT NULL,
+	created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+	PRIMARY KEY (id),
+	FOREIGN KEY(habit_id) REFERENCES habits (id) ON DELETE CASCADE
+);
+CREATE INDEX ix_v2_habit_event_habit_id ON v2_habit_event (habit_id);
+CREATE INDEX ix_v2_habit_event_event_type ON v2_habit_event (event_type);
+CREATE INDEX ix_v2_habit_event_occurred_at ON v2_habit_event (occurred_at);
+CREATE INDEX ix_v2_habit_event_effective_date ON v2_habit_event (effective_date);
+
 CREATE TABLE habit_variations (
 	id VARCHAR(36) NOT NULL,
 	habit_id VARCHAR(36) NOT NULL,
