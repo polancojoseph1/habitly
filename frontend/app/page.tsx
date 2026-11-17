@@ -3,14 +3,14 @@
 import { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './icons';
-import { buildStrategyGap, buildSuggestedExperiment, buildTechniquePracticeStats, mostCommonTrigger, mostPracticedTechnique, summarizeCuePatterns } from './insights';
+import { buildStrategyGap, buildSuggestedExperiment, buildTechniquePracticeStats, mostCommonTrigger, mostPracticedTechnique, summarizeCuePatterns, summarizeUrgeCheckIns } from './insights';
 import { isPeriodOccurrenceCoverageComplete } from './period-checkin';
 import { PeriodCheckin } from './period-checkin-view';
 import notebookLMContent from './notebooklm-content.json';
 import { lawGroups, techniques, techniqueMap } from './techniques';
 import type { ChangeMode, Law } from './techniques';
-import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, withoutSampleBehaviorLogs } from './behavioral-logging';
-import type { BehaviorLog, BehaviorType, DailyConfirmation, DailyConfirmationStatus } from './behavioral-logging';
+import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, recordPostEngagementSatisfaction, recordUrgeFollowUp, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, withoutSampleBehaviorLogs } from './behavioral-logging';
+import type { BehaviorLog, BehaviorType, DailyConfirmation, DailyConfirmationStatus, PostEngagementSatisfaction, UrgeFollowUpStatus } from './behavioral-logging';
 import { createSampleSmokingConfirmations, createSampleSmokingLogs } from './sample-smoking-data';
 
 type CueType = 'TIME_LOCATION' | 'STACK';
@@ -64,6 +64,28 @@ const palettes: { id: Palette; name: string; colors: [string, string, string] }[
   { id: 'amber', name: 'Amber', colors: ['#a96b25', '#e3ad62', '#fff3dc'] },
   { id: 'sage', name: 'Sage', colors: ['#527e70', '#91b6a2', '#e6f2eb'] },
 ];
+const bodilyStateOptions = [
+  ['tired', 'Tired or short on sleep'],
+  ['hungry_thirsty', 'Hungry or thirsty'],
+  ['restless', 'Restless or high energy'],
+  ['typical', 'Comfortable or typical'],
+  ['unsure', 'Not sure'],
+] as const;
+const accessibilityOptions = [
+  ['in_hand', 'In hand or already open'],
+  ['nearby', 'Nearby or one step away'],
+  ['out_of_reach', 'Out of reach or takes effort'],
+  ['not_applicable', 'Not applicable or unsure'],
+] as const;
+const motiveOptions = [
+  ['relief', 'Relief from stress or anxiety'],
+  ['distraction', 'Distraction or a mental break'],
+  ['stimulation', 'Stimulation or energy'],
+  ['connection', 'Connection or belonging'],
+  ['comfort', 'Physical pleasure or comfort'],
+  ['something_else', 'Something else'],
+  ['unsure', 'Not sure'],
+] as const;
 
 const STORAGE = 'habitly-workspace-v2';
 const REFRESH_VIEW_STORAGE = 'habitly-refresh-view-v1';
@@ -351,6 +373,14 @@ export default function Home() {
   const [cueEmotion, setCueEmotion] = useState('');
   const [cuePeople, setCuePeople] = useState('');
   const [cuePrecedingAction, setCuePrecedingAction] = useState('');
+  const [cueBodilyState, setCueBodilyState] = useState('');
+  const [cueAccessibility, setCueAccessibility] = useState('');
+  const [cueMotives, setCueMotives] = useState<string[]>([]);
+  const [logBodilyState, setLogBodilyState] = useState('');
+  const [logAccessibility, setLogAccessibility] = useState('');
+  const [logMotives, setLogMotives] = useState<string[]>([]);
+  const [loggingClock, setLoggingClock] = useState(Date.now());
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [loggingHabitId, setLoggingHabitId] = useState('demo-smoking');
   const [loggingView, setLoggingView] = useState<'Log' | 'Insights' | 'History'>('Log');
   const [logType, setLogType] = useState<BehaviorLog['type']>('craving');
@@ -511,6 +541,46 @@ export default function Home() {
       root.style.overscrollBehavior = previousOverscroll;
     };
   }, [modalOpen]);
+
+  useEffect(() => {
+    const updateClock = () => setLoggingClock(Date.now());
+    const timer = window.setInterval(updateClock, 15000);
+    window.addEventListener('focus', updateClock);
+    document.addEventListener('visibilitychange', updateClock);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', updateClock);
+      document.removeEventListener('visibilitychange', updateClock);
+    };
+  }, []);
+
+  useEffect(() => {
+    setNotificationsEnabled(typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted');
+  }, []);
+
+  useEffect(() => {
+    if (!notificationsEnabled || !('Notification' in window) || Notification.permission !== 'granted') return;
+    const due = behaviorLogs.filter(log => log.type === 'craving' && log.outcome === 'resisted' && log.urgeFollowUpDueAt
+      && new Date(log.urgeFollowUpDueAt).getTime() <= loggingClock && !log.urgeFollowUpStatus);
+    if (!due.length) return;
+    let seen: string[] = [];
+    try { seen = JSON.parse(localStorage.getItem('habitly-urge-reminders-seen-v1') ?? '[]').filter((id: unknown): id is string => typeof id === 'string'); }
+    catch { seen = []; }
+    const seenIds = new Set(seen);
+    let changed = false;
+    for (const log of due) {
+      if (seenIds.has(log.id)) continue;
+      try {
+        new Notification('Habitly check-in', { body: 'Did the urge stay gone, or did it linger or return?' });
+        seenIds.add(log.id);
+        changed = true;
+      } catch { /* The in-app check-in remains available if a browser blocks notifications. */ }
+    }
+    if (changed) {
+      try { localStorage.setItem('habitly-urge-reminders-seen-v1', JSON.stringify([...seenIds].slice(-500))); }
+      catch { /* The notification may repeat after reload if local storage is unavailable. */ }
+    }
+  }, [behaviorLogs, loggingClock, notificationsEnabled]);
 
   useEffect(() => {
     function closeHabitMenus(event: PointerEvent) {
@@ -837,7 +907,7 @@ export default function Home() {
 
   function resetBehaviorDraft() {
     setEditingLogId(''); setLogTrigger(''); setLogIntensity(''); setLogOutcome('pending'); setLogTechnique(''); setLogTechniqueId(''); setLogVariationId(''); setLogTiming('responsive'); setLogQuantity(1); setLogNote(''); setLogTimestamp(''); setLogResolvedTimestamp(''); setLogEpisodeId('');
-    setLogEmotions(''); setLogEnvironments(''); setLogActivities(''); setLogSocial(''); setLogContextTags(''); setLogAutomaticThought(''); setLogBelief(''); setLogConfidence(''); setLogReframing(''); setLogIntensityAfter(''); setLogFormOpen(false);
+    setLogEmotions(''); setLogEnvironments(''); setLogActivities(''); setLogSocial(''); setLogContextTags(''); setLogBodilyState(''); setLogAccessibility(''); setLogMotives([]); setLogAutomaticThought(''); setLogBelief(''); setLogConfidence(''); setLogReframing(''); setLogIntensityAfter(''); setLogFormOpen(false);
   }
 
   function commitBehaviorLog(type: BehaviorType, quick = false): string | undefined {
@@ -875,10 +945,17 @@ export default function Home() {
       activities: quick ? [] : splitTags(logActivities),
       social: quick ? [] : splitTags(logSocial),
       tags: quick ? [] : splitTags(logContextTags),
+      bodilyState: quick ? undefined : logBodilyState || undefined,
+      accessibility: quick ? undefined : logAccessibility || undefined,
+      motives: quick ? [] : logMotives,
     };
-    const context = Object.values(tags).some(values => values.length) ? tags : undefined;
+    const context = Object.values(tags).some(value => Array.isArray(value) ? value.length > 0 : Boolean(value)) ? tags : undefined;
+    const shouldScheduleUrgeFollowUp = !quick && type === 'craving' && logOutcome === 'resisted';
+    const followUpDue = shouldScheduleUrgeFollowUp
+      ? previous?.urgeFollowUpDueAt ?? new Date((resolvedDate?.getTime() ?? now.getTime()) + 15 * 60 * 1000).toISOString()
+      : undefined;
     const item: BehaviorLog = {
-      id: previous?.id ?? newRecordId('behavior'), habitId: habit.id, type, at: timestamp, createdAt: previous?.createdAt ?? now.toISOString(),
+      id: previous?.id ?? newRecordId('behavior'), habitId: habit.id, type, questionnaireVersion: 1, at: timestamp, createdAt: previous?.createdAt ?? now.toISOString(),
       localDate: eventMetadata.localDate, timezone: eventMetadata.timezone, episodeId,
       trigger: (quick ? '' : logTrigger.trim()) || (type === 'technique_applied' && logTiming === 'responsive' ? latestOpenCraving?.trigger : undefined) || undefined,
       ...(type === 'craving' || type === 'technique_applied' ? { intensity: !quick && logIntensity !== '' ? Number(logIntensity) : undefined } : {}),
@@ -897,6 +974,11 @@ export default function Home() {
       confidence: !quick && logConfidence !== '' ? Math.max(0, Math.min(10, Number(logConfidence))) : undefined,
       reframing: !quick ? logReframing.trim() || undefined : undefined,
       intensityAfter: !quick && logIntensityAfter !== '' ? Math.max(0, Math.min(10, Number(logIntensityAfter))) : undefined,
+      urgeFollowUpDueAt: type === 'craving' ? followUpDue : undefined,
+      urgeFollowUpStatus: type === 'craving' && logOutcome === 'resisted' ? previous?.urgeFollowUpStatus : undefined,
+      urgeFollowUpAt: type === 'craving' && logOutcome === 'resisted' ? previous?.urgeFollowUpAt : undefined,
+      postEngagementSatisfaction: type === 'craving' && logOutcome === 'smoked' ? previous?.postEngagementSatisfaction : undefined,
+      postEngagementSatisfactionAt: type === 'craving' && logOutcome === 'smoked' ? previous?.postEngagementSatisfactionAt : undefined,
       note: !quick ? logNote.trim() || undefined : undefined,
     };
     const changes = [item];
@@ -923,7 +1005,7 @@ export default function Home() {
   function quickLog(type: BehaviorType) {
     setLoggingView('Log');
     setQuickCueCaptureLogId('');
-    setCueLocation(''); setCueEmotion(''); setCuePeople(''); setCuePrecedingAction('');
+    setCueLocation(''); setCueEmotion(''); setCuePeople(''); setCuePrecedingAction(''); setCueBodilyState(''); setCueAccessibility(''); setCueMotives([]);
     if (type === 'technique_applied') {
       resetBehaviorDraft(); setLogType(type); setLogTiming('responsive'); setLogFormOpen(true);
       document.querySelector('.logging-advanced-form')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -936,7 +1018,7 @@ export default function Home() {
 
   function dismissCueCapture() {
     setQuickCueCaptureLogId('');
-    setCueLocation(''); setCueEmotion(''); setCuePeople(''); setCuePrecedingAction('');
+    setCueLocation(''); setCueEmotion(''); setCuePeople(''); setCuePrecedingAction(''); setCueBodilyState(''); setCueAccessibility(''); setCueMotives([]);
   }
 
   function saveCueCapture(event: FormEvent<HTMLFormElement>) {
@@ -949,8 +1031,11 @@ export default function Home() {
       emotions: splitTags(cueEmotion),
       social: splitTags(cuePeople),
       activities: splitTags(cuePrecedingAction),
+      bodilyState: cueBodilyState || undefined,
+      accessibility: cueAccessibility || undefined,
+      motives: cueMotives,
     };
-    const cleanedContext = Object.fromEntries(Object.entries(enteredContext).filter(([, values]) => values.length)) as NonNullable<BehaviorLog['context']>;
+    const cleanedContext = Object.fromEntries(Object.entries(enteredContext).filter(([, value]) => Array.isArray(value) ? value.length > 0 : Boolean(value))) as NonNullable<BehaviorLog['context']>;
     const context = Object.keys(cleanedContext).length ? cleanedContext : undefined;
     setBehaviorLogs(current => {
       const currentEntry = current.find(log => log.id === quickCueCaptureLogId && log.type === 'craving');
@@ -960,12 +1045,34 @@ export default function Home() {
     dismissCueCapture();
   }
 
+  function answerUrgeFollowUp(cravingId: string, status: UrgeFollowUpStatus) {
+    setBehaviorLogs(current => recordUrgeFollowUp(current, cravingId, status));
+    setToast(status === 'skipped' ? 'Follow-up skipped.' : 'Follow-up saved.');
+  }
+
+  function answerPostEngagement(cravingId: string, rating: PostEngagementSatisfaction) {
+    setBehaviorLogs(current => recordPostEngagementSatisfaction(current, cravingId, rating));
+    setToast(rating === 'skipped' ? 'Check-in skipped.' : 'Satisfaction check-in saved.');
+  }
+
+  async function enableBrowserReminders() {
+    if (!('Notification' in window)) { setToast('This browser does not support desktop reminders. Check-ins will still appear in Habitly.'); return; }
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationsEnabled(permission === 'granted');
+      setToast(permission === 'granted' ? 'Browser reminders enabled.' : 'Browser reminders were not enabled. Check-ins will still appear in Habitly.');
+    } catch {
+      setToast('Browser reminders are unavailable. Check-ins will still appear in Habitly.');
+    }
+  }
+
   function editBehaviorLog(log: BehaviorLog) {
     setQuickCueCaptureLogId('');
     setLoggingView('Log'); setLogFormOpen(true); setEditingLogId(log.id); setLogType(log.type); setLogTrigger(log.trigger ?? ''); setLogIntensity(log.intensity === undefined ? '' : String(log.intensity));
     setLogOutcome(log.outcome ?? 'pending'); setLogTechnique(log.technique ?? ''); setLogTechniqueId(log.techniqueId ?? ''); setLogVariationId(log.variationId ?? ''); setLogTiming(log.timing ?? 'responsive');
     setLogQuantity(log.quantity ?? 1); setLogNote(log.note ?? ''); setLogEpisodeId(log.episodeId ?? '');
     setLogEmotions(log.context?.emotions?.join(', ') ?? ''); setLogEnvironments(log.context?.environments?.join(', ') ?? ''); setLogActivities(log.context?.activities?.join(', ') ?? ''); setLogSocial(log.context?.social?.join(', ') ?? ''); setLogContextTags(log.context?.tags?.join(', ') ?? '');
+    setLogBodilyState(log.context?.bodilyState ?? ''); setLogAccessibility(log.context?.accessibility ?? ''); setLogMotives(log.context?.motives ?? []);
     setLogAutomaticThought(log.automaticThought ?? ''); setLogBelief(log.belief ?? ''); setLogConfidence(log.confidence === undefined ? '' : String(log.confidence)); setLogReframing(log.reframing ?? ''); setLogIntensityAfter(log.intensityAfter === undefined ? '' : String(log.intensityAfter));
     const localValue = new Date(new Date(log.at).getTime() - new Date(log.at).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
     setLogTimestamp(localValue);
@@ -1542,6 +1649,8 @@ export default function Home() {
     const logs = behaviorLogs.filter(log => log.habitId === selectedHabit.id).sort((a, b) => b.at.localeCompare(a.at));
     const cuePattern = summarizeCuePatterns(logs, localDateKeys(5));
     const cueCaptureLog = logs.find(log => log.id === quickCueCaptureLogId && log.type === 'craving');
+    const dueUrgeFollowUp = logs.filter(log => log.type === 'craving' && log.urgeFollowUpDueAt && new Date(log.urgeFollowUpDueAt).getTime() <= loggingClock && !log.urgeFollowUpStatus && outcomeForCraving(logs, log) === 'resisted').sort((a, b) => (a.urgeFollowUpDueAt ?? '').localeCompare(b.urgeFollowUpDueAt ?? ''))[0];
+    const pendingEngagementCheck = [...logs].filter(log => log.type === 'craving' && !log.id.startsWith('sample-log-') && log.questionnaireVersion === 1 && outcomeForCraving(logs, log) === 'smoked' && !log.postEngagementSatisfaction).sort((a, b) => b.at.localeCompare(a.at))[0];
     const hasSampleSmokingData = selectedHabit.id === 'demo-smoking' && logs.some(log => log.id.startsWith('sample-log-smoking-'));
     const today = todayKey();
     const todaySummary = summarizeDay(logs, selectedHabit.id, today, dailyConfirmations);
@@ -1617,6 +1726,7 @@ export default function Home() {
         }));
     const rangeOccurrences = windowLogs.filter(log => log.type === 'habit_occurrence');
     const rangeCravings = windowLogs.filter(log => log.type === 'craving');
+    const urgeCheckIns = summarizeUrgeCheckIns(windowLogs, logs);
     const resolvedCravings = rangeCravings.filter(log => getOutcome(log) !== 'unknown');
     const resolutionMinutes = rangeCravings.map(log => minutesToCravingResolution(logs, log)).filter((value): value is number => value !== undefined);
     const averageResolutionMinutes = resolutionMinutes.length ? (resolutionMinutes.reduce((sum, value) => sum + value, 0) / resolutionMinutes.length).toFixed(1) : '—';
@@ -1782,6 +1892,15 @@ export default function Home() {
       if (log.trigger) bits.push(log.trigger);
       return bits.join(' · ');
     };
+    const contextDetails = (log: BehaviorLog) => {
+      const labelFor = (value: string) => [...bodilyStateOptions, ...accessibilityOptions, ...motiveOptions].find(([key]) => key === value)?.[1] ?? value;
+      return [
+        ...(log.context?.emotions ?? []), ...(log.context?.environments ?? []), ...(log.context?.activities ?? []), ...(log.context?.social ?? []), ...(log.context?.tags ?? []),
+        log.context?.bodilyState ? labelFor(log.context.bodilyState) : '',
+        log.context?.accessibility ? labelFor(log.context.accessibility) : '',
+        ...(log.context?.motives ?? []).map(labelFor),
+      ].filter(Boolean).join(' · ');
+    };
     const outcomeLabel = (outcome: string) => outcome === 'resisted' ? 'Resisted' : outcome === 'smoked' ? (isSmoke ? 'Smoked' : 'Engaged in habit') : 'Outcome unknown';
     const configuredOpenEpisodes = [...new Set(logs.filter(log => log.episodeId).map(log => log.episodeId!))];
     return <>
@@ -1807,7 +1926,7 @@ export default function Home() {
               <button type="button" className="logging-quick-action technique" onClick={() => quickLog('technique_applied')}><span className="logging-action-icon"><Icon name="check" size={20}/></span><span><b>Used a technique</b><small>Choose from your strategy</small></span><Icon name="plus" size={18}/></button>
             </div>
             {cueCaptureLog && <form className="logging-cue-capture" onSubmit={saveCueCapture}>
-              <div className="logging-form-head"><div><span className="eyebrow">CUE SNAPSHOT</span><h2>What was happening when the urge started?</h2></div><button type="button" className="text-button" onClick={dismissCueCapture}>Close</button></div>
+              <div className="logging-form-head"><div><span className="eyebrow">URGE EPISODE CHECK-IN</span><h2>What was happening when the urge started?</h2></div><button type="button" className="text-button" onClick={dismissCueCapture}>Close</button></div>
               <p className="logging-cue-time">Time recorded automatically: <time dateTime={cueCaptureLog.at}>{formatTime(cueCaptureLog.at, cueCaptureLog.timezone)}</time></p>
               <div className="logging-cue-grid">
                 <label className="logging-field">Where were you?<input value={cueLocation} onChange={event => setCueLocation(event.target.value)} placeholder="At my desk, in the car"/></label>
@@ -1815,10 +1934,16 @@ export default function Home() {
                 <label className="logging-field">Who was around?<input value={cuePeople} onChange={event => setCuePeople(event.target.value)} placeholder="Alone, with coworkers"/></label>
                 <label className="logging-field">What did you do right before?<input value={cuePrecedingAction} onChange={event => setCuePrecedingAction(event.target.value)} placeholder="Finished lunch, closed my laptop"/></label>
               </div>
+              <fieldset className="logging-choice-field"><legend>What is your physical energy or bodily state right now?</legend><div className="logging-choice-options">{bodilyStateOptions.map(([value, label]) => <button key={value} type="button" className={cueBodilyState === value ? 'selected' : ''} aria-pressed={cueBodilyState === value} onClick={() => setCueBodilyState(cueBodilyState === value ? '' : value)}>{label}</button>)}</div></fieldset>
+              <fieldset className="logging-choice-field"><legend>How close or accessible is the habit right now?</legend><div className="logging-choice-options">{accessibilityOptions.map(([value, label]) => <button key={value} type="button" className={cueAccessibility === value ? 'selected' : ''} aria-pressed={cueAccessibility === value} onClick={() => setCueAccessibility(cueAccessibility === value ? '' : value)}>{label}</button>)}</div></fieldset>
+              <fieldset className="logging-choice-field logging-motive-field"><legend>What change in feeling were you hoping the habit would give you?</legend><small>Choose up to two. This is optional.</small><div className="logging-choice-options">{motiveOptions.map(([value, label]) => <button key={value} type="button" className={cueMotives.includes(value) ? 'selected' : ''} aria-pressed={cueMotives.includes(value)} onClick={() => setCueMotives(current => current.includes(value) ? current.filter(item => item !== value) : value === 'unsure' ? ['unsure'] : current.includes('unsure') ? [value] : current.length < 2 ? [...current, value] : current)}>{label}</button>)}</div></fieldset>
               <div className="logging-form-actions"><button type="submit" className="primary-button logging-submit"><Icon name="check" size={16}/>Save cue details</button><button type="button" className="text-button" onClick={dismissCueCapture}>Skip for now</button></div>
-              <small className="logging-cue-note">These details are optional. The urge and its time are already saved.</small>
+              <small className="logging-cue-note">Time is saved automatically. These details are optional and can be added later.</small>
             </form>}
+            {dueUrgeFollowUp && <section className="logging-follow-up-card" aria-labelledby="urge-follow-up-title"><div><span className="eyebrow">15-MINUTE CHECK-IN</span><h3 id="urge-follow-up-title">Did the urge stay gone, or did it linger or return?</h3><p>This helps you see whether your response met the need.</p></div><div className="logging-choice-options"><button type="button" onClick={() => answerUrgeFollowUp(dueUrgeFollowUp.id, 'stayed_gone')}>It stayed gone</button><button type="button" onClick={() => answerUrgeFollowUp(dueUrgeFollowUp.id, 'lingering_or_returned')}>It lingered or returned</button><button type="button" className="quiet-choice" onClick={() => answerUrgeFollowUp(dueUrgeFollowUp.id, 'skipped')}>Skip</button></div><small>Saved here and shown when due or next time you open Habitly.</small></section>}
+            {pendingEngagementCheck && <section className="logging-follow-up-card" aria-labelledby="engagement-check-title"><div><span className="eyebrow">OPTIONAL FOLLOW-UP</span><h3 id="engagement-check-title">Did it feel as satisfying as you expected?</h3><p>Your answer helps compare the urge with what happened afterward.</p></div><div className="logging-choice-options"><button type="button" onClick={() => answerPostEngagement(pendingEngagementCheck.id, 'worse_than_expected')}>Less satisfying than expected</button><button type="button" onClick={() => answerPostEngagement(pendingEngagementCheck.id, 'neutral')}>About as expected or neutral</button><button type="button" onClick={() => answerPostEngagement(pendingEngagementCheck.id, 'as_expected')}>As satisfying as expected</button><button type="button" className="quiet-choice" onClick={() => answerPostEngagement(pendingEngagementCheck.id, 'skipped')}>Skip</button></div></section>}
             <p className="logging-cue-progress" role="status"><b>Cue observations: {cuePattern.observationDays} of 5 days</b><span>{cuePattern.observationDays >= 3 ? 'Review the early pattern in Insights.' : 'Log an urge on at least 3 different days to begin spotting a pattern.'}</span></p>
+            {hydrated && (notificationsEnabled ? <p className="logging-reminder-note">Browser reminders are on while Habitly is open. Unanswered check-ins remain here for your next visit.</p> : <button type="button" className="logging-reminder-enable" onClick={enableBrowserReminders}>Enable browser reminders for 15-minute check-ins</button>)}
             {recentSavedLogId && recentSavedLogId !== quickCueCaptureLogId && <p className="logging-save-confirmation" role="status"><Icon name="check" size={16}/> Saved just now. <button type="button" onClick={() => { const saved = behaviorLogs.find(log => log.id === recentSavedLogId); if (saved) editBehaviorLog(saved); }}>Add details or change outcome</button></p>}
           </section>
           <section className="logging-confirm-card">
@@ -1845,7 +1970,7 @@ export default function Home() {
             {logType === 'habit_occurrence' && <label className="logging-field">{isSmoke ? 'Cigarettes' : 'Quantity'}<span>DEFAULT 1</span><input type="number" min="1" max="100" value={logQuantity} onChange={event => setLogQuantity(Number(event.target.value))}/></label>}
             {logType === 'technique_applied' && <><label className="logging-field">Strategy technique<select aria-label="Choose a technique from this habit strategy" value={selectedTechniqueKey} onChange={event => { const choice = techniqueChoices.find(item => item.key === event.target.value); setLogTechniqueId(choice?.techniqueId ?? ''); setLogVariationId(choice?.variationId ?? ''); setLogTechnique(choice?.name ?? ''); }}><option value="">Choose a configured technique</option>{techniqueChoices.map(choice => <option key={choice.key} value={choice.key}>{choice.name} · {choice.laws.map(id => lawGroups.find(law => law.id === id)?.break).filter(Boolean).join(', ')}</option>)}{editingLogId && logTechnique && !techniqueChoices.some(item => item.key === selectedTechniqueKey) && <option value={selectedTechniqueKey}>{logTechnique} · historical technique</option>}</select>{!techniqueChoices.length && <small>Configure techniques under this habit’s strategy before logging an application.</small>}</label><div className="logging-field-row"><label className="logging-field">When was it used?<select value={logTiming} onChange={event => setLogTiming(event.target.value as 'preventive' | 'responsive')}><option value="responsive">During a craving or event</option><option value="preventive">Before a craving or risk</option></select></label><label className="logging-field">Craving intensity <span>OPTIONAL</span><input type="number" min="0" max="10" value={logIntensity} onChange={event => setLogIntensity(event.target.value)} placeholder="Not recorded"/></label></div></>}
             <label className="logging-field">Related episode <span>OPTIONAL · LEAVE AUTO TO LINK A RECENT OPEN CRAVING</span><select value={logEpisodeId} onChange={event => setLogEpisodeId(event.target.value)}><option value="">Auto link or start a new episode</option><option value="__new__">Start a new episode</option>{configuredOpenEpisodes.map(id => { const episodeEvent = logs.find(log => log.episodeId === id); return <option key={id} value={id}>Existing episode · {episodeEvent?.trigger || formatTime(episodeEvent?.at ?? new Date().toISOString(), episodeEvent?.timezone)}</option>; })}</select></label>
-            <details className="logging-advanced-context"><summary>Add optional context</summary><div className="logging-context-grid"><label className="logging-field">Emotion<input list="emotion-tags" value={logEmotions} onChange={event => setLogEmotions(event.target.value)} placeholder="Stressed, bored"/><datalist id="emotion-tags">{['Stressed', 'Anxious', 'Bored', 'Sad', 'Angry', 'Excited', 'Relaxed', 'Frustrated', ...customContextTags].map(value => <option key={value} value={value}/>)}</datalist></label><label className="logging-field">Environment<input list="environment-tags" value={logEnvironments} onChange={event => setLogEnvironments(event.target.value)} placeholder="At home, in the car"/><datalist id="environment-tags">{['At home', 'At work', 'Outside', 'In the car', 'Social gathering', ...customContextTags].map(value => <option key={value} value={value}/>)}</datalist></label><label className="logging-field">Activity<input list="activity-tags" value={logActivities} onChange={event => setLogActivities(event.target.value)} placeholder="Coffee, after a meal"/><datalist id="activity-tags">{['Working', 'Scrolling', 'Drinking coffee', 'Finishing a meal', 'Watching television', 'Walking', 'Resting', ...customContextTags].map(value => <option key={value} value={value}/>)}</datalist></label><label className="logging-field">Social situation<input list="social-tags" value={logSocial} onChange={event => setLogSocial(event.target.value)} placeholder="Alone, with friends"/><datalist id="social-tags">{['Alone', 'With friends', 'With family', 'Around people engaging in the habit', ...customContextTags].map(value => <option key={value} value={value}/>)}</datalist></label><label className="logging-field">Other tags <span>SEPARATE WITH COMMAS</span><input value={logContextTags} onChange={event => setLogContextTags(event.target.value)} placeholder="Custom context"/></label></div></details>
+            <details className="logging-advanced-context"><summary>Add optional context</summary><div className="logging-context-grid"><label className="logging-field">Emotion<input list="emotion-tags" value={logEmotions} onChange={event => setLogEmotions(event.target.value)} placeholder="Stressed, bored"/><datalist id="emotion-tags">{['Stressed', 'Anxious', 'Bored', 'Sad', 'Angry', 'Excited', 'Relaxed', 'Frustrated', ...customContextTags].map(value => <option key={value} value={value}/>)}</datalist></label><label className="logging-field">Environment<input list="environment-tags" value={logEnvironments} onChange={event => setLogEnvironments(event.target.value)} placeholder="At home, in the car"/><datalist id="environment-tags">{['At home', 'At work', 'Outside', 'In the car', 'Social gathering', ...customContextTags].map(value => <option key={value} value={value}/>)}</datalist></label><label className="logging-field">Activity<input list="activity-tags" value={logActivities} onChange={event => setLogActivities(event.target.value)} placeholder="Coffee, after a meal"/><datalist id="activity-tags">{['Working', 'Scrolling', 'Drinking coffee', 'Finishing a meal', 'Watching television', 'Walking', 'Resting', ...customContextTags].map(value => <option key={value} value={value}/>)}</datalist></label><label className="logging-field">Social situation<input list="social-tags" value={logSocial} onChange={event => setLogSocial(event.target.value)} placeholder="Alone, with friends"/><datalist id="social-tags">{['Alone', 'With friends', 'With family', 'Around people engaging in the habit', ...customContextTags].map(value => <option key={value} value={value}/>)}</datalist></label><label className="logging-field">Physical state<select value={logBodilyState} onChange={event => setLogBodilyState(event.target.value)}><option value="">Not recorded</option>{bodilyStateOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="logging-field">Access to the habit<select value={logAccessibility} onChange={event => setLogAccessibility(event.target.value)}><option value="">Not recorded</option>{accessibilityOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="logging-field">Other tags <span>SEPARATE WITH COMMAS</span><input value={logContextTags} onChange={event => setLogContextTags(event.target.value)} placeholder="Custom context"/></label><fieldset className="logging-choice-field logging-motive-field"><legend>What change in feeling was your brain looking for?</legend><small>Choose up to two. This is optional.</small><div className="logging-choice-options">{motiveOptions.map(([value, label]) => <button key={value} type="button" className={logMotives.includes(value) ? 'selected' : ''} aria-pressed={logMotives.includes(value)} onClick={() => setLogMotives(current => current.includes(value) ? current.filter(item => item !== value) : value === 'unsure' ? ['unsure'] : current.includes('unsure') ? [value] : current.length < 2 ? [...current, value] : current)}>{label}</button>)}</div></fieldset></div></details>
             <details className="logging-advanced-context"><summary>Mindset notes <span>optional</span></summary><div className="logging-context-grid"><label className="logging-field">Automatic thought<input value={logAutomaticThought} onChange={event => setLogAutomaticThought(event.target.value)} placeholder="What went through your mind?"/></label><label className="logging-field">Belief<input value={logBelief} onChange={event => setLogBelief(event.target.value)} placeholder="What did it seem to promise?"/></label><label className="logging-field">Confidence resisting <span>0 TO 10</span><input type="number" min="0" max="10" value={logConfidence} onChange={event => setLogConfidence(event.target.value)} placeholder="Not recorded"/></label><label className="logging-field">Reframing used<input value={logReframing} onChange={event => setLogReframing(event.target.value)} placeholder="Optional cognitive reframe"/></label><label className="logging-field">Intensity after technique <span>0 TO 10</span><input type="number" min="0" max="10" value={logIntensityAfter} onChange={event => setLogIntensityAfter(event.target.value)} placeholder="Not recorded"/></label></div></details>
             <label className="logging-field">Notes <span>OPTIONAL</span><textarea value={logNote} onChange={event => setLogNote(event.target.value)} placeholder="Anything you want to remember" rows={2}/></label>
             <details className="logging-backdate" open={Boolean(editingLogId)}><summary>{editingLogId ? 'Date and time' : 'Log a past event'}</summary><label className="logging-field">DATE AND TIME<input type="datetime-local" value={logTimestamp} onChange={event => setLogTimestamp(event.target.value)}/></label><small>Leave blank to use the current time. Day grouping uses the recorded local date and timezone.</small></details>
@@ -1885,6 +2010,14 @@ export default function Home() {
                 </article>)}</div>
                 <p className="logging-cue-method-note">These summaries describe what appears in your entries. They do not show that a cue caused an urge.</p>
               </>}
+          </section>
+          <section className="logging-insight-section logging-follow-up-insights">
+            <div className="logging-section-heading"><div><span className="eyebrow">CHECK-IN OUTCOMES · {periodEyebrow}</span><h2>What happened after the urge?</h2></div></div>
+            <div className="logging-follow-up-metrics">
+              <article><span className="eyebrow">15-minute check-in</span><b>{urgeCheckIns.stayedGone} stayed gone</b><p>of {urgeCheckIns.answered} answered · {urgeCheckIns.lingeringOrReturned} lingered or returned</p><small>{urgeCheckIns.awaiting} awaiting · {urgeCheckIns.skipped} skipped · {urgeCheckIns.scheduled} scheduled</small></article>
+              <article><span className="eyebrow">Satisfaction after engaging</span><b>{urgeCheckIns.satisfactionAnswered} of {urgeCheckIns.engaged} answered</b><p>{urgeCheckIns.satisfactionWorse} less than expected · {urgeCheckIns.satisfactionNeutral} neutral · {urgeCheckIns.satisfactionAsExpected} as expected</p><small>{urgeCheckIns.satisfactionAwaiting} awaiting · {urgeCheckIns.satisfactionSkipped} skipped</small></article>
+            </div>
+            <p className="logging-caveat">These counts describe the check-ins you completed. A skipped or unanswered question is not counted as an outcome.</p>
           </section>
           <section className="logging-insight-section logging-review-card logging-behavior-insights">
             <div className="logging-section-heading">
@@ -2014,7 +2147,7 @@ export default function Home() {
         {loggingView === 'History' && <section className="logging-history-section">
           <div className="logging-section-heading"><div><span className="eyebrow">REVIEW AND CORRECT</span><h2>Behavior history <span className="soft-count">{historyLogs.length}</span></h2></div><span className="logging-chart-note">Grouped by local day and behavioral episode</span></div>
           <div className="logging-history-filters"><label>TYPE<select value={historyTypeFilter} onChange={event => { setHistoryTypeFilter(event.target.value); setHistoryLimit(30); }}><option value="all">All events</option><option value="craving">Cravings</option><option value="habit_occurrence">Habit occurrences</option><option value="technique_applied">Techniques</option><option value="recovery">Recovery actions</option></select></label><label>TRIGGER<input value={historyTriggerFilter} onChange={event => setHistoryTriggerFilter(event.target.value)} list="history-trigger-options" placeholder="All triggers"/><datalist id="history-trigger-options">{allTriggers.map(value => <option key={value} value={value}/>)}</datalist></label><label>TECHNIQUE<input value={historyTechniqueFilter} onChange={event => setHistoryTechniqueFilter(event.target.value)} placeholder="Any technique"/></label><label>LAW<select value={historyLawFilter} onChange={event => setHistoryLawFilter(event.target.value)}><option value="all">All laws</option>{lawGroups.slice(0, 4).map(item => <option key={item.id} value={item.id}>{item.break}</option>)}</select></label><label>OUTCOME<select value={historyOutcomeFilter} onChange={event => setHistoryOutcomeFilter(event.target.value)}><option value="all">All outcomes</option><option value="resisted">Resisted</option><option value="smoked">{isSmoke ? 'Smoked' : 'Engaged'}</option><option value="unknown">Unknown or unresolved</option></select></label><label className="logging-date-field">FROM<input type="date" value={historyFrom} onChange={event => setHistoryFrom(event.target.value)}/></label><label className="logging-date-field">TO<input type="date" value={historyTo} onChange={event => setHistoryTo(event.target.value)}/></label><button type="button" className="text-button logging-clear-filters" onClick={() => { setHistoryTypeFilter('all'); setHistoryTriggerFilter(''); setHistoryTechniqueFilter(''); setHistoryLawFilter('all'); setHistoryOutcomeFilter('all'); setHistoryFrom(''); setHistoryTo(''); }}>Clear filters</button></div>
-          {timelineGroups.length ? <div className="logging-history-days">{timelineGroups.map(day => <section key={day.day}><h3>{formatDay(day.day)}</h3>{day.episodes.map(episode => { const multi = episode.rows.length > 1; const episodeTitle = multi ? 'Behavioral episode · ' + episode.rows.length + ' linked events' : eventLabel(episode.rows[0]); const outcome = episode.rows.map(getOutcome).find(value => value !== 'unknown') ?? resolvedEpisodeOutcome(logs, episode.id); const expanded = expandedEpisodes.includes(episode.id); return <details key={episode.id} className="logging-episode" open={expanded || undefined} onToggle={event => { const isOpen = event.currentTarget.open; setExpandedEpisodes(current => isOpen ? [...new Set([...current, episode.id])] : current.filter(id => id !== episode.id)); }}><summary><span className="logging-episode-mark"><Icon name={multi ? 'refresh' : episode.rows[0].type === 'craving' ? 'spark' : episode.rows[0].type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={17}/></span><span><b>{episodeTitle}</b><small>{formatTime(episode.rows[0].at, episode.rows[0].timezone)}{episode.rows[0].trigger ? ' · ' + episode.rows[0].trigger : ''}</small></span>{outcome !== 'unknown' && <em className={'behavior-outcome ' + outcome}>{outcomeLabel(outcome)}</em>}<Icon name="chevron" size={16}/></summary><ol className="behavior-timeline">{episode.rows.map(log => <li key={log.id}><span className={'behavior-type-mark ' + log.type}><Icon name={log.type === 'craving' ? 'spark' : log.type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={16}/></span><div className="behavior-log-main"><div className="behavior-log-title"><b>{eventLabel(log)}</b><time>{formatTime(log.at, log.timezone)}</time></div><p>{eventDetails(log)}</p>{log.type === 'craving' && <span className={'behavior-outcome ' + getOutcome(log)}>{outcomeLabel(getOutcome(log))}</span>}{log.context && <small>{[...(log.context.emotions ?? []), ...(log.context.environments ?? []), ...(log.context.activities ?? []), ...(log.context.social ?? []), ...(log.context.tags ?? [])].join(' · ')}</small>}{(log.automaticThought || log.belief || log.reframing) && <small>{[log.automaticThought, log.belief, log.reframing].filter(Boolean).join(' · ')}</small>}{log.note && <small>{log.note}</small>}<div className="behavior-log-actions"><button type="button" onClick={() => editBehaviorLog(log)}>Edit</button><button type="button" onClick={() => deleteBehaviorLog(log.id)}>Remove</button></div></div></li>)}</ol></details>; })}</section>)}</div> : <div className="logging-empty-state"><Icon name="clock" size={23}/><b>No matching events</b><span>Adjust the filters or record a new event in the Log tab.</span><button type="button" className="text-button" onClick={() => setLoggingView('Log')}>Go to Log <Icon name="arrow" size={14}/></button></div>}
+          {timelineGroups.length ? <div className="logging-history-days">{timelineGroups.map(day => <section key={day.day}><h3>{formatDay(day.day)}</h3>{day.episodes.map(episode => { const multi = episode.rows.length > 1; const episodeTitle = multi ? 'Behavioral episode · ' + episode.rows.length + ' linked events' : eventLabel(episode.rows[0]); const outcome = episode.rows.map(getOutcome).find(value => value !== 'unknown') ?? resolvedEpisodeOutcome(logs, episode.id); const expanded = expandedEpisodes.includes(episode.id); return <details key={episode.id} className="logging-episode" open={expanded || undefined} onToggle={event => { const isOpen = event.currentTarget.open; setExpandedEpisodes(current => isOpen ? [...new Set([...current, episode.id])] : current.filter(id => id !== episode.id)); }}><summary><span className="logging-episode-mark"><Icon name={multi ? 'refresh' : episode.rows[0].type === 'craving' ? 'spark' : episode.rows[0].type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={17}/></span><span><b>{episodeTitle}</b><small>{formatTime(episode.rows[0].at, episode.rows[0].timezone)}{episode.rows[0].trigger ? ' · ' + episode.rows[0].trigger : ''}</small></span>{outcome !== 'unknown' && <em className={'behavior-outcome ' + outcome}>{outcomeLabel(outcome)}</em>}<Icon name="chevron" size={16}/></summary><ol className="behavior-timeline">{episode.rows.map(log => <li key={log.id}><span className={'behavior-type-mark ' + log.type}><Icon name={log.type === 'craving' ? 'spark' : log.type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={16}/></span><div className="behavior-log-main"><div className="behavior-log-title"><b>{eventLabel(log)}</b><time>{formatTime(log.at, log.timezone)}</time></div><p>{eventDetails(log)}</p>{log.type === 'craving' && <span className={'behavior-outcome ' + getOutcome(log)}>{outcomeLabel(getOutcome(log))}</span>}{log.context && <small>{contextDetails(log)}</small>}{(log.automaticThought || log.belief || log.reframing) && <small>{[log.automaticThought, log.belief, log.reframing].filter(Boolean).join(' · ')}</small>}{log.note && <small>{log.note}</small>}<div className="behavior-log-actions"><button type="button" onClick={() => editBehaviorLog(log)}>Edit</button><button type="button" onClick={() => deleteBehaviorLog(log.id)}>Remove</button></div></div></li>)}</ol></details>; })}</section>)}</div> : <div className="logging-empty-state"><Icon name="clock" size={23}/><b>No matching events</b><span>Adjust the filters or record a new event in the Log tab.</span><button type="button" className="text-button" onClick={() => setLoggingView('Log')}>Go to Log <Icon name="arrow" size={14}/></button></div>}
           {historyLogs.length > visibleHistory.length && <button type="button" className="secondary-button logging-load-more" onClick={() => setHistoryLimit(value => value + 30)}>Load 30 more events</button>}
         </section>}
       </div>

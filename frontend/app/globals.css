@@ -215,6 +215,26 @@
 .logging-cue-pattern-grid b{overflow-wrap:anywhere;color:var(--ink);font-size:13px}
 .logging-cue-pattern-grid p{margin:0;color:var(--muted);font-size:10px;line-height:1.45}
 .logging-cue-method-note{margin-top:11px}
+.logging-choice-field{display:grid;gap:7px;min-width:0;margin:0;padding:0;border:0}
+.logging-choice-field legend{margin-bottom:1px;color:var(--ink);font-size:11px;font-weight:750}
+.logging-choice-field>small{color:var(--muted);font-size:10px}
+.logging-choice-options{display:flex;gap:6px;flex-wrap:wrap}
+.logging-choice-options button{min-height:34px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-raised);color:var(--muted);font:inherit;font-size:10px;line-height:1.3;text-align:left}
+.logging-choice-options button.selected,.logging-choice-options button[aria-pressed=true]{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,var(--surface-raised));color:var(--ink)}
+.logging-choice-options button:hover{border-color:var(--accent)}
+.logging-choice-options button.quiet-choice{background:transparent}
+.logging-motive-field{grid-column:1/-1}
+.logging-follow-up-card{display:grid;gap:10px;margin-top:12px;padding:14px;border:1px solid color-mix(in srgb,var(--accent) 38%,var(--line));border-radius:12px;background:var(--surface-soft)}
+.logging-follow-up-card h3{margin:3px 0;color:var(--ink);font:700 15px 'Manrope',sans-serif}
+.logging-follow-up-card p,.logging-follow-up-card small{margin:0;color:var(--muted);font-size:10px;line-height:1.5}
+.logging-follow-up-card .logging-choice-options button{background:var(--surface-raised)}
+.logging-reminder-note,.logging-reminder-enable{margin:7px 0 0;color:var(--muted);font-size:10px}
+.logging-reminder-enable{justify-self:start;padding:5px 0;border:0;background:transparent;color:var(--accent);font:inherit;font-size:10px;font-weight:700;text-align:left}
+.logging-follow-up-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}
+.logging-follow-up-metrics article{display:grid;gap:5px;min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface-soft)}
+.logging-follow-up-metrics .eyebrow{font-size:8px}
+.logging-follow-up-metrics b{color:var(--ink);font-size:14px}
+.logging-follow-up-metrics p,.logging-follow-up-metrics small{margin:0;color:var(--muted);font-size:10px;line-height:1.45}
 .logging-insight-controls{display:flex;align-items:end;gap:9px;flex-wrap:wrap;margin-bottom:12px;padding:12px;border:1px solid var(--line);border-radius:13px;background:var(--surface-raised)}
 .logging-insight-controls label,.logging-history-filters label{display:grid;gap:5px;min-width:100px;color:var(--muted);font-size:9px;font-weight:800;letter-spacing:.7px}
 .logging-insight-controls input,.logging-insight-controls select,.logging-history-filters input,.logging-history-filters select{width:100%;min-height:37px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface-soft);color:var(--ink);font:inherit;font-size:11px;letter-spacing:normal}
@@ -298,7 +318,7 @@
 .logging-load-more{display:block;margin:14px auto 0}
 .logging-storage-note{margin:5px 0 15px;color:var(--muted);font-size:10px;text-align:center}
 @media(max-width:900px){.logging-law-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.logging-confirm-card{grid-template-columns:1fr}.logging-confirm-actions{justify-content:flex-start}}
-@media(max-width:650px){.logging-heading-compact{align-items:flex-end;flex-direction:row}.logging-quick-actions{grid-template-columns:1fr}.logging-quick-action{min-height:64px;padding:10px 12px}.logging-today-strip{align-items:flex-start;flex-direction:column}.logging-confirm-card,.logging-quick-panel,.logging-insight-section,.logging-history-section{padding:13px}.logging-confirm-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.logging-confirm-actions button{min-height:42px}.logging-insight-grid{grid-template-columns:1fr}.logging-insight-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.logging-insight-controls>.logging-quality-pill{grid-column:1/-1;margin-left:0;justify-self:start}.logging-history-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.logging-context-grid,.logging-cue-capture .logging-cue-grid,.logging-cue-pattern-grid{grid-template-columns:1fr}.logging-quick-footer{align-items:flex-start;flex-direction:column;gap:4px}.logging-tag-manager{width:100%}.logging-tag-manager>div{align-items:stretch}.logging-tag-manager label,.logging-tag-manager input{width:100%}.logging-mini-summary>div{gap:5px}.logging-mini-summary b{font-size:18px}.logging-section-heading{align-items:flex-start}.logging-section-heading>.text-button{white-space:nowrap;font-size:10px}}
+@media(max-width:650px){.logging-heading-compact{align-items:flex-end;flex-direction:row}.logging-quick-actions{grid-template-columns:1fr}.logging-quick-action{min-height:64px;padding:10px 12px}.logging-today-strip{align-items:flex-start;flex-direction:column}.logging-confirm-card,.logging-quick-panel,.logging-insight-section,.logging-history-section{padding:13px}.logging-confirm-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.logging-confirm-actions button{min-height:42px}.logging-insight-grid{grid-template-columns:1fr}.logging-insight-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.logging-insight-controls>.logging-quality-pill{grid-column:1/-1;margin-left:0;justify-self:start}.logging-history-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.logging-context-grid,.logging-cue-capture .logging-cue-grid,.logging-cue-pattern-grid,.logging-follow-up-metrics{grid-template-columns:1fr}.logging-quick-footer{align-items:flex-start;flex-direction:column;gap:4px}.logging-tag-manager{width:100%}.logging-tag-manager>div{align-items:stretch}.logging-tag-manager label,.logging-tag-manager input{width:100%}.logging-mini-summary>div{gap:5px}.logging-mini-summary b{font-size:18px}.logging-section-heading{align-items:flex-start}.logging-section-heading>.text-button{white-space:nowrap;font-size:10px}}
 @media(max-width:390px){.logging-heading-compact h1{font-size:25px}.logging-habit-picker{min-width:125px;font-size:9px}.logging-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.logging-law-grid{grid-template-columns:1fr}.logging-history-filters{grid-template-columns:1fr}}
 
 .period-checkin{display:grid;gap:10px;min-width:0;margin-top:14px}

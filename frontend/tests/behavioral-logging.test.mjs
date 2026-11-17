@@ -9,6 +9,8 @@ import {
   minutesToCravingResolution,
   outcomeForCraving,
   removeBehaviorLogRecord,
+  recordPostEngagementSatisfaction,
+  recordUrgeFollowUp,
   resolvedEpisodeOutcome,
   summarizeDay,
   withoutSampleBehaviorLogs,
@@ -30,6 +32,8 @@ import {
   buildTechniquePracticeStats,
   mostCommonTrigger,
   mostPracticedTechnique,
+  summarizeCuePatterns,
+  summarizeUrgeCheckIns,
 } from '../app/insights.ts';
 
 const insightLog = (id, type, fields = {}) => ({
@@ -193,6 +197,83 @@ test('reapplying a stable craving and linked occurrence transaction does not dou
   assert.equal(saved.filter(log => log.type === 'craving').length, 1);
   assert.equal(saved.filter(log => log.type === 'habit_occurrence').length, 1);
   assert.equal(saved.reduce((sum, log) => sum + (log.type === 'habit_occurrence' ? log.quantity : 0), 0), 1);
+});
+
+test('cue analytics include physical state, habit accessibility, and underlying motive with valid denominators', () => {
+  const first = { ...craving('c1', 'ep1'), context: { bodilyState: 'tired', accessibility: 'in_hand', motives: ['relief', 'comfort'] } };
+  const second = craving('c2', 'ep2');
+  const summary = summarizeCuePatterns([first, second], ['2026-11-15']);
+  assert.equal(summary.cravings, 2);
+  for (const dimension of ['Physical state', 'Access to the habit', 'Underlying motive']) {
+    assert.ok(summary.patterns.some(pattern => pattern.dimension === dimension));
+  }
+  assert.deepEqual(summary.patterns.find(pattern => pattern.dimension === 'Physical state'), {
+    dimension: 'Physical state', value: 'Tired or short on sleep', count: 1, recorded: 1, days: 1,
+  });
+  assert.equal(summary.patterns.find(pattern => pattern.dimension === 'Access to the habit').recorded, 1);
+  assert.equal(summary.patterns.find(pattern => pattern.dimension === 'Underlying motive').recorded, 1);
+});
+
+test('follow-up answers persist on the craving without replacing its cue data', () => {
+  const original = { ...craving('c1', 'ep1', 'resisted'), context: { bodilyState: 'tired', accessibility: 'nearby', motives: ['relief'] }, urgeFollowUpDueAt: '2026-11-15T16:15:00.000Z' };
+  const withFollowUp = recordUrgeFollowUp([original], 'c1', 'stayed_gone', '2026-11-15T16:16:00.000Z');
+  assert.equal(withFollowUp.length, 1);
+  assert.deepEqual(withFollowUp[0].context, original.context);
+  assert.equal(withFollowUp[0].urgeFollowUpStatus, 'stayed_gone');
+  assert.equal(withFollowUp[0].urgeFollowUpAt, '2026-11-15T16:16:00.000Z');
+  const rated = recordPostEngagementSatisfaction(withFollowUp, 'c1', 'worse_than_expected', '2026-11-15T16:17:00.000Z');
+  assert.equal(rated[0].postEngagementSatisfaction, 'worse_than_expected');
+  assert.equal(rated[0].urgeFollowUpStatus, 'stayed_gone');
+});
+
+test('engagement before the delayed prompt cancels an unanswered urge follow-up', () => {
+  const pending = { ...craving('c1', 'ep1', 'resisted'), urgeFollowUpDueAt: '2026-11-15T16:15:00.000Z' };
+  const saved = applyBehaviorLogChanges([pending], [occurrence('o1', 'ep1', 1)]);
+  assert.equal(saved.find(log => log.id === 'c1').outcome, 'smoked');
+  assert.equal(saved.find(log => log.id === 'c1').urgeFollowUpDueAt, undefined);
+});
+
+test('check-in analytics keep skipped and unanswered entries out of answer denominators', () => {
+  const logs = [
+    { ...craving('c1', 'ep1', 'resisted'), urgeFollowUpDueAt: '2026-11-15T16:15:00Z', urgeFollowUpStatus: 'stayed_gone' },
+    { ...craving('c2', 'ep2', 'resisted'), urgeFollowUpDueAt: '2026-11-15T16:15:00Z', urgeFollowUpStatus: 'lingering_or_returned' },
+    { ...craving('c3', 'ep3', 'resisted'), urgeFollowUpDueAt: '2026-11-15T16:15:00Z', urgeFollowUpStatus: 'skipped' },
+    { ...craving('c4', 'ep4', 'resisted'), urgeFollowUpDueAt: '2026-11-15T16:15:00Z' },
+    { ...craving('c5', 'ep5', 'smoked'), questionnaireVersion: 1, postEngagementSatisfaction: 'worse_than_expected' },
+    { ...craving('c6', 'ep6', 'smoked'), questionnaireVersion: 1, postEngagementSatisfaction: 'neutral' },
+    { ...craving('c7', 'ep7', 'smoked'), questionnaireVersion: 1, postEngagementSatisfaction: 'as_expected' },
+    { ...craving('c8', 'ep8', 'smoked'), questionnaireVersion: 1, postEngagementSatisfaction: 'skipped' },
+    { ...craving('c9', 'ep9', 'smoked'), questionnaireVersion: 1 },
+  ];
+  assert.deepEqual(summarizeUrgeCheckIns(logs), {
+    scheduled: 4, answered: 2, stayedGone: 1, lingeringOrReturned: 1, skipped: 1, awaiting: 1,
+    engaged: 5, satisfactionAnswered: 3, satisfactionWorse: 1, satisfactionNeutral: 1,
+    satisfactionAsExpected: 1, satisfactionSkipped: 1, satisfactionAwaiting: 1,
+  });
+});
+
+test('pre-questionnaire sample engagements do not become a backlog of unanswered satisfaction checks', () => {
+  const older = craving('c-old', 'ep-old', 'smoked');
+  const newEngagement = { ...craving('c-new', 'ep-new', 'smoked'), questionnaireVersion: 1 };
+  const sample = { ...craving('sample-log-old', 'ep-sample', 'smoked'), questionnaireVersion: 1 };
+  const summary = summarizeUrgeCheckIns([older, newEngagement, sample]);
+  assert.equal(summary.engaged, 1);
+  assert.equal(summary.satisfactionAwaiting, 1);
+});
+
+test('engagement analytics resolve an episode using linked events outside the selected date range', () => {
+  const inPeriod = { ...craving('c1', 'ep1'), questionnaireVersion: 1 };
+  const linkedOccurrence = occurrence('o1', 'ep1', 1, '2026-11-16T00:05:00.000Z');
+  const summary = summarizeUrgeCheckIns([inPeriod], [inPeriod, linkedOccurrence]);
+  assert.equal(summary.engaged, 1);
+  assert.equal(summary.satisfactionAwaiting, 1);
+});
+
+test('recording a synthetic sample occurrence does not make it eligible for new follow-up prompts', () => {
+  const sample = craving('sample-log-c1', 'ep1', 'pending');
+  const saved = applyBehaviorLogChanges([sample], [{ ...occurrence('sample-log-o1', 'ep1'), habitId: 'habit-a' }]);
+  assert.equal(saved.find(log => log.id === sample.id).questionnaireVersion, undefined);
+  assert.equal(summarizeUrgeCheckIns(saved).engaged, 0);
 });
 
 test('primary smoking outcome uses cigarette quantity while other habits use occurrence count', () => {

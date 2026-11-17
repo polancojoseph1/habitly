@@ -1,16 +1,22 @@
 export type BehaviorType = 'craving' | 'habit_occurrence' | 'technique_applied';
 export type BehaviorOutcome = 'resisted' | 'smoked' | 'pending';
+export type UrgeFollowUpStatus = 'stayed_gone' | 'lingering_or_returned' | 'skipped';
+export type PostEngagementSatisfaction = 'worse_than_expected' | 'neutral' | 'as_expected' | 'skipped';
 export type ContextFields = {
   emotions?: string[];
   environments?: string[];
   activities?: string[];
   social?: string[];
   tags?: string[];
+  bodilyState?: string;
+  accessibility?: string;
+  motives?: string[];
 };
 export type BehaviorLog = {
   id: string;
   habitId: string;
   type: BehaviorType;
+  questionnaireVersion?: 1;
   at: string;
   createdAt?: string;
   resolvedAt?: string;
@@ -33,6 +39,11 @@ export type BehaviorLog = {
   confidence?: number;
   reframing?: string;
   intensityAfter?: number;
+  urgeFollowUpDueAt?: string;
+  urgeFollowUpStatus?: UrgeFollowUpStatus;
+  urgeFollowUpAt?: string;
+  postEngagementSatisfaction?: PostEngagementSatisfaction;
+  postEngagementSatisfactionAt?: string;
   note?: string;
 };
 
@@ -141,6 +152,18 @@ export function minutesToCravingResolution(logs: BehaviorLog[], craving: Behavio
   return Number.isFinite(minutes) && minutes >= 0 ? minutes : undefined;
 }
 
+export function recordUrgeFollowUp(logs: BehaviorLog[], cravingId: string, status: UrgeFollowUpStatus, at = new Date().toISOString()): BehaviorLog[] {
+  const craving = logs.find(log => log.id === cravingId && log.type === 'craving');
+  if (!craving) return logs;
+  return applyBehaviorLogChanges(logs, [{ ...craving, urgeFollowUpStatus: status, urgeFollowUpAt: at }]);
+}
+
+export function recordPostEngagementSatisfaction(logs: BehaviorLog[], cravingId: string, rating: PostEngagementSatisfaction, at = new Date().toISOString()): BehaviorLog[] {
+  const craving = logs.find(log => log.id === cravingId && log.type === 'craving');
+  if (!craving) return logs;
+  return applyBehaviorLogChanges(logs, [{ ...craving, postEngagementSatisfaction: rating, postEngagementSatisfactionAt: at }]);
+}
+
 export function metadataForEditedTimestamp(previous: BehaviorLog | undefined, occurredAt: string, timezone: string | undefined) {
   const unchanged = previous && new Date(previous.at).getTime() === new Date(occurredAt).getTime();
   return unchanged
@@ -171,13 +194,13 @@ export function applyBehaviorLogChanges(current: BehaviorLog[], changes: Behavio
   next = [...changes, ...next];
   for (const change of changes) {
     if (change.type === 'habit_occurrence' && change.episodeId) {
-      next = next.map(log => log.type === 'craving' && log.habitId === change.habitId && log.episodeId === change.episodeId ? { ...log, outcome: 'smoked' } : log);
+      next = next.map(log => log.type === 'craving' && log.habitId === change.habitId && log.episodeId === change.episodeId ? { ...log, outcome: 'smoked', ...(log.id.startsWith('sample-log-') ? {} : { questionnaireVersion: 1 }) } : log);
     }
   }
   next = next.map(log => {
     if (log.type !== 'craving' || !log.episodeId) return log;
     const occurrence = next.find(item => item.type === 'habit_occurrence' && item.habitId === log.habitId && item.episodeId === log.episodeId);
-    return occurrence ? { ...log, outcome: 'smoked', resolvedAt: occurrence.at } : log;
+    return occurrence ? { ...log, outcome: 'smoked', resolvedAt: occurrence.at, ...(log.id.startsWith('sample-log-') ? {} : { questionnaireVersion: 1 }), ...(log.urgeFollowUpStatus ? {} : { urgeFollowUpDueAt: undefined }) } : log;
   });
   return next.sort((a, b) => b.at.localeCompare(a.at));
 }

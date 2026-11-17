@@ -1,4 +1,4 @@
-import { behaviorDayKey, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, type BehaviorLog } from './behavioral-logging.ts';
+import { behaviorDayKey, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, outcomeForCraving, type BehaviorLog } from './behavioral-logging.ts';
 
 export type InsightTechniqueChoice = {
   key: string;
@@ -22,9 +22,24 @@ export type TriggerInsight = {
   hasTechniqueApplication: boolean;
 };
 
-export type CueDimension = 'Time of day' | 'Location' | 'Emotional state' | 'Other people' | 'Immediately preceding action';
+export type CueDimension = 'Time of day' | 'Location' | 'Emotional state' | 'Other people' | 'Immediately preceding action' | 'Physical state' | 'Access to the habit' | 'Underlying motive';
 export type CuePattern = { dimension: CueDimension; value?: string; count: number; recorded: number; days: number };
 export type CuePatternSummary = { cravings: number; observationDays: number; patterns: CuePattern[] };
+export type UrgeCheckInSummary = {
+  scheduled: number;
+  answered: number;
+  stayedGone: number;
+  lingeringOrReturned: number;
+  skipped: number;
+  awaiting: number;
+  engaged: number;
+  satisfactionAnswered: number;
+  satisfactionWorse: number;
+  satisfactionNeutral: number;
+  satisfactionAsExpected: number;
+  satisfactionSkipped: number;
+  satisfactionAwaiting: number;
+};
 
 export type TechniquePractice = InsightTechniqueChoice & {
   configured: boolean;
@@ -55,6 +70,23 @@ export type SuggestedExperiment = {
 };
 
 const normalize = (value: string | undefined) => (value ?? '').trim().toLocaleLowerCase();
+const structuredCueLabels: Record<string, string> = {
+  tired: 'Tired or short on sleep',
+  hungry_thirsty: 'Hungry or thirsty',
+  restless: 'Restless or high energy',
+  typical: 'Comfortable or typical',
+  unsure: 'Not sure',
+  in_hand: 'In hand or already open',
+  nearby: 'Nearby or one step away',
+  out_of_reach: 'Out of reach or takes effort',
+  not_applicable: 'Not applicable or unsure',
+  relief: 'Relief from stress or anxiety',
+  distraction: 'Distraction or a mental break',
+  stimulation: 'Stimulation or energy',
+  connection: 'Connection or belonging',
+  comfort: 'Physical pleasure or comfort',
+  something_else: 'Something else',
+};
 
 export function matchesInsightTechnique(log: BehaviorLog, choice: InsightTechniqueChoice): boolean {
   if (choice.variationId) return log.variationId === choice.variationId;
@@ -113,6 +145,9 @@ export function summarizeCuePatterns(logs: BehaviorLog[], dateKeys: string[]): C
     { dimension: 'Emotional state', values: log => log.context?.emotions ?? [] },
     { dimension: 'Other people', values: log => log.context?.social ?? [] },
     { dimension: 'Immediately preceding action', values: log => log.context?.activities ?? [] },
+    { dimension: 'Physical state', values: log => log.context?.bodilyState ? [log.context.bodilyState] : [] },
+    { dimension: 'Access to the habit', values: log => log.context?.accessibility ? [log.context.accessibility] : [] },
+    { dimension: 'Underlying motive', values: log => log.context?.motives ?? [] },
   ];
 
   const patterns = dimensions.map(({ dimension, values }) => {
@@ -123,7 +158,7 @@ export function summarizeCuePatterns(logs: BehaviorLog[], dateKeys: string[]): C
       if (entryValues.length) recorded += 1;
       for (const value of entryValues) {
         const key = value.toLocaleLowerCase();
-        const entry = counts.get(key) ?? { label: value, count: 0, days: new Set<string>() };
+        const entry = counts.get(key) ?? { label: structuredCueLabels[key] ?? value, count: 0, days: new Set<string>() };
         entry.count += 1;
         entry.days.add(behaviorDayKey(log));
         counts.set(key, entry);
@@ -134,6 +169,29 @@ export function summarizeCuePatterns(logs: BehaviorLog[], dateKeys: string[]): C
   });
 
   return { cravings: cravings.length, observationDays, patterns };
+}
+
+export function summarizeUrgeCheckIns(logs: BehaviorLog[], allLogs: BehaviorLog[] = logs): UrgeCheckInSummary {
+  const cravings = logs.filter(log => log.type === 'craving');
+  const scheduled = cravings.filter(log => Boolean(log.urgeFollowUpDueAt));
+  const answered = scheduled.filter(log => log.urgeFollowUpStatus === 'stayed_gone' || log.urgeFollowUpStatus === 'lingering_or_returned');
+  const engagedCravings = cravings.filter(log => !log.id.startsWith('sample-log-') && log.questionnaireVersion === 1 && outcomeForCraving(allLogs, log) === 'smoked');
+  const rated = engagedCravings.filter(log => log.postEngagementSatisfaction && log.postEngagementSatisfaction !== 'skipped');
+  return {
+    scheduled: scheduled.length,
+    answered: answered.length,
+    stayedGone: answered.filter(log => log.urgeFollowUpStatus === 'stayed_gone').length,
+    lingeringOrReturned: answered.filter(log => log.urgeFollowUpStatus === 'lingering_or_returned').length,
+    skipped: scheduled.filter(log => log.urgeFollowUpStatus === 'skipped').length,
+    awaiting: scheduled.filter(log => !log.urgeFollowUpStatus).length,
+    engaged: engagedCravings.length,
+    satisfactionAnswered: rated.length,
+    satisfactionWorse: rated.filter(log => log.postEngagementSatisfaction === 'worse_than_expected').length,
+    satisfactionNeutral: rated.filter(log => log.postEngagementSatisfaction === 'neutral').length,
+    satisfactionAsExpected: rated.filter(log => log.postEngagementSatisfaction === 'as_expected').length,
+    satisfactionSkipped: engagedCravings.filter(log => log.postEngagementSatisfaction === 'skipped').length,
+    satisfactionAwaiting: engagedCravings.filter(log => !log.postEngagementSatisfaction).length,
+  };
 }
 
 export function summarizeTriggers(logs: BehaviorLog[], allLogs: BehaviorLog[]): TriggerInsight[] {
@@ -216,7 +274,8 @@ export function buildTechniquePracticeStats(
     for (const log of applications) {
       if (log.trigger?.trim()) triggerCounts.set(log.trigger.trim(), (triggerCounts.get(log.trigger.trim()) ?? 0) + 1);
       for (const values of Object.values(log.context ?? {})) {
-        for (const value of values ?? []) if (value.trim()) contexts.add(value.trim());
+        const entries = Array.isArray(values) ? values : typeof values === 'string' ? [values] : [];
+        for (const value of entries) if (value.trim()) contexts.add(value.trim());
       }
     }
     const configured = configuredChoices.some(configuredChoice =>
