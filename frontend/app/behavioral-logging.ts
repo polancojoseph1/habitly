@@ -57,6 +57,63 @@ export function isRecoveryPrincipleApplication(log: { type: string; technique?: 
 export type EpisodeOutcome = 'resisted' | 'smoked' | 'unknown';
 export type DailyConfirmationStatus = 'no_occurrence' | 'occurred_recorded' | 'incomplete' | 'skip';
 export type DailyConfirmation = { habitId: string; date: string; status: DailyConfirmationStatus; updatedAt: string };
+
+/** Prepare personal records attached to a starter habit for a one-time account import. */
+export function prepareBehavioralWorkspaceImport<
+  THabit extends { id: string },
+  TEvent extends { habitId: string; at?: string },
+>(
+  habits: THabit[],
+  behaviorLogs: BehaviorLog[],
+  habitEvents: TEvent[],
+  dailyConfirmations: DailyConfirmation[],
+  createHabitId: (sourceId: string) => string,
+) {
+  const realLogs = behaviorLogs.filter(log => !log.id.startsWith('sample-log-'));
+  const sampleDates = new Map<string, Set<string>>();
+  for (const log of behaviorLogs) {
+    if (!log.id.startsWith('sample-log-')) continue;
+    const dates = sampleDates.get(log.habitId) ?? new Set<string>();
+    dates.add(behaviorDayKey(log));
+    sampleDates.set(log.habitId, dates);
+  }
+  const hasPersonalConfirmation = (confirmation: DailyConfirmation) => {
+    if (!confirmation.habitId.startsWith('demo-')) return true;
+    if (realLogs.some(log => log.habitId === confirmation.habitId && behaviorDayKey(log) === confirmation.date)) return true;
+    if (habitEvents.some(event => event.habitId === confirmation.habitId && event.at?.slice(0, 10) === confirmation.date)) return true;
+    return !sampleDates.get(confirmation.habitId)?.has(confirmation.date);
+  };
+  const personalDemoIds = new Set(habits
+    .filter(habit => habit.id.startsWith('demo-') && (
+      realLogs.some(log => log.habitId === habit.id)
+      || habitEvents.some(event => event.habitId === habit.id)
+      || dailyConfirmations.some(confirmation => confirmation.habitId === habit.id && hasPersonalConfirmation(confirmation))
+    ))
+    .map(habit => habit.id));
+  const remappedIds = new Map([...personalDemoIds].map(id => [id, createHabitId(id)]));
+  const mapHabitId = (id: string) => remappedIds.get(id) ?? id;
+  const importHabitIds = new Set(habits
+    .filter(habit => !habit.id.startsWith('demo-') || personalDemoIds.has(habit.id))
+    .map(habit => mapHabitId(habit.id)));
+
+  return {
+    personalDemoIds,
+    mapHabitId,
+    habits: habits
+      .filter(habit => !habit.id.startsWith('demo-') || personalDemoIds.has(habit.id))
+      .map(habit => ({ ...habit, id: mapHabitId(habit.id) })),
+    behaviorLogs: realLogs
+      .filter(log => importHabitIds.has(mapHabitId(log.habitId)))
+      .map(log => ({ ...log, habitId: mapHabitId(log.habitId) })),
+    habitEvents: habitEvents
+      .filter(event => importHabitIds.has(mapHabitId(event.habitId)))
+      .map(event => ({ ...event, habitId: mapHabitId(event.habitId) })),
+    dailyConfirmations: dailyConfirmations
+      .filter(confirmation => importHabitIds.has(mapHabitId(confirmation.habitId)) && hasPersonalConfirmation(confirmation))
+      .map(confirmation => ({ ...confirmation, habitId: mapHabitId(confirmation.habitId) })),
+  };
+}
+
 export type LegacyHabitEvent = {
   id: string;
   habitId: string;

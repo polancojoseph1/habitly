@@ -9,7 +9,7 @@ import { PeriodCheckin } from './period-checkin-view';
 import notebookLMContent from './notebooklm-content.json';
 import { lawGroups, techniques, techniqueMap } from './techniques';
 import type { ChangeMode, Law } from './techniques';
-import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, legacyHabitEventsToBehaviorLogs, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, recordPostEngagementSatisfaction, recordUrgeFollowUp, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, withoutSampleBehaviorLogs } from './behavioral-logging';
+import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, legacyHabitEventsToBehaviorLogs, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, prepareBehavioralWorkspaceImport, recordPostEngagementSatisfaction, recordUrgeFollowUp, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, withoutSampleBehaviorLogs } from './behavioral-logging';
 import type { BehaviorLog, BehaviorType, DailyConfirmation, DailyConfirmationStatus, PostEngagementSatisfaction, UrgeFollowUpStatus } from './behavioral-logging';
 import { createSampleSmokingConfirmations, createSampleSmokingLogs, hasCurrentSmokingSample } from './sample-smoking-data';
 
@@ -95,9 +95,39 @@ function preserveLocalWorkspace() {
     const raw = localStorage.getItem(STORAGE);
     if (!raw) return;
     const data = JSON.parse(raw);
-    if ((data.behaviorLogs ?? []).some((log: BehaviorLog) => !log.id.startsWith('sample-log-')) || (data.habitEvents ?? []).length) {
-      if (!localStorage.getItem(RECOVERY_STORAGE)) localStorage.setItem(RECOVERY_STORAGE, raw);
+    const logs = data.behaviorLogs ?? [];
+    const hasLocalData = logs.some((log: BehaviorLog) => !log.id.startsWith('sample-log-'))
+      || (data.habitEvents ?? []).length > 0
+      || (data.dailyConfirmations ?? []).length > 0
+      || (data.habits ?? []).some((habit: Habit) => !habit.id.startsWith('demo-') || habit.id === 'demo-smoking')
+      || (data.variations ?? []).length > 0
+      || (data.customContextTags ?? []).length > 0;
+    if (!hasLocalData) return;
+
+    const previous = JSON.parse(localStorage.getItem(RECOVERY_STORAGE) ?? '{}');
+    const merged = { ...previous, ...data };
+    const mergeById = (before: any[] = [], current: any[] = []) => {
+      const rows = new Map<string, any>();
+      for (const row of before) if (row?.id) rows.set(row.id, row);
+      for (const row of current) if (row?.id) rows.set(row.id, row);
+      return [...rows.values()];
+    };
+    merged.habits = mergeById(previous.habits, data.habits);
+    merged.rewards = mergeById(previous.rewards, data.rewards);
+    merged.habitEvents = mergeById(previous.habitEvents, data.habitEvents);
+    merged.behaviorLogs = mergeById(previous.behaviorLogs, data.behaviorLogs);
+    merged.variations = mergeById(previous.variations, data.variations);
+    const confirmations = new Map<string, DailyConfirmation>();
+    for (const row of previous.dailyConfirmations ?? []) confirmations.set(`${row.habitId}:${row.date}`, row);
+    for (const row of data.dailyConfirmations ?? []) confirmations.set(`${row.habitId}:${row.date}`, row);
+    merged.dailyConfirmations = [...confirmations.values()];
+    merged.customContextTags = [...new Set([...(previous.customContextTags ?? []), ...(data.customContextTags ?? [])])];
+    const history = { ...(previous.history ?? {}) } as Record<string, string[]>;
+    for (const [day, rows] of Object.entries(data.history ?? {}) as [string, string[]][]) {
+      history[day] = [...new Set([...(history[day] ?? []), ...rows])];
     }
+    merged.history = history;
+    localStorage.setItem(RECOVERY_STORAGE, JSON.stringify(merged));
   } catch { /* Existing local data remains untouched if a recovery copy cannot be created. */ }
 }
 function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
@@ -422,7 +452,7 @@ export default function Home() {
   const [dailyConfirmations, setDailyConfirmations] = useState<DailyConfirmation[]>([]);
   const [customContextTags, setCustomContextTags] = useState<string[]>([]);
   const [customTagDraft, setCustomTagDraft] = useState('');
-  const [insightDays, setInsightDays] = useState<number | '24h'>(30);
+  const [insightDays, setInsightDays] = useState<number | '24h' | 'all'>(30);
   const [insightFrom, setInsightFrom] = useState('');
   const [insightTo, setInsightTo] = useState('');
   const [insightLawFilter, setInsightLawFilter] = useState('all');
@@ -668,7 +698,7 @@ export default function Home() {
         if (typeof view.active === 'string' && nav.some(item => item.title === view.active)) setActive(view.active as Tab);
         if (view.loggingView === 'Log' || view.loggingView === 'Insights' || view.loggingView === 'History') setLoggingView(view.loggingView);
         if (typeof view.loggingHabitId === 'string') setLoggingHabitId(view.loggingHabitId);
-        if (view.insightDays === '24h' || [7, 14, 30, 90].includes(view.insightDays as number)) setInsightDays(view.insightDays as number | '24h');
+        if (view.insightDays === '24h' || view.insightDays === 'all' || [7, 14, 30, 90].includes(view.insightDays as number)) setInsightDays(view.insightDays as number | '24h' | 'all');
         if (typeof view.insightFrom === 'string') setInsightFrom(view.insightFrom);
         if (typeof view.insightTo === 'string') setInsightTo(view.insightTo);
         if (typeof view.insightLawFilter === 'string') setInsightLawFilter(view.insightLawFilter);
@@ -854,16 +884,30 @@ export default function Home() {
     if (!apiUrl || !remoteToken) return;
     let local: any = {};
     try { local = backup ?? JSON.parse(localStorage.getItem(STORAGE) ?? '{}'); } catch { setConnectionError('Could not read this browser’s saved data. Export it from browser storage before retrying.'); return; }
+    preserveLocalWorkspace();
     const sourceLogs: BehaviorLog[] = local.behaviorLogs ?? behaviorLogs;
     const sourceEvents: HabitEvent[] = local.habitEvents ?? habitEvents;
     const sourceHabits: Habit[] = local.habits ?? habits;
-    const personalDemoIds = new Set(sourceHabits.filter(h => h.id.startsWith('demo-') && (sourceLogs.some(log => log.habitId === h.id && !log.id.startsWith('sample-log-')) || sourceEvents.some(event => event.habitId === h.id))).map(h => h.id));
-    const remappedIds = new Map([...personalDemoIds].map(id => [id, newRecordId('habit')]));
-    const mappedHabitId = (id: string) => remappedIds.get(id) ?? id;
-    const importHabits: Habit[] = sourceHabits.filter(h => !h.id.startsWith('demo-') || personalDemoIds.has(h.id)).map(h => ({ ...expandInviteLink(h), id: mappedHabitId(h.id) }));
+    const sourceConfirmations: DailyConfirmation[] = local.dailyConfirmations ?? dailyConfirmations;
+    const prepared = prepareBehavioralWorkspaceImport(sourceHabits, sourceLogs, sourceEvents, sourceConfirmations, () => newRecordId('habit'));
+    const mappedHabitId = prepared.mapHabitId;
+    const importHabits: Habit[] = prepared.habits.map(expandInviteLink);
     const importHabitIds = new Set(importHabits.map(habit => habit.id));
-    const importLogs = sourceLogs.filter(log => !log.id.startsWith('sample-log-') && importHabitIds.has(mappedHabitId(log.habitId))).map(log => ({ ...log, habitId: mappedHabitId(log.habitId) }));
-    const payload = { habits: importHabits, rewards: (local.rewards ?? rewards).filter((r: Reward) => !r.id.startsWith('reward-show') && !r.habitId.startsWith('demo-')), identity: local.identity ?? identity, goal: local.goal ?? goal, votes: local.votes ?? votes, prepped: local.prepped ?? prepped, preppedHabits: local.preppedHabits ?? preppedHabits, history: local.history ?? history, habitEvents: sourceEvents.filter(event => importHabitIds.has(mappedHabitId(event.habitId))).map(event => ({ ...event, habitId: mappedHabitId(event.habitId) })), behaviorLogs: importLogs, dailyConfirmations: (local.dailyConfirmations ?? dailyConfirmations).filter((item: DailyConfirmation) => !item.habitId.startsWith('demo-') && importHabitIds.has(item.habitId)), customContextTags: local.customContextTags ?? customContextTags, variations: (local.variations ?? variations).filter((item: HabitVariation) => importHabitIds.has(mappedHabitId(item.habitId))).map((item: HabitVariation) => ({ ...item, habitId: mappedHabitId(item.habitId) })), scorecard: local.scorecard ?? scorecard, joinedTribes: local.joinedTribes ?? joinedTribes, communityCircles: local.communityCircles ?? communityCircles, diagnostics: local.diagnostics ?? diagnostics, darkMode: local.darkMode ?? darkMode, palette: local.palette ?? palette, labs: local.labs ?? labs, telegramCommand: local.telegramCommand ?? telegramCommand, dayKey: local.dayKey ?? todayKey() };
+    const mapHistory = (source: Record<string, string[]>): Record<string, string[]> => Object.fromEntries(Object.entries(source).map(([day, rows]) => [day, rows.map(value => {
+      const missed = value.startsWith('missed:');
+      const sourceId = missed ? value.slice(7) : value;
+      const targetId = mappedHabitId(sourceId);
+      return importHabitIds.has(targetId) ? `${missed ? 'missed:' : ''}${targetId}` : '';
+    }).filter(Boolean)]).filter(([, rows]) => (rows as string[]).length > 0));
+    const sourceHistory = local.history ?? history;
+    const importedPreppedHabits = Object.fromEntries(Object.entries(local.preppedHabits ?? preppedHabits).flatMap(([id, value]) => {
+      const targetId = mappedHabitId(id);
+      return importHabitIds.has(targetId) ? [[targetId, value]] : [];
+    })) as Record<string, boolean>;
+    const importRewards = (local.rewards ?? rewards).filter((reward: Reward) => !reward.id.startsWith('reward-show') && importHabitIds.has(mappedHabitId(reward.habitId))).map((reward: Reward) => ({ ...reward, habitId: mappedHabitId(reward.habitId) }));
+    const importVariations = (local.variations ?? variations).filter((variation: HabitVariation) => importHabitIds.has(mappedHabitId(variation.habitId))).map((variation: HabitVariation) => ({ ...variation, habitId: mappedHabitId(variation.habitId) }));
+    const importHabitOrder = (local.habitOrder ?? habitOrder).map(mappedHabitId).filter((id: string) => importHabitIds.has(id));
+    const payload = { habits: importHabits, habitOrder: importHabitOrder, rewards: importRewards, identity: local.identity ?? identity, goal: local.goal ?? goal, votes: local.votes ?? votes, prepped: local.prepped ?? prepped, preppedHabits: importedPreppedHabits, history: mapHistory(sourceHistory), habitEvents: prepared.habitEvents, behaviorLogs: prepared.behaviorLogs, dailyConfirmations: prepared.dailyConfirmations, customContextTags: local.customContextTags ?? customContextTags, variations: importVariations, scorecard: local.scorecard ?? scorecard, joinedTribes: local.joinedTribes ?? joinedTribes, communityCircles: local.communityCircles ?? communityCircles, diagnostics: local.diagnostics ?? diagnostics, darkMode: local.darkMode ?? darkMode, palette: local.palette ?? palette, labs: local.labs ?? labs, telegramCommand: local.telegramCommand ?? telegramCommand, dayKey: local.dayKey ?? todayKey() };
     try {
       const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/workspace/import`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${remoteToken}` }, body: JSON.stringify(payload) });
       if (!response.ok) throw new Error(`Import failed (${response.status})`);
@@ -871,7 +915,7 @@ export default function Home() {
       if (!result.imported) throw new Error('Server data already exists. Reload the server copy before importing.');
       const inviteTokens = new Map((result.invites ?? []).map((invite: any) => [invite.habit_id, invite.token]));
       const importedHabits = payload.habits.map((habit: Habit) => { const token = inviteTokens.get(habit.id); return token ? { ...habit, inviteLink: `${window.location.origin}/?accountability=${token}` } : habit; });
-      setHabits(importedHabits); setRewards(payload.rewards); setIdentity(payload.identity); setGoal(payload.goal); setVotes(payload.votes); setPrepped(payload.prepped); setPreppedHabits(payload.preppedHabits); setHistory(payload.history); setHabitEvents(payload.habitEvents); setBehaviorLogs(payload.behaviorLogs); setDailyConfirmations(payload.dailyConfirmations); setCustomContextTags(payload.customContextTags); setVariations(payload.variations); setScorecard(payload.scorecard); setJoinedTribes(payload.joinedTribes); setCommunityCircles(payload.communityCircles); setDiagnostics(payload.diagnostics); setDarkMode(payload.darkMode); if (palettes.some(option => option.id === payload.palette)) setPalette(payload.palette); setLabs(payload.labs); setTelegramCommand(payload.telegramCommand);
+      setHabits(importedHabits); setHabitOrder(payload.habitOrder); setRewards(payload.rewards); setIdentity(payload.identity); setGoal(payload.goal); setVotes(payload.votes); setPrepped(payload.prepped); setPreppedHabits(payload.preppedHabits); setHistory(payload.history); setHabitEvents(payload.habitEvents); setBehaviorLogs(payload.behaviorLogs); setDailyConfirmations(payload.dailyConfirmations); setCustomContextTags(payload.customContextTags); setVariations(payload.variations); setScorecard(payload.scorecard); setJoinedTribes(payload.joinedTribes); setCommunityCircles(payload.communityCircles); setDiagnostics(payload.diagnostics); setDarkMode(payload.darkMode); if (palettes.some(option => option.id === payload.palette)) setPalette(payload.palette); setLabs(payload.labs); setTelegramCommand(payload.telegramCommand);
       setWorkspaceReady(true); setServerHasWorkspace(true); setConnectionError('');
       revisionRef.current = result.revision ?? 1; setWorkspaceRevision(result.revision ?? 1);
       setToast(`Imported ${result.habits} user habits and ${result.rewards} rewards. This browser’s original copy was kept.`);
@@ -1686,7 +1730,6 @@ export default function Home() {
       techniques,
     );
     const analyticsLogs = [...logs, ...legacyAnalyticsLogs].sort((a, b) => b.at.localeCompare(a.at));
-    const cuePattern = summarizeCuePatterns(analyticsLogs, localDateKeys(5));
     const cueCaptureLog = logs.find(log => log.id === quickCueCaptureLogId && log.type === 'craving');
     const dueUrgeFollowUp = logs.filter(log => log.type === 'craving' && log.urgeFollowUpDueAt && new Date(log.urgeFollowUpDueAt).getTime() <= loggingClock && !log.urgeFollowUpStatus && outcomeForCraving(logs, log) === 'resisted').sort((a, b) => (a.urgeFollowUpDueAt ?? '').localeCompare(b.urgeFollowUpDueAt ?? ''))[0];
     const pendingEngagementCheck = [...logs].filter(log => log.type === 'craving' && !log.id.startsWith('sample-log-') && log.questionnaireVersion === 1 && outcomeForCraving(logs, log) === 'smoked' && !log.postEngagementSatisfaction).sort((a, b) => b.at.localeCompare(a.at))[0];
@@ -1715,20 +1758,26 @@ export default function Home() {
     const selectedTechniqueKey = logVariationId ? 'variation:' + logVariationId : logTechniqueId ? 'technique:' + logTechniqueId : '';
     const chosenLaw = (log: BehaviorLog) => log.laws ?? (log.law ? [log.law] : log.techniqueId ? (techniqueMap[log.techniqueId]?.laws ?? []) : []);
     const isHourlyWindow = insightDays === '24h' && !insightFrom && !insightTo;
+    const isAllTimeWindow = insightDays === 'all' && !insightFrom && !insightTo;
     const windowEndMs = Date.now();
     const windowStartMs = windowEndMs - 24 * 60 * 60 * 1000;
     const dateOrdinal = (key: string) => { const [year, month, day] = key.split('-').map(Number); return Date.UTC(year, month - 1, day); };
     const dateKeyAtOrdinal = (ordinal: number) => new Date(ordinal).toISOString().slice(0, 10);
-    const rangeStart = insightFrom || (isHourlyWindow ? dateKeyInZone(new Date(windowStartMs)) : localDateKeys(insightDays === '24h' ? 1 : insightDays)[0]);
+    const availableHistoryKeys = [
+      ...analyticsLogs.map(behaviorDayKey),
+      ...dailyConfirmations.filter(item => item.habitId === selectedHabit.id).map(item => item.date),
+    ].filter(key => /^\d{4}-\d{2}-\d{2}$/.test(key)).sort();
+    const firstHistoryKey = availableHistoryKeys[0] ?? today;
+    const rangeStart = insightFrom || (isHourlyWindow ? dateKeyInZone(new Date(windowStartMs)) : isAllTimeWindow ? firstHistoryKey : localDateKeys(insightDays === '24h' || insightDays === 'all' ? 1 : insightDays)[0]);
     const rangeEnd = insightTo || (isHourlyWindow ? dateKeyInZone(new Date(windowEndMs)) : today);
     const requestedStartKey = rangeStart <= rangeEnd ? rangeStart : rangeEnd;
     const endKey = rangeStart <= rangeEnd ? rangeEnd : rangeStart;
     const requestedDayCount = Math.max(1, Math.floor((dateOrdinal(endKey) - dateOrdinal(requestedStartKey)) / 86400000) + 1);
-    const dayCount = Math.min(180, requestedDayCount);
+    const dayCount = requestedDayCount;
     const periodStartKey = dateKeyAtOrdinal(dateOrdinal(endKey) - (dayCount - 1) * 86400000);
     const insightKeys = Array.from({ length: dayCount }, (_, index) => dateKeyAtOrdinal(dateOrdinal(periodStartKey) + index * 86400000));
-    const periodLabel = isHourlyWindow ? '24 hours' : `${dayCount} ${dayCount === 1 ? 'day' : 'days'}`;
-    const periodEyebrow = isHourlyWindow ? 'PAST 24 HOURS' : insightFrom || insightTo ? `CUSTOM RANGE · ${dayCount} ${dayCount === 1 ? 'DAY' : 'DAYS'}` : `${dayCount} ${dayCount === 1 ? 'DAY' : 'DAYS'}`;
+    const periodLabel = isHourlyWindow ? '24 hours' : isAllTimeWindow ? 'all time' : `${dayCount} ${dayCount === 1 ? 'day' : 'days'}`;
+    const periodEyebrow = isHourlyWindow ? 'PAST 24 HOURS' : isAllTimeWindow ? 'ALL TIME' : insightFrom || insightTo ? `CUSTOM RANGE · ${dayCount} ${dayCount === 1 ? 'DAY' : 'DAYS'}` : `${dayCount} ${dayCount === 1 ? 'DAY' : 'DAYS'}`;
     const periodRangeText = isHourlyWindow
       ? `${new Date(windowStartMs).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} to ${new Date(windowEndMs).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
       : `${periodStartKey} to ${endKey}`;
@@ -1737,8 +1786,10 @@ export default function Home() {
       const key = behaviorDayKey(log);
       return key >= periodStartKey && key <= endKey;
     });
+    const cuePattern = summarizeCuePatterns(windowLogs, insightKeys);
     const dayData = insightKeys.map(key => ({ key, summary: summarizeDay(analyticsLogs, selectedHabit.id, key, dailyConfirmations) }));
     const confirmationConflicts = dayData.filter(day => day.summary.conflict);
+    const monthlyBuckets = !isHourlyWindow && dayCount > 180;
     const periodBuckets = isHourlyWindow
       ? Array.from({ length: 24 }, (_, index) => {
           const bucketStart = windowStartMs + index * 60 * 60 * 1000;
@@ -1759,7 +1810,29 @@ export default function Home() {
             },
           };
         })
-      : dayData.map(day => ({
+      : monthlyBuckets
+        ? [...new Set(dayData.map(day => day.key.slice(0, 7)))].map(month => {
+            const monthDays = dayData.filter(day => day.key.startsWith(month));
+            const monthLogs = windowLogs.filter(log => behaviorDayKey(log).startsWith(month));
+            const occurrences = monthLogs.filter(log => log.type === 'habit_occurrence');
+            const date = new Date(`${month}-15T12:00:00`);
+            return {
+              key: `month-${month}`,
+              label: date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+              detail: `${month} · ${monthDays.length} days`,
+              summary: {
+                quantity: occurrences.reduce((total, log) => total + (log.legacyEvent ? 0 : (log.quantity ?? 0)), 0),
+                occurrenceEvents: occurrences.length,
+                cravings: monthLogs.filter(log => log.type === 'craving').length,
+                knownOccurrenceCount: occurrences.length > 0 || monthDays.every(day => day.summary.knownOccurrenceCount),
+                quantityKnown: occurrences.length > 0
+                  ? occurrences.every(log => !log.legacyEvent && typeof log.quantity === 'number' && Number.isFinite(log.quantity))
+                  : monthDays.every(day => day.summary.quantityKnown),
+                legacyOccurrences: occurrences.filter(log => log.legacyEvent).length,
+              },
+            };
+          })
+        : dayData.map(day => ({
           key: day.key,
           label: new Date(day.key + 'T12:00:00').toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' }),
           detail: day.key,
@@ -1767,7 +1840,7 @@ export default function Home() {
         }));
     const rangeOccurrences = windowLogs.filter(log => log.type === 'habit_occurrence');
     const rangeCravings = windowLogs.filter(log => log.type === 'craving');
-    const urgeCheckIns = summarizeUrgeCheckIns(windowLogs, logs);
+    const urgeCheckIns = summarizeUrgeCheckIns(windowLogs, analyticsLogs);
     const resolvedCravings = rangeCravings.filter(log => getOutcome(log) !== 'unknown');
     const resolutionMinutes = rangeCravings.map(log => minutesToCravingResolution(analyticsLogs, log)).filter((value): value is number => value !== undefined);
     const averageResolutionMinutes = resolutionMinutes.length ? (resolutionMinutes.reduce((sum, value) => sum + value, 0) / resolutionMinutes.length).toFixed(1) : '—';
@@ -1777,7 +1850,7 @@ export default function Home() {
     const triggerStats = topTriggers.map(([name, count]) => {
       const triggered = windowLogs.filter(log => log.trigger === name);
       const episodes = [...new Set(triggered.map(episodeKey))];
-      const resolved = episodes.map(id => resolvedEpisodeOutcome(logs, id)).filter(value => value !== 'unknown');
+      const resolved = episodes.map(id => resolvedEpisodeOutcome(analyticsLogs, id)).filter(value => value !== 'unknown');
       return { name, count, episodes: episodes.length, resolved: resolved.length, resisted: resolved.filter(value => value === 'resisted').length, smoked: resolved.filter(value => value === 'smoked').length };
     });
     const techniqueApplicationLogs = windowLogs.filter(log => {
@@ -1993,7 +2066,7 @@ export default function Home() {
             </form>}
             {dueUrgeFollowUp && <section className="logging-follow-up-card" aria-labelledby="urge-follow-up-title"><div><span className="eyebrow">15-MINUTE CHECK-IN</span><h3 id="urge-follow-up-title">Did the urge stay gone, or did it linger or return?</h3><p>This helps you see whether your response met the need.</p></div><div className="logging-choice-options"><button type="button" onClick={() => answerUrgeFollowUp(dueUrgeFollowUp.id, 'stayed_gone')}>It stayed gone</button><button type="button" onClick={() => answerUrgeFollowUp(dueUrgeFollowUp.id, 'lingering_or_returned')}>It lingered or returned</button><button type="button" className="quiet-choice" onClick={() => answerUrgeFollowUp(dueUrgeFollowUp.id, 'skipped')}>Skip</button></div><small>Saved here and shown when due or next time you open Habitly.</small></section>}
             {pendingEngagementCheck && <section className="logging-follow-up-card" aria-labelledby="engagement-check-title"><div><span className="eyebrow">OPTIONAL FOLLOW-UP</span><h3 id="engagement-check-title">Did it feel as satisfying as you expected?</h3><p>Your answer helps compare the urge with what happened afterward.</p></div><div className="logging-choice-options"><button type="button" onClick={() => answerPostEngagement(pendingEngagementCheck.id, 'worse_than_expected')}>Less satisfying than expected</button><button type="button" onClick={() => answerPostEngagement(pendingEngagementCheck.id, 'neutral')}>About as expected or neutral</button><button type="button" onClick={() => answerPostEngagement(pendingEngagementCheck.id, 'as_expected')}>As satisfying as expected</button><button type="button" className="quiet-choice" onClick={() => answerPostEngagement(pendingEngagementCheck.id, 'skipped')}>Skip</button></div></section>}
-            <p className="logging-cue-progress" role="status"><b>Cue observations: {cuePattern.observationDays} of 5 days</b><span>{cuePattern.observationDays >= 3 ? 'Review the early pattern in Insights.' : 'Log an urge on at least 3 different days to begin spotting a pattern.'}</span></p>
+            <p className="logging-cue-progress" role="status"><b>Cue observations: {cuePattern.observationDays} of {insightKeys.length} days</b><span>{cuePattern.observationDays >= Math.min(3, insightKeys.length) ? 'Review the pattern in Insights.' : `Log urges on ${Math.min(3, insightKeys.length)} different days in this selected period to begin spotting a pattern.`}</span></p>
             {hydrated && (notificationsEnabled ? <p className="logging-reminder-note">Browser reminders are on while Habitly is open. Unanswered check-ins remain here for your next visit.</p> : <button type="button" className="logging-reminder-enable" onClick={enableBrowserReminders}>Enable browser reminders for 15-minute check-ins</button>)}
             {recentSavedLogId && recentSavedLogId !== quickCueCaptureLogId && <p className="logging-save-confirmation" role="status"><Icon name="check" size={16}/> Saved just now. <button type="button" onClick={() => { const saved = behaviorLogs.find(log => log.id === recentSavedLogId); if (saved) editBehaviorLog(saved); }}>Add details or change outcome</button></p>}
           </section>
@@ -2031,7 +2104,7 @@ export default function Home() {
         </>}
         {loggingView === 'Insights' && <div className="logging-insights-page">
           <div className="logging-insight-toolbar">
-            <label className="logging-period-picker">PERIOD<select aria-label="Insights period" value={insightFrom || insightTo ? 'custom' : insightDays} onChange={event => { setInsightDays(event.target.value === '24h' ? '24h' : Number(event.target.value)); setInsightFrom(''); setInsightTo(''); }}><option value="24h">24 hours</option>{(insightFrom || insightTo) && <option value="custom" disabled>Custom date range</option>}<option value={7}>7 days</option><option value={14}>14 days</option><option value={30}>30 days</option><option value={90}>90 days</option></select></label>
+            <label className="logging-period-picker">PERIOD<select aria-label="Insights period" value={insightFrom || insightTo ? 'custom' : insightDays} onChange={event => { setInsightDays(event.target.value === '24h' ? '24h' : event.target.value === 'all' ? 'all' : Number(event.target.value)); setInsightFrom(''); setInsightTo(''); }}><option value="24h">24 hours</option>{(insightFrom || insightTo) && <option value="custom" disabled>Custom date range</option>}<option value="all">All time</option><option value={7}>7 days</option><option value={14}>14 days</option><option value={30}>30 days</option><option value={90}>90 days</option></select></label>
             <details className="logging-insight-filter-disclosure">
               <summary><Icon name="chevron" size={15}/> Advanced filters <span>{[insightFrom || insightTo, insightLawFilter !== 'all', insightTriggerFilter !== 'all', insightIntensityFilter !== 'all', insightTimingFilter !== 'all'].filter(Boolean).length ? 'Active' : 'None active'}</span></summary>
               <div className="logging-insight-filter-fields">
@@ -2048,15 +2121,15 @@ export default function Home() {
           </div>
           <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">01 · {periodEyebrow} · OVERVIEW</span><h2>Period Check-in</h2></div><span className="logging-date-pill">{periodRangeText}</span></div><PeriodCheckin habitName={selectedHabit.name} isSmoking={isSmoke} periodLabel={periodLabel} current={currentPeriod} previous={previousPeriod} configuredTechniques={configured.size} techniqueApplicationCount={techniqueApplicationLogs.length} hasTechniqueFilters={hasTechniqueFilters} usedTechniques={techniquePractice.techniques} topTrigger={topTriggers[0] ? { name: topTriggers[0][0], count: topTriggers[0][1] } : undefined}/></section>
           <section className="logging-insight-section logging-cue-insight">
-            <div className="logging-section-heading"><div><span className="eyebrow">CUE OBSERVATION · LAST 5 DAYS</span><h2>What tends to come before the urge?</h2></div><span className="logging-quality-pill">{cuePattern.observationDays} of 5 days observed</span></div>
-            <p className="logging-cue-insight-intro">{cuePattern.cravings} {cuePattern.cravings === 1 ? 'urge' : 'urges'} logged in this five day window. The cards show every recorded value; blank details stay unknown.</p>
+            <div className="logging-section-heading"><div><span className="eyebrow">CUE OBSERVATION · {periodEyebrow}</span><h2>What tends to come before the urge?</h2></div><span className="logging-quality-pill">{cuePattern.observationDays} of {insightKeys.length} days with cravings</span></div>
+            <p className="logging-cue-insight-intro">{cuePattern.cravings} {cuePattern.cravings === 1 ? 'urge' : 'urges'} logged during the selected {periodLabel}. The cards show every recorded value; blank details stay unknown.</p>
             <div className="logging-cue-pattern-grid">{cuePattern.patterns.map(pattern => <article key={pattern.dimension}>
               <span className="eyebrow">{pattern.dimension}</span>
               {pattern.values.length
                 ? <><div className="logging-cue-pattern-values">{pattern.values.map(entry => <div key={entry.value}><b>{entry.value}</b><small>{entry.count} of {pattern.recorded} entries · {entry.days} {entry.days === 1 ? 'day' : 'days'}</small></div>)}</div><p>Recorded in {pattern.recorded} {pattern.recorded === 1 ? 'entry' : 'entries'} total.</p></>
                 : <p>No {pattern.dimension.toLocaleLowerCase()} detail was recorded in this window.</p>}
             </article>)}</div>
-            {cuePattern.observationDays < 3 && <p className="logging-cue-insight-prompt">Early summary from {cuePattern.observationDays} of 5 observed days. More entries can make patterns easier to read.</p>}
+            {cuePattern.observationDays < Math.min(3, insightKeys.length) && <p className="logging-cue-insight-prompt">Early summary from {cuePattern.observationDays} observed days in this period. More entries can make patterns easier to read.</p>}
             <p className="logging-cue-method-note">These summaries describe what appears in your entries. They do not show that a cue caused an urge.</p>
           </section>
           <section className="logging-insight-section logging-follow-up-insights">
@@ -2176,8 +2249,8 @@ export default function Home() {
           </section>
           <div className="logging-insight-grid">
             <section className="logging-insight-section" id="logging-trigger-analytics"><div className="logging-section-heading"><div><span className="eyebrow">04 · {periodEyebrow} · TRIGGERS</span><h2>Common triggers</h2></div></div>{triggerStats.length ? <div className="logging-trigger-list">{triggerStats.map(item => <div key={item.name} className="logging-trigger-analysis"><span>{item.name}</span><b>{item.count} logged · {item.episodes} episodes</b><i><em style={{ width: Math.max(8, item.count / Math.max(1, triggerStats[0]?.count ?? 1) * 100) + '%' }}/></i><small>{item.resolved ? item.resisted + '/' + item.resolved + ' resolved episodes resisted' : 'No resolved outcomes yet'}{item.resolved < 5 ? ' · limited observations' : ''}</small></div>)}</div> : <p className="logging-empty-hint">Add triggers to see their logged frequency and associated outcomes.</p>}<p className="logging-caveat">Counts show how often a trigger was recorded. Associated outcomes are descriptive, not causal.</p></section>
-          <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">05 · {periodEyebrow} · OUTCOME TREND</span><h2>{isSmoke ? 'Cigarette quantity trend' : 'Habit occurrence trend'}</h2></div><span className="logging-chart-note">{isHourlyWindow ? 'No event in an hour is not a confirmed zero' : 'No record is unknown'}</span></div><div className="logging-bars-scroll"><div className="logging-bars logging-bars-wide" role="img" aria-label={(isSmoke ? 'Cigarette quantities' : 'Habit occurrences') + (isHourlyWindow ? ' by hour over the past 24 hours.' : ' logged by local day. Unconfirmed days without an occurrence record are shown as unknown.')} style={{ minWidth: Math.max(320, periodBuckets.length * 25) + 'px' }}>{periodBuckets.map(bucket => { const value = isSmoke ? bucket.summary.quantity : bucket.summary.occurrenceEvents; const occurrenceKnown = Boolean(bucket.summary.knownOccurrenceCount); const quantityKnown = Boolean(bucket.summary.quantityKnown); const unquantifiedLegacy = isSmoke && bucket.summary.legacyOccurrences > 0 && !quantityKnown; const known = isSmoke ? quantityKnown : occurrenceKnown; const height = unquantifiedLegacy ? Math.max(8, Math.max(bucket.summary.legacyOccurrences, value) / maxOccurrence * 100) : value ? Math.max(8, value / maxOccurrence * 100) : known ? 4 : 3; const display = unquantifiedLegacy ? '?' : known ? value : '·'; const detail = unquantifiedLegacy ? `${bucket.summary.legacyOccurrences} older “Old behavior” episode${bucket.summary.legacyOccurrences === 1 ? '' : 's'}; cigarette quantity not recorded${value ? `; ${value} cigarettes also recorded` : ''}` : isSmoke ? quantityKnown ? `${value} cigarettes recorded or confirmed` : 'cigarette quantity not confirmed' : occurrenceKnown ? `${value} occurrences logged or confirmed` : 'no occurrence record'; const classes = ['logging-bar-day', !known && !unquantifiedLegacy ? 'unknown' : '', unquantifiedLegacy ? 'quantity-unknown' : ''].filter(Boolean).join(' '); return <div className={classes} key={bucket.key} title={`${bucket.detail}: ${detail}`}><span>{display}</span><i style={{ height: height + '%' }}/><small>{bucket.label}</small></div>; })}</div></div><div className="logging-legend">{isSmoke ? <><span><i/> Cigarette quantity recorded or confirmed</span><span><i className="legacy-quantity-marker"/> Older “Old behavior” episode, quantity unknown</span><span><i/> No occurrence data</span></> : <><span><i/> {isHourlyWindow ? 'Occurrence logged' : 'Logged or explicitly confirmed'}</span><span><i/> No occurrence data</span></>}</div><p className="logging-caveat">{isSmoke && currentPeriod.legacyOccurrences > 0 ? 'Older “Old behavior” check-ins are counted as smoking episodes. They do not include cigarette quantities.' : isHourlyWindow ? 'An hour without an occurrence record is not confirmed as zero.' : 'Confirmed no occurrence days require an explicit daily confirmation. Days without an occurrence entry are not counted as zero.'}</p></section>
-            <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">06 · {periodEyebrow} · CRAVING ANALYSIS</span><h2>Cravings logged</h2></div></div><div className="logging-bars-scroll"><div className="logging-bars logging-bars-wide" role="img" aria-label={isHourlyWindow ? "Number of cravings logged in each hour of the past 24 hours." : "Number of cravings logged each local day. Counts describe logging activity."} style={{ minWidth: Math.max(320, periodBuckets.length * 25) + 'px' }}>{periodBuckets.map(bucket => { const value = bucket.summary.cravings; return <div className="logging-bar-day" key={bucket.key} title={bucket.detail + ': ' + value + ' craving logs'}><span>{value}</span><i style={{ height: (value ? Math.max(8, value / maxCravings * 100) : 4) + '%' }}/><small>{bucket.label}</small></div>; })}</div></div><div className="logging-stat-grid compact"><div><b>{rangeCravings.length}</b><span>cravings logged in period</span></div><div><b>{avgIntensity}</b><span>average recorded intensity</span></div><div><b>{resolvedCravings.length}</b><span>known outcomes</span></div><div><b>{rangeCravings.length - resolvedCravings.length}</b><span>unresolved or unknown</span></div><div><b>{averageResolutionMinutes === '—' ? '—' : averageResolutionMinutes + ' min'}</b><span>average time to resolution when recorded · {resolutionMinutes.length} episodes</span></div></div><div className="logging-intensity-distribution"><b>Recorded intensity distribution</b>{intensityDistribution.map(item => <span key={item.label}>{item.label}/10 <i>{item.count}</i></span>)}</div><p className="logging-caveat">Fewer logged cravings do not show that cravings decreased when logging completeness is unknown.</p></section>
+          <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">05 · {periodEyebrow} · OUTCOME TREND</span><h2>{isSmoke ? 'Cigarette quantity trend' : 'Habit occurrence trend'}</h2></div><span className="logging-chart-note">{isHourlyWindow ? 'No event in an hour is not a confirmed zero' : 'No record is unknown'}</span></div><div className="logging-bars-scroll"><div className="logging-bars logging-bars-wide" role="img" aria-label={(isSmoke ? 'Cigarette quantities' : 'Habit occurrences') + (isHourlyWindow ? ' by hour over the past 24 hours.' : monthlyBuckets ? ' summarized by calendar month. Days without an occurrence record remain unknown.' : ' logged by local day. Unconfirmed days without an occurrence record are shown as unknown.')} style={{ minWidth: Math.max(320, periodBuckets.length * 25) + 'px' }}>{periodBuckets.map(bucket => { const value = isSmoke ? bucket.summary.quantity : bucket.summary.occurrenceEvents; const occurrenceKnown = Boolean(bucket.summary.knownOccurrenceCount); const quantityKnown = Boolean(bucket.summary.quantityKnown); const unquantifiedLegacy = isSmoke && bucket.summary.legacyOccurrences > 0 && !quantityKnown; const known = isSmoke ? quantityKnown : occurrenceKnown; const height = unquantifiedLegacy ? Math.max(8, Math.max(bucket.summary.legacyOccurrences, value) / maxOccurrence * 100) : value ? Math.max(8, value / maxOccurrence * 100) : known ? 4 : 3; const display = unquantifiedLegacy ? '?' : known ? value : '·'; const detail = unquantifiedLegacy ? `${bucket.summary.legacyOccurrences} older “Old behavior” episode${bucket.summary.legacyOccurrences === 1 ? '' : 's'}; cigarette quantity not recorded${value ? `; ${value} cigarettes also recorded` : ''}` : isSmoke ? quantityKnown ? `${value} cigarettes recorded or confirmed` : 'cigarette quantity not confirmed' : occurrenceKnown ? `${value} occurrences logged or confirmed` : 'no occurrence record'; const classes = ['logging-bar-day', !known && !unquantifiedLegacy ? 'unknown' : '', unquantifiedLegacy ? 'quantity-unknown' : ''].filter(Boolean).join(' '); return <div className={classes} key={bucket.key} title={`${bucket.detail}: ${detail}`}><span>{display}</span><i style={{ height: height + '%' }}/><small>{bucket.label}</small></div>; })}</div></div><div className="logging-legend">{isSmoke ? <><span><i/> Cigarette quantity recorded or confirmed</span><span><i className="legacy-quantity-marker"/> Older “Old behavior” episode, quantity unknown</span><span><i/> No occurrence data</span></> : <><span><i/> {isHourlyWindow ? 'Occurrence logged' : 'Logged or explicitly confirmed'}</span><span><i/> No occurrence data</span></>}</div><p className="logging-caveat">{isSmoke && currentPeriod.legacyOccurrences > 0 ? 'Older “Old behavior” check-ins are counted as smoking episodes. They do not include cigarette quantities.' : isHourlyWindow ? 'An hour without an occurrence record is not confirmed as zero.' : 'Confirmed no occurrence days require an explicit daily confirmation. Days without an occurrence entry are not counted as zero.'}</p></section>
+            <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">06 · {periodEyebrow} · CRAVING ANALYSIS</span><h2>Cravings logged</h2></div></div><div className="logging-bars-scroll"><div className="logging-bars logging-bars-wide" role="img" aria-label={isHourlyWindow ? "Number of cravings logged in each hour of the past 24 hours." : monthlyBuckets ? "Number of cravings logged by calendar month. Counts describe logging activity." : "Number of cravings logged each local day. Counts describe logging activity."} style={{ minWidth: Math.max(320, periodBuckets.length * 25) + 'px' }}>{periodBuckets.map(bucket => { const value = bucket.summary.cravings; return <div className="logging-bar-day" key={bucket.key} title={bucket.detail + ': ' + value + ' craving logs'}><span>{value}</span><i style={{ height: (value ? Math.max(8, value / maxCravings * 100) : 4) + '%' }}/><small>{bucket.label}</small></div>; })}</div></div><div className="logging-stat-grid compact"><div><b>{rangeCravings.length}</b><span>cravings logged in period</span></div><div><b>{avgIntensity}</b><span>average recorded intensity</span></div><div><b>{resolvedCravings.length}</b><span>known outcomes</span></div><div><b>{rangeCravings.length - resolvedCravings.length}</b><span>unresolved or unknown</span></div><div><b>{averageResolutionMinutes === '—' ? '—' : averageResolutionMinutes + ' min'}</b><span>average time to resolution when recorded · {resolutionMinutes.length} episodes</span></div></div><div className="logging-intensity-distribution"><b>Recorded intensity distribution</b>{intensityDistribution.map(item => <span key={item.label}>{item.label}/10 <i>{item.count}</i></span>)}</div><p className="logging-caveat">Fewer logged cravings do not show that cravings decreased when logging completeness is unknown.</p></section>
             <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">07 · {periodEyebrow} · TIME PATTERNS</span><h2>When events are logged</h2></div></div><div className="logging-time-blocks">{occurrenceBins.map(bin => <div key={bin.name}><b>{bin.count} occurrences</b><span>{bin.name}</span><small>{cravingBins.find(item => item.name === bin.name)?.count ?? 0} cravings</small></div>)}</div><div className="logging-hour-grid" role="img" aria-label="Hourly logged habit occurrence and craving event counts from midnight to 11 PM">{hourly.map(item => <div key={item.hour} title={item.hour + ':00 · ' + item.count + ' occurrences · ' + item.cravings + ' cravings'}><i style={{ height: Math.max(3, item.count / Math.max(1, ...hourly.map(value => value.count)) * 42) + 'px' }}/><i className="craving-bar" style={{ height: Math.max(3, item.cravings / Math.max(1, ...hourly.map(value => value.cravings)) * 42) + 'px' }}/><small>{item.hour % 3 === 0 ? item.hour : ''}</small></div>)}</div><div className="logging-legend"><span><i/> Occurrences</span><span className="craving-legend"><i/> Cravings</span></div><div className="logging-weekday-grid">{weekdayCounts.map(item => <div key={item.day}><b>{item.count}</b><span>{item.label}</span><small>{item.cravings} cravings</small></div>)}</div><p className="logging-caveat">Periods with few records can look prominent by chance. Counts describe entries, not underlying risk.</p></section>
           </div>
           <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">08 · {periodEyebrow} · COMPARISON</span><h2>Selected period vs previous period</h2></div></div><div className="logging-weekly-grid"><div className="logging-table-header"><span>Measure</span><span>Previous period</span><span>Selected period</span><span>Change</span></div>{([

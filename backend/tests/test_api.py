@@ -12,6 +12,7 @@ from sqlalchemy.pool import StaticPool
 from app.config import settings
 from app.database import Base, get_db
 from app.main import app
+from app.models import WorkspaceState
 
 
 @pytest.fixture
@@ -108,7 +109,7 @@ def test_account_data_isolation_and_workspace_import_restart(client):
 
 
 def test_behavior_log_fields_survive_workspace_save_and_reload(client):
-    _, identity = create_identity(client)
+    user, identity = create_identity(client)
     habit = create_habit(client, identity['id']).json()
     entry = {
         'id': 'behavior-roundtrip', 'habitId': habit['id'], 'type': 'craving',
@@ -124,9 +125,22 @@ def test_behavior_log_fields_survive_workspace_save_and_reload(client):
     }
     technique = {'id': 'technique-roundtrip', 'habitId': habit['id'], 'type': 'technique_applied', 'at': entry['at'], 'episodeId': entry['episodeId'], 'technique': 'Delay', 'techniqueId': 'delay', 'law': 'response', 'laws': ['response'], 'variationId': 'variation-one', 'timing': 'responsive', 'intensity': 7}
     occurrence = {'id': 'occurrence-roundtrip', 'habitId': habit['id'], 'type': 'habit_occurrence', 'at': entry['at'], 'episodeId': entry['episodeId'], 'quantity': 2, 'trigger': 'after coffee'}
-    saved = client.put('/api/workspace', json={'expected_revision': 0, 'data': {'behaviorLogs': [entry, technique, occurrence]}})
+    confirmation = {'habitId': habit['id'], 'date': '2026-11-17', 'status': 'occurred_recorded', 'updatedAt': '2026-11-17T23:00:00Z'}
+    data = {'behaviorLogs': [entry, technique, occurrence], 'dailyConfirmations': [confirmation]}
+    saved = client.put('/api/workspace', json={'expected_revision': 0, 'data': data})
     assert saved.status_code == 200
-    assert client.get('/api/workspace').json()['data']['behaviorLogs'] == [entry, technique, occurrence]
+    loaded = client.get('/api/workspace').json()['data']
+    assert loaded['behaviorLogs'] == [entry, technique, occurrence]
+    assert loaded['dailyConfirmations'] == [confirmation]
+
+    restarted_engine = create_engine(f"sqlite:///{client.db_path}")
+    restarted_sessions = sessionmaker(bind=restarted_engine)
+    with restarted_sessions() as db:
+        persisted = db.get(WorkspaceState, user['id'])
+        assert persisted is not None
+        assert persisted.payload['behaviorLogs'] == [entry, technique, occurrence]
+        assert persisted.payload['dailyConfirmations'] == [confirmation]
+    restarted_engine.dispose()
 
 
 def test_health_checks_database_connectivity(client, monkeypatch):

@@ -9,6 +9,7 @@ import {
   metadataForEditedTimestamp,
   minutesToCravingResolution,
   outcomeForCraving,
+  prepareBehavioralWorkspaceImport,
   removeBehaviorLogRecord,
   recordPostEngagementSatisfaction,
   recordUrgeFollowUp,
@@ -167,6 +168,40 @@ test('a real log for a sample habit survives while seeded sample logs are exclud
   const realUseOfSampleHabit = craving('behavior-real-1', 'ep1');
   const seededSample = craving('sample-log-old', 'ep2');
   assert.deepEqual(withoutSampleBehaviorLogs([realUseOfSampleHabit, seededSample]), [realUseOfSampleHabit]);
+});
+
+test('personal Smoking imports remap daily confirmations and legacy check-ins with the habit', () => {
+  const result = prepareBehavioralWorkspaceImport(
+    [{ id: 'demo-smoking', name: 'Smoking', kind: 'BREAK' }],
+    [
+      { ...craving('behavior-craving-1', 'episode-1', 'smoked'), habitId: 'demo-smoking' },
+      { ...occurrence('behavior-cigarettes-1', 'episode-1', 3), habitId: 'demo-smoking' },
+      { id: 'behavior-technique-1', habitId: 'demo-smoking', type: 'technique_applied', techniqueId: 'delay', at: '2026-11-15T16:02:00Z' },
+    ],
+    [{ id: 'legacy-1', habitId: 'demo-smoking', type: 'OLD_HABIT', at: '2026-11-14T16:00:00Z' }],
+    [{ habitId: 'demo-smoking', date: '2026-11-15', status: 'occurred_recorded', updatedAt: '2026-11-15T23:00:00Z' }],
+    () => 'habit-imported-smoking',
+  );
+
+  assert.equal(result.habits[0].id, 'habit-imported-smoking');
+  assert.ok(result.behaviorLogs.every(log => log.habitId === 'habit-imported-smoking'));
+  assert.equal(result.behaviorLogs.find(log => log.type === 'habit_occurrence').quantity, 3);
+  assert.equal(result.habitEvents[0].habitId, 'habit-imported-smoking');
+  assert.deepEqual(result.dailyConfirmations, [{ habitId: 'habit-imported-smoking', date: '2026-11-15', status: 'occurred_recorded', updatedAt: '2026-11-15T23:00:00Z' }]);
+});
+
+test('sample Smoking confirmations are excluded when their only matching logs are synthetic', () => {
+  const result = prepareBehavioralWorkspaceImport(
+    [{ id: 'demo-smoking', name: 'Smoking', kind: 'BREAK' }],
+    [{ ...craving('sample-log-smoking-1', 'sample-episode'), habitId: 'demo-smoking' }],
+    [],
+    [{ habitId: 'demo-smoking', date: '2026-11-15', status: 'no_occurrence', updatedAt: '2026-11-16T03:00:00Z' }],
+    () => 'habit-should-not-exist',
+  );
+
+  assert.deepEqual(result.habits, []);
+  assert.deepEqual(result.behaviorLogs, []);
+  assert.deepEqual(result.dailyConfirmations, []);
 });
 
 test('technique applications preserve the configured technique, law and usage context', () => {
