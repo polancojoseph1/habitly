@@ -37,7 +37,8 @@ class HabitCreate(BaseModel):
     target_action: str = Field(min_length=1, max_length=300)
     gateway_action: str = Field(default="", max_length=300)
     replacement_actions: list[str] = Field(default_factory=list)
-    replacement_mode: Literal["STACK", "OPTIONS"] = "STACK"
+    replacement_options: list[str] = Field(default_factory=list)
+    replacement_mode: Literal["STACK", "OPTIONS", "BOTH"] = "STACK"
     break_plan_answers: dict[str, list[str]] = Field(default_factory=dict)
     gateway_minutes: int = Field(default=0, ge=0, le=1440)
     cue_type: Literal["TIME_LOCATION", "STACK"] = "STACK"
@@ -70,7 +71,7 @@ class HabitCreate(BaseModel):
             if self.cue_type == "TIME_LOCATION" and not self.location:
                 raise ValueError("Time and location cues require a location")
         else:
-            if not (self.replacement_actions or self.gateway_action):
+            if not (self.replacement_actions or self.replacement_options or self.gateway_action):
                 raise ValueError("Habits being changed need a replacement action")
             if not (self.technique_ids or self.cue_to_hide or self.friction_strategy or self.alternative_routine):
                 raise ValueError("Choose at least one strategy for changing this habit")
@@ -86,6 +87,7 @@ class HabitOut(BaseModel):
     target_action: str
     gateway_action: str
     replacement_actions: list[str]
+    replacement_options: list[str]
     replacement_mode: str
     break_plan_answers: dict[str, list[str]]
     gateway_minutes: int
@@ -209,7 +211,8 @@ class HabitUpdate(BaseModel):
     target_action: str | None = Field(default=None, min_length=1, max_length=300)
     gateway_action: str | None = Field(default=None, max_length=300)
     replacement_actions: list[str] | None = None
-    replacement_mode: Literal["STACK", "OPTIONS"] | None = None
+    replacement_options: list[str] | None = None
+    replacement_mode: Literal["STACK", "OPTIONS", "BOTH"] | None = None
     break_plan_answers: dict[str, list[str]] | None = None
     gateway_minutes: int | None = Field(default=None, ge=0, le=1440)
     cue_type: Literal["TIME_LOCATION", "STACK"] | None = None
