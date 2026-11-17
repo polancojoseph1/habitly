@@ -9,7 +9,7 @@ import { PeriodCheckin } from './period-checkin-view';
 import notebookLMContent from './notebooklm-content.json';
 import { lawGroups, techniques, techniqueMap } from './techniques';
 import type { ChangeMode, Law } from './techniques';
-import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, recordPostEngagementSatisfaction, recordUrgeFollowUp, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, withoutSampleBehaviorLogs } from './behavioral-logging';
+import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, legacyHabitEventsToBehaviorLogs, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, recordPostEngagementSatisfaction, recordUrgeFollowUp, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, withoutSampleBehaviorLogs } from './behavioral-logging';
 import type { BehaviorLog, BehaviorType, DailyConfirmation, DailyConfirmationStatus, PostEngagementSatisfaction, UrgeFollowUpStatus } from './behavioral-logging';
 import { createSampleSmokingConfirmations, createSampleSmokingLogs, hasCurrentSmokingSample } from './sample-smoking-data';
 
@@ -1648,22 +1648,15 @@ export default function Home() {
     const selectedHabit = habits.find(habit => habit.id === loggingHabitId) ?? habits.find(habit => habit.kind === 'BREAK') ?? demoHabits[0];
     const logs = behaviorLogs.filter(log => log.habitId === selectedHabit.id).sort((a, b) => b.at.localeCompare(a.at));
     const loggingTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
-    const legacyOccurrences: BehaviorLog[] = habitEvents
-      .filter(event => event.habitId === selectedHabit.id && event.type === 'OLD_HABIT')
-      .map(event => ({
-        id: `legacy-event-${event.id}`,
-        habitId: event.habitId,
-        type: 'habit_occurrence',
-        at: event.at,
-        createdAt: event.at,
-        localDate: dateKeyInZone(event.at, loggingTimezone),
-        timezone: loggingTimezone,
-        episodeId: `legacy-episode-${event.id}`,
-        note: event.note,
-        legacyEvent: true,
-      }));
-    const analyticsLogs = [...logs, ...legacyOccurrences].sort((a, b) => b.at.localeCompare(a.at));
-    const cuePattern = summarizeCuePatterns(logs, localDateKeys(5));
+    const legacyAnalyticsLogs = legacyHabitEventsToBehaviorLogs(
+      habitEvents,
+      selectedHabit.id,
+      loggingTimezone,
+      variations.filter(item => item.habitId === selectedHabit.id),
+      techniques,
+    );
+    const analyticsLogs = [...logs, ...legacyAnalyticsLogs].sort((a, b) => b.at.localeCompare(a.at));
+    const cuePattern = summarizeCuePatterns(analyticsLogs, localDateKeys(5));
     const cueCaptureLog = logs.find(log => log.id === quickCueCaptureLogId && log.type === 'craving');
     const dueUrgeFollowUp = logs.filter(log => log.type === 'craving' && log.urgeFollowUpDueAt && new Date(log.urgeFollowUpDueAt).getTime() <= loggingClock && !log.urgeFollowUpStatus && outcomeForCraving(logs, log) === 'resisted').sort((a, b) => (a.urgeFollowUpDueAt ?? '').localeCompare(b.urgeFollowUpDueAt ?? ''))[0];
     const pendingEngagementCheck = [...logs].filter(log => log.type === 'craving' && !log.id.startsWith('sample-log-') && log.questionnaireVersion === 1 && outcomeForCraving(logs, log) === 'smoked' && !log.postEngagementSatisfaction).sort((a, b) => b.at.localeCompare(a.at))[0];
@@ -1872,7 +1865,7 @@ export default function Home() {
     const rating = windowLogs.length === 0 ? 'No records in this period' : windowLogs.length < 12 ? 'Limited records in this period' : resolvedCravings.length < 5 ? 'Descriptive records, few resolved outcomes in this period' : 'Sufficient descriptive records for this period';
     const maxOccurrence = Math.max(1, ...periodBuckets.map(bucket => isSmoke ? Math.max(bucket.summary.quantity, bucket.summary.legacyOccurrences) : bucket.summary.occurrenceEvents));
     const maxCravings = Math.max(1, ...periodBuckets.map(bucket => bucket.summary.cravings));
-    const historyLogs = logs.filter(log => {
+    const historyLogs = analyticsLogs.filter(log => {
       const outcome = getOutcome(log);
       const lawList = chosenLaw(log);
       const recoveryAction = isRecoveryPrincipleApplication(log);
@@ -1900,11 +1893,11 @@ export default function Home() {
       try { return new Intl.DateTimeFormat('en-US', { timeZone: timezone, hour: 'numeric', minute: '2-digit' }).format(new Date(value)); }
       catch { return new Date(value).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); }
     };
-    const eventLabel = (log: BehaviorLog) => isRecoveryPrincipleApplication(log) ? 'Recovery action' : log.type === 'craving' ? 'Craving' : log.type === 'habit_occurrence' ? occurrenceActionLabel(selectedHabit) : 'Technique applied';
+    const eventLabel = (log: BehaviorLog) => log.legacyEvent && log.type === 'craving' ? 'Urge passed' : log.legacyEvent && log.type === 'technique_applied' ? 'Replacement used' : isRecoveryPrincipleApplication(log) ? 'Recovery action' : log.type === 'craving' ? 'Craving' : log.type === 'habit_occurrence' ? occurrenceActionLabel(selectedHabit) : 'Technique applied';
     const eventDetails = (log: BehaviorLog) => {
       const bits: string[] = [];
       if (log.type === 'craving' && log.intensity !== undefined) bits.push('Intensity ' + log.intensity + '/10');
-      if (log.type === 'habit_occurrence') bits.push((log.quantity ?? 1) + ' ' + occurrenceUnit + ((log.quantity ?? 1) === 1 ? '' : 's'));
+      if (log.type === 'habit_occurrence') bits.push(log.legacyEvent ? 'Quantity not recorded' : (log.quantity ?? 1) + ' ' + occurrenceUnit + ((log.quantity ?? 1) === 1 ? '' : 's'));
       if (isRecoveryPrincipleApplication(log)) bits.push('Return to plan at the next opportunity');
       else if (log.type === 'technique_applied') {
         bits.push(log.technique || 'Technique');
@@ -1932,8 +1925,13 @@ export default function Home() {
         <label className="logging-habit-picker">HABIT<select aria-label="Select habit to break" value={selectedHabit.id} onChange={event => { setLoggingHabitId(event.target.value); setQuickCueCaptureLogId(''); setHistoryLimit(30); }}>{habits.filter(habit => habit.kind === 'BREAK').map(habit => <option key={habit.id} value={habit.id}>{habit.name}</option>)}</select></label>
       </div>
       {hasSampleSmokingData && <p className="logging-caveat">Sample analytics preview: eight weeks of varied Smoking cravings, outcomes, cigarette counts, triggers, contexts, and technique use. These synthetic records stay in this browser’s sample workspace and are filtered out of account imports.</p>}
+      <section className={`logging-sync-banner ${connectionError ? 'has-error' : workspaceReady && remoteToken ? 'is-connected' : 'is-local'}`} role="status">
+        <div><b>{connectionError ? 'Sync needs attention' : workspaceReady && remoteToken ? 'Account sync is active' : remoteToken ? 'Device data import is pending' : 'Saved on this device only'}</b><p>{connectionError ? `${connectionError} Your browser copy is still available.` : workspaceReady && remoteToken ? 'New logging entries sync to this Habitly account.' : remoteToken ? 'The account is connected, but its workspace has not been loaded. Review the local data import in Settings before logging here.' : 'This browser’s logging records are not reaching the server yet. Connect an account in Settings to sync this device’s data.'}</p></div>
+        <button type="button" className="text-button" onClick={() => { setActive('Settings'); setMobileNav(false); }}>{remoteToken && !workspaceReady ? 'Review import' : remoteToken ? 'Connection settings' : 'Connect account'} <Icon name="arrow" size={14}/></button>
+      </section>
+      {legacyAnalyticsLogs.length > 0 && <p className="logging-legacy-note">Included {legacyAnalyticsLogs.length} older check-in{legacyAnalyticsLogs.length === 1 ? '' : 's'} from the previous Smoking logger. Urge-passed and replacement-used entries now count in insights. Cigarette quantities and structured triggers remain unknown unless those fields were recorded.</p>}
       <div className="logging-view-tabs" role="tablist" aria-label="Behavioral logging views">
-        {(['Log', 'Insights', 'History'] as const).map(view => <button key={view} type="button" role="tab" id={'logging-tab-' + view.toLowerCase()} aria-selected={loggingView === view} aria-controls="logging-view-panel" className={loggingView === view ? 'selected' : ''} onClick={() => setLoggingView(view)}>{view}{view === 'History' && <span>{logs.length}</span>}</button>)}
+        {(['Log', 'Insights', 'History'] as const).map(view => <button key={view} type="button" role="tab" id={'logging-tab-' + view.toLowerCase()} aria-selected={loggingView === view} aria-controls="logging-view-panel" className={loggingView === view ? 'selected' : ''} onClick={() => setLoggingView(view)}>{view}{view === 'History' && <span>{analyticsLogs.length}</span>}</button>)}
       </div>
       <div id="logging-view-panel" role="tabpanel" aria-labelledby={'logging-tab-' + loggingView.toLowerCase()}>
         {loggingView === 'Log' && <>
@@ -1942,7 +1940,7 @@ export default function Home() {
             <span className="logging-quality-pill">{todaySummary.resistedCravings}/{todaySummary.resolvedCravings} cravings resisted today</span>
           </div>
           <section className="logging-quick-panel">
-            <div className="logging-section-heading"><div><span className="eyebrow">ONE TAP TO RECORD</span><h2>What’s happening?</h2></div><span className="logging-live"><i/>{remoteToken ? 'Syncing with account' : 'Saved on this device'}</span></div>
+            <div className="logging-section-heading"><div><span className="eyebrow">ONE TAP TO RECORD</span><h2>What’s happening?</h2></div><span className="logging-live"><i/>{connectionError ? 'Sync issue' : workspaceReady && remoteToken ? 'Synced with account' : remoteToken ? 'Import required' : 'Saved on this device'}</span></div>
             <div className="logging-quick-actions">
               <button type="button" className="logging-quick-action craving" onClick={() => quickLog('craving')}><span className="logging-action-icon"><Icon name="spark" size={20}/></span><span><b>Craving</b><small>Save an unresolved urge</small></span><Icon name="plus" size={18}/></button>
               <button type="button" className="logging-quick-action occurrence" onClick={() => quickLog('habit_occurrence')}><span className="logging-action-icon"><Icon name="arrow-up-right" size={20}/></span><span><b>{occurrenceActionLabel(selectedHabit)}</b><small>One {occurrenceUnit} by default</small></span><Icon name="plus" size={18}/></button>
@@ -2168,7 +2166,7 @@ export default function Home() {
         {loggingView === 'History' && <section className="logging-history-section">
           <div className="logging-section-heading"><div><span className="eyebrow">REVIEW AND CORRECT</span><h2>Behavior history <span className="soft-count">{historyLogs.length}</span></h2></div><span className="logging-chart-note">Grouped by local day and behavioral episode</span></div>
           <div className="logging-history-filters"><label>TYPE<select value={historyTypeFilter} onChange={event => { setHistoryTypeFilter(event.target.value); setHistoryLimit(30); }}><option value="all">All events</option><option value="craving">Cravings</option><option value="habit_occurrence">Habit occurrences</option><option value="technique_applied">Techniques</option><option value="recovery">Recovery actions</option></select></label><label>TRIGGER<input value={historyTriggerFilter} onChange={event => setHistoryTriggerFilter(event.target.value)} list="history-trigger-options" placeholder="All triggers"/><datalist id="history-trigger-options">{allTriggers.map(value => <option key={value} value={value}/>)}</datalist></label><label>TECHNIQUE<input value={historyTechniqueFilter} onChange={event => setHistoryTechniqueFilter(event.target.value)} placeholder="Any technique"/></label><label>LAW<select value={historyLawFilter} onChange={event => setHistoryLawFilter(event.target.value)}><option value="all">All laws</option>{lawGroups.slice(0, 4).map(item => <option key={item.id} value={item.id}>{item.break}</option>)}</select></label><label>OUTCOME<select value={historyOutcomeFilter} onChange={event => setHistoryOutcomeFilter(event.target.value)}><option value="all">All outcomes</option><option value="resisted">Resisted</option><option value="smoked">{isSmoke ? 'Smoked' : 'Engaged'}</option><option value="unknown">Unknown or unresolved</option></select></label><label className="logging-date-field">FROM<input type="date" value={historyFrom} onChange={event => setHistoryFrom(event.target.value)}/></label><label className="logging-date-field">TO<input type="date" value={historyTo} onChange={event => setHistoryTo(event.target.value)}/></label><button type="button" className="text-button logging-clear-filters" onClick={() => { setHistoryTypeFilter('all'); setHistoryTriggerFilter(''); setHistoryTechniqueFilter(''); setHistoryLawFilter('all'); setHistoryOutcomeFilter('all'); setHistoryFrom(''); setHistoryTo(''); }}>Clear filters</button></div>
-          {timelineGroups.length ? <div className="logging-history-days">{timelineGroups.map(day => <section key={day.day}><h3>{formatDay(day.day)}</h3>{day.episodes.map(episode => { const multi = episode.rows.length > 1; const episodeTitle = multi ? 'Behavioral episode · ' + episode.rows.length + ' linked events' : eventLabel(episode.rows[0]); const outcome = episode.rows.map(getOutcome).find(value => value !== 'unknown') ?? resolvedEpisodeOutcome(logs, episode.id); const expanded = expandedEpisodes.includes(episode.id); return <details key={episode.id} className="logging-episode" open={expanded || undefined} onToggle={event => { const isOpen = event.currentTarget.open; setExpandedEpisodes(current => isOpen ? [...new Set([...current, episode.id])] : current.filter(id => id !== episode.id)); }}><summary><span className="logging-episode-mark"><Icon name={multi ? 'refresh' : episode.rows[0].type === 'craving' ? 'spark' : episode.rows[0].type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={17}/></span><span><b>{episodeTitle}</b><small>{formatTime(episode.rows[0].at, episode.rows[0].timezone)}{episode.rows[0].trigger ? ' · ' + episode.rows[0].trigger : ''}</small></span>{outcome !== 'unknown' && <em className={'behavior-outcome ' + outcome}>{outcomeLabel(outcome)}</em>}<Icon name="chevron" size={16}/></summary><ol className="behavior-timeline">{episode.rows.map(log => <li key={log.id}><span className={'behavior-type-mark ' + log.type}><Icon name={log.type === 'craving' ? 'spark' : log.type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={16}/></span><div className="behavior-log-main"><div className="behavior-log-title"><b>{eventLabel(log)}</b><time>{formatTime(log.at, log.timezone)}</time></div><p>{eventDetails(log)}</p>{log.type === 'craving' && <span className={'behavior-outcome ' + getOutcome(log)}>{outcomeLabel(getOutcome(log))}</span>}{log.context && <small>{contextDetails(log)}</small>}{(log.automaticThought || log.belief || log.reframing) && <small>{[log.automaticThought, log.belief, log.reframing].filter(Boolean).join(' · ')}</small>}{log.note && <small>{log.note}</small>}<div className="behavior-log-actions"><button type="button" onClick={() => editBehaviorLog(log)}>Edit</button><button type="button" onClick={() => deleteBehaviorLog(log.id)}>Remove</button></div></div></li>)}</ol></details>; })}</section>)}</div> : <div className="logging-empty-state"><Icon name="clock" size={23}/><b>No matching events</b><span>Adjust the filters or record a new event in the Log tab.</span><button type="button" className="text-button" onClick={() => setLoggingView('Log')}>Go to Log <Icon name="arrow" size={14}/></button></div>}
+          {timelineGroups.length ? <div className="logging-history-days">{timelineGroups.map(day => <section key={day.day}><h3>{formatDay(day.day)}</h3>{day.episodes.map(episode => { const multi = episode.rows.length > 1; const episodeTitle = multi ? 'Behavioral episode · ' + episode.rows.length + ' linked events' : eventLabel(episode.rows[0]); const outcome = episode.rows.map(getOutcome).find(value => value !== 'unknown') ?? resolvedEpisodeOutcome(analyticsLogs, episode.id); const expanded = expandedEpisodes.includes(episode.id); return <details key={episode.id} className="logging-episode" open={expanded || undefined} onToggle={event => { const isOpen = event.currentTarget.open; setExpandedEpisodes(current => isOpen ? [...new Set([...current, episode.id])] : current.filter(id => id !== episode.id)); }}><summary><span className="logging-episode-mark"><Icon name={multi ? 'refresh' : episode.rows[0].type === 'craving' ? 'spark' : episode.rows[0].type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={17}/></span><span><b>{episodeTitle}</b><small>{formatTime(episode.rows[0].at, episode.rows[0].timezone)}{episode.rows[0].trigger ? ' · ' + episode.rows[0].trigger : ''}</small></span>{outcome !== 'unknown' && <em className={'behavior-outcome ' + outcome}>{outcomeLabel(outcome)}</em>}<Icon name="chevron" size={16}/></summary><ol className="behavior-timeline">{episode.rows.map(log => <li key={log.id}><span className={'behavior-type-mark ' + log.type}><Icon name={log.type === 'craving' ? 'spark' : log.type === 'habit_occurrence' ? 'arrow-up-right' : 'check'} size={16}/></span><div className="behavior-log-main"><div className="behavior-log-title"><b>{eventLabel(log)}</b><time>{formatTime(log.at, log.timezone)}</time></div><p>{eventDetails(log)}</p>{log.legacyEvent && <small>From an older check-in. Original record kept unchanged.</small>}{log.type === 'craving' && <span className={'behavior-outcome ' + getOutcome(log)}>{outcomeLabel(getOutcome(log))}</span>}{log.context && <small>{contextDetails(log)}</small>}{(log.automaticThought || log.belief || log.reframing) && <small>{[log.automaticThought, log.belief, log.reframing].filter(Boolean).join(' · ')}</small>}{log.note && <small>{log.note}</small>}{!log.legacyEvent && <div className="behavior-log-actions"><button type="button" onClick={() => editBehaviorLog(log)}>Edit</button><button type="button" onClick={() => deleteBehaviorLog(log.id)}>Remove</button></div>}</div></li>)}</ol></details>; })}</section>)}</div> : <div className="logging-empty-state"><Icon name="clock" size={23}/><b>No matching events</b><span>Adjust the filters or record a new event in the Log tab.</span><button type="button" className="text-button" onClick={() => setLoggingView('Log')}>Go to Log <Icon name="arrow" size={14}/></button></div>}
           {historyLogs.length > visibleHistory.length && <button type="button" className="secondary-button logging-load-more" onClick={() => setHistoryLimit(value => value + 30)}>Load 30 more events</button>}
         </section>}
       </div>

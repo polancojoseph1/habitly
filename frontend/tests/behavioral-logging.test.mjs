@@ -5,6 +5,7 @@ import {
   behaviorDayKey,
   dateKeyInZone,
   episodeResolvedOutcome,
+  legacyHabitEventsToBehaviorLogs,
   metadataForEditedTimestamp,
   minutesToCravingResolution,
   outcomeForCraving,
@@ -59,6 +60,32 @@ const craving = (id, episodeId, outcome = 'pending', at = '2026-11-15T16:00:00.0
 });
 const occurrence = (id, episodeId, quantity = 1, at = '2026-11-15T16:10:00.000Z') => ({
   id, habitId: 'habit-a', type: 'habit_occurrence', episodeId, quantity, at, localDate: '2026-11-15', timezone: 'America/New_York',
+});
+
+test('older Smoking check-ins feed analytics with only their recorded meaning', () => {
+  const logs = legacyHabitEventsToBehaviorLogs([
+    { id: 'old-1', habitId: 'habit-a', type: 'OLD_HABIT', at: '2026-11-15T16:00:00.000Z', note: 'Had a cigarette' },
+    { id: 'urge-1', habitId: 'habit-a', type: 'URGE_PASSED', at: '2026-11-15T17:00:00.000Z' },
+    { id: 'replacement-1', habitId: 'habit-a', type: 'REPLACEMENT_USED', at: '2026-11-15T18:00:00.000Z', variationId: 'var-1' },
+    { id: 'build-1', habitId: 'habit-a', type: 'ACTION_COMPLETED', at: '2026-11-15T19:00:00.000Z' },
+    { id: 'other-1', habitId: 'habit-b', type: 'OLD_HABIT', at: '2026-11-15T20:00:00.000Z' },
+  ], 'habit-a', 'America/New_York', [{ id: 'var-1', name: 'Take a short walk', law: 'response', techniqueId: 'walk-away' }]);
+
+  assert.equal(logs.length, 3);
+  assert.equal(logs[0].type, 'habit_occurrence');
+  assert.equal(logs[0].quantity, undefined);
+  assert.equal(logs[1].type, 'craving');
+  assert.equal(logs[1].outcome, 'resisted');
+  assert.equal(logs[2].type, 'technique_applied');
+  assert.equal(logs[2].technique, 'Take a short walk');
+  assert.equal(logs[2].law, 'response');
+  assert.ok(logs.every(log => log.legacyEvent));
+  const summary = summarizeDay(logs, 'habit-a', '2026-11-15', []);
+  assert.equal(summary.occurrenceEvents, 1);
+  assert.equal(summary.quantity, 0);
+  assert.equal(summary.cravings, 1);
+  assert.equal(summary.resistedCravings, 1);
+  assert.equal(summary.techniqueApplications, 1);
 });
 
 test('daily counts use occurrence quantities and do not count cravings as cigarettes', () => {

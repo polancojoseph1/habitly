@@ -57,6 +57,63 @@ export function isRecoveryPrincipleApplication(log: { type: string; technique?: 
 export type EpisodeOutcome = 'resisted' | 'smoked' | 'unknown';
 export type DailyConfirmationStatus = 'no_occurrence' | 'occurred_recorded' | 'incomplete' | 'skip';
 export type DailyConfirmation = { habitId: string; date: string; status: DailyConfirmationStatus; updatedAt: string };
+export type LegacyHabitEvent = {
+  id: string;
+  habitId: string;
+  type: 'ACTION_COMPLETED' | 'URGE_PASSED' | 'REPLACEMENT_USED' | 'OLD_HABIT';
+  at: string;
+  note?: string;
+  strategy?: string;
+  variationId?: string;
+  variationName?: string;
+};
+export type LegacyTechniqueVariation = { id: string; law: string; name: string; techniqueId?: string };
+export type LegacyTechniqueDefinition = { id: string; name: string; laws: string[] };
+
+/** Adapts older check-ins for analytics without changing or rewriting their stored records. */
+export function legacyHabitEventsToBehaviorLogs(
+  events: LegacyHabitEvent[],
+  habitId: string,
+  timezone?: string,
+  variations: LegacyTechniqueVariation[] = [],
+  techniques: LegacyTechniqueDefinition[] = [],
+): BehaviorLog[] {
+  return events.flatMap<BehaviorLog>(event => {
+    if (event.habitId !== habitId || event.type === 'ACTION_COMPLETED' || !Number.isFinite(new Date(event.at).getTime())) return [];
+    const variation = event.variationId ? variations.find(item => item.id === event.variationId) : undefined;
+    const recordedTechnique = event.variationName?.trim() || event.strategy?.trim();
+    const technique = recordedTechnique
+      ? techniques.find(item => item.name.toLocaleLowerCase() === recordedTechnique.toLocaleLowerCase())
+      : undefined;
+    const common = {
+      id: `legacy-event-${event.id}`,
+      habitId: event.habitId,
+      at: event.at,
+      createdAt: event.at,
+      localDate: dateKeyInZone(event.at, timezone),
+      timezone,
+      note: event.note || undefined,
+      legacyEvent: true,
+    } as const;
+
+    if (event.type === 'OLD_HABIT') {
+      return [{ ...common, type: 'habit_occurrence' as const, episodeId: `legacy-episode-${event.id}` }];
+    }
+    if (event.type === 'URGE_PASSED') {
+      return [{ ...common, type: 'craving' as const, outcome: 'resisted' as const, resolvedAt: event.at, episodeId: `legacy-episode-${event.id}` }];
+    }
+    return [{
+      ...common,
+      type: 'technique_applied' as const,
+      technique: variation?.name || recordedTechnique || 'Replacement action',
+      techniqueId: variation?.techniqueId || technique?.id,
+      law: variation?.law || technique?.laws[0],
+      laws: variation ? [variation.law] : technique?.laws,
+      variationId: variation?.id || event.variationId,
+      timing: 'responsive' as const,
+    }];
+  });
+}
 
 export function withoutSampleBehaviorLogs(logs: BehaviorLog[]): BehaviorLog[] {
   return logs.filter(log => !log.id.startsWith('sample-log-'));

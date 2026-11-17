@@ -91,6 +91,14 @@
 .logging-form-head h2,.logging-card-heading h2{margin:3px 0 0;color:var(--ink);font:700 18px 'Manrope',sans-serif;letter-spacing:-.35px}
 .logging-live{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:10px;font-weight:600;white-space:nowrap}
 .logging-live i{width:6px;height:6px;border-radius:50%;background:#78a994}
+.logging-sync-banner{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 13px;padding:12px 14px;border:1px solid var(--line);border-radius:13px;background:var(--surface-soft);color:var(--muted);font-size:11px;line-height:1.5}
+.logging-sync-banner>div{min-width:0}
+.logging-sync-banner b{display:block;margin-bottom:2px;color:var(--ink);font-size:12px}
+.logging-sync-banner p{margin:0}
+.logging-sync-banner .text-button{flex-shrink:0;white-space:nowrap}
+.logging-sync-banner.has-error{border-color:#c98975}
+.logging-sync-banner.is-connected{border-color:#7770b2}
+.logging-legacy-note{margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:var(--surface-soft);color:var(--muted);font-size:10px;line-height:1.5}
 .logging-type-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:5px;border-radius:12px;background:var(--surface-soft)}
 .logging-type-tabs button{display:grid;justify-items:center;gap:5px;min-height:62px;padding:8px 4px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--muted);font-size:11px;font-weight:700}
 .logging-type-tabs button span{font-size:17px;line-height:1;color:#7067b7}
@@ -151,7 +159,7 @@
 [data-theme="dark"] .behavior-type-mark.technique_applied{background:#2c3935;border-color:#3c4d46;color:#a9d0b8}
 [data-theme="dark"] .behavior-outcome.resisted{background:#2b3a33;color:#a9d0b8}.behavior-outcome.smoked{background:#40322c;color:#e4b38f}
 @media(max-width:800px){.logging-layout{grid-template-columns:1fr}.logging-insights-column{grid-template-columns:1fr 1fr}.logging-today-card{grid-column:1/-1}}
-@media(max-width:600px){.logging-heading{align-items:flex-start;flex-direction:column}.logging-habit-picker{width:100%}.logging-intro{padding:17px}.logging-intro h2{font-size:18px}.logging-intro-mark{flex-basis:42px;width:42px;height:42px}.logging-form{padding:14px}.logging-insights-column{grid-template-columns:1fr}.logging-today-card{grid-column:auto}.logging-timeline-section{padding:14px}.logging-timeline-section>.logging-card-heading{align-items:flex-start;flex-direction:column;gap:5px}.logging-stat-grid{gap:5px}.logging-stat-grid>div{padding:10px 7px}.logging-stat-grid b{font-size:20px}.logging-field-row{grid-template-columns:1fr}.logging-live{font-size:9px}.behavior-log-title{align-items:flex-start;flex-direction:column;gap:2px}}
+@media(max-width:600px){.logging-heading{align-items:flex-start;flex-direction:column}.logging-habit-picker{width:100%}.logging-intro{padding:17px}.logging-intro h2{font-size:18px}.logging-intro-mark{flex-basis:42px;width:42px;height:42px}.logging-form{padding:14px}.logging-insights-column{grid-template-columns:1fr}.logging-today-card{grid-column:auto}.logging-timeline-section{padding:14px}.logging-timeline-section>.logging-card-heading{align-items:flex-start;flex-direction:column;gap:5px}.logging-stat-grid{gap:5px}.logging-stat-grid>div{padding:10px 7px}.logging-stat-grid b{font-size:20px}.logging-field-row{grid-template-columns:1fr}.logging-live{font-size:9px}.logging-sync-banner{align-items:flex-start;flex-direction:column;gap:6px}.behavior-log-title{align-items:flex-start;flex-direction:column;gap:2px}}
 
 /* Behavioral logging refresh */
 .logging-heading-compact{margin-bottom:14px}
