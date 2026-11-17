@@ -1647,17 +1647,33 @@ export default function Home() {
   function renderLogging() {
     const selectedHabit = habits.find(habit => habit.id === loggingHabitId) ?? habits.find(habit => habit.kind === 'BREAK') ?? demoHabits[0];
     const logs = behaviorLogs.filter(log => log.habitId === selectedHabit.id).sort((a, b) => b.at.localeCompare(a.at));
+    const loggingTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+    const legacyOccurrences: BehaviorLog[] = habitEvents
+      .filter(event => event.habitId === selectedHabit.id && event.type === 'OLD_HABIT')
+      .map(event => ({
+        id: `legacy-event-${event.id}`,
+        habitId: event.habitId,
+        type: 'habit_occurrence',
+        at: event.at,
+        createdAt: event.at,
+        localDate: dateKeyInZone(event.at, loggingTimezone),
+        timezone: loggingTimezone,
+        episodeId: `legacy-episode-${event.id}`,
+        note: event.note,
+        legacyEvent: true,
+      }));
+    const analyticsLogs = [...logs, ...legacyOccurrences].sort((a, b) => b.at.localeCompare(a.at));
     const cuePattern = summarizeCuePatterns(logs, localDateKeys(5));
     const cueCaptureLog = logs.find(log => log.id === quickCueCaptureLogId && log.type === 'craving');
     const dueUrgeFollowUp = logs.filter(log => log.type === 'craving' && log.urgeFollowUpDueAt && new Date(log.urgeFollowUpDueAt).getTime() <= loggingClock && !log.urgeFollowUpStatus && outcomeForCraving(logs, log) === 'resisted').sort((a, b) => (a.urgeFollowUpDueAt ?? '').localeCompare(b.urgeFollowUpDueAt ?? ''))[0];
     const pendingEngagementCheck = [...logs].filter(log => log.type === 'craving' && !log.id.startsWith('sample-log-') && log.questionnaireVersion === 1 && outcomeForCraving(logs, log) === 'smoked' && !log.postEngagementSatisfaction).sort((a, b) => b.at.localeCompare(a.at))[0];
     const hasSampleSmokingData = selectedHabit.id === 'demo-smoking' && logs.some(log => log.id.startsWith('sample-log-smoking-'));
     const today = todayKey();
-    const todaySummary = summarizeDay(logs, selectedHabit.id, today, dailyConfirmations);
+    const todaySummary = summarizeDay(analyticsLogs, selectedHabit.id, today, dailyConfirmations);
     const currentConfirmation = dailyConfirmations.find(row => row.habitId === selectedHabit.id && row.date === today);
     const isSmoke = isSmokingHabit(selectedHabit);
     const occurrenceUnit = isSmoke ? 'cigarette' : 'occurrence';
-    const getOutcome = (log: BehaviorLog) => log.type === 'habit_occurrence' ? 'smoked' : log.type === 'craving' ? outcomeForCraving(logs, log) : episodeResolvedOutcome(logs, log);
+    const getOutcome = (log: BehaviorLog) => log.type === 'habit_occurrence' ? 'smoked' : log.type === 'craving' ? outcomeForCraving(analyticsLogs, log) : episodeResolvedOutcome(analyticsLogs, log);
     const allTriggers = [...new Set(logs.map(log => log.trigger).filter((value): value is string => Boolean(value)))].sort((a, b) => a.localeCompare(b));
     const configured = new Map<string, { key: string; name: string; techniqueId?: string; variationId?: string; laws: string[]; detail?: string }>();
     (selectedHabit.techniqueIds ?? []).forEach(id => {
@@ -1693,12 +1709,12 @@ export default function Home() {
     const periodRangeText = isHourlyWindow
       ? `${new Date(windowStartMs).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} to ${new Date(windowEndMs).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
       : `${periodStartKey} to ${endKey}`;
-    const windowLogs = logs.filter(log => {
+    const windowLogs = analyticsLogs.filter(log => {
       if (isHourlyWindow) { const at = new Date(log.at).getTime(); return at >= windowStartMs && at <= windowEndMs; }
       const key = behaviorDayKey(log);
       return key >= periodStartKey && key <= endKey;
     });
-    const dayData = insightKeys.map(key => ({ key, summary: summarizeDay(logs, selectedHabit.id, key, dailyConfirmations) }));
+    const dayData = insightKeys.map(key => ({ key, summary: summarizeDay(analyticsLogs, selectedHabit.id, key, dailyConfirmations) }));
     const confirmationConflicts = dayData.filter(day => day.summary.conflict);
     const periodBuckets = isHourlyWindow
       ? Array.from({ length: 24 }, (_, index) => {
@@ -1711,10 +1727,12 @@ export default function Home() {
             label: new Date(bucketStart).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
             detail: `${new Date(bucketStart).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} to ${new Date(bucketEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
             summary: {
-              quantity: occurrences.reduce((total, log) => total + (log.quantity ?? 1), 0),
+              quantity: occurrences.reduce((total, log) => total + (log.legacyEvent ? 0 : (log.quantity ?? 0)), 0),
               occurrenceEvents: occurrences.length,
               cravings: bucketLogs.filter(log => log.type === 'craving').length,
               knownOccurrenceCount: occurrences.length,
+              quantityKnown: occurrences.length > 0 && occurrences.every(log => !log.legacyEvent && typeof log.quantity === 'number' && Number.isFinite(log.quantity)),
+              legacyOccurrences: occurrences.filter(log => log.legacyEvent).length,
             },
           };
         })
@@ -1728,7 +1746,7 @@ export default function Home() {
     const rangeCravings = windowLogs.filter(log => log.type === 'craving');
     const urgeCheckIns = summarizeUrgeCheckIns(windowLogs, logs);
     const resolvedCravings = rangeCravings.filter(log => getOutcome(log) !== 'unknown');
-    const resolutionMinutes = rangeCravings.map(log => minutesToCravingResolution(logs, log)).filter((value): value is number => value !== undefined);
+    const resolutionMinutes = rangeCravings.map(log => minutesToCravingResolution(analyticsLogs, log)).filter((value): value is number => value !== undefined);
     const averageResolutionMinutes = resolutionMinutes.length ? (resolutionMinutes.reduce((sum, value) => sum + value, 0) / resolutionMinutes.length).toFixed(1) : '—';
     const intensities = rangeCravings.map(log => log.intensity).filter((value): value is number => value !== undefined);
     const avgIntensity = intensities.length ? (intensities.reduce((sum, value) => sum + value, 0) / intensities.length).toFixed(1) : '—';
@@ -1770,14 +1788,14 @@ export default function Home() {
     const mostPracticed = mostPracticedTechnique(techniqueApplicationLogs, metadataChoices);
     const techniquePractice = buildTechniquePracticeStats(
       techniqueApplicationLogs,
-      logs,
+      analyticsLogs,
       windowLogs,
       metadataChoices,
       configuredInsightChoices,
       insightLaws.map(law => law.id),
     );
-    const suggestedExperiment = buildSuggestedExperiment(windowLogs, logs, configuredInsightChoices);
-    const strategyGap = buildStrategyGap(windowLogs, logs, configuredInsightChoices, insightLaws);
+    const suggestedExperiment = buildSuggestedExperiment(windowLogs, analyticsLogs, configuredInsightChoices);
+    const strategyGap = buildStrategyGap(windowLogs, analyticsLogs, configuredInsightChoices, insightLaws);
     const localHour = (log: BehaviorLog) => {
       if (!log.timezone) return new Date(log.at).getHours();
       try { const value = new Intl.DateTimeFormat('en-US', { timeZone: log.timezone, hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(log.at)).find(part => part.type === 'hour')?.value; return Number(value ?? new Date(log.at).getHours()); } catch { return new Date(log.at).getHours(); }
@@ -1812,7 +1830,7 @@ export default function Home() {
     const previousStartKey = isHourlyWindow ? dateKeyInZone(new Date(previousWindowStartMs!)) : dateKeyAtOrdinal(previousStartOrdinal);
     const previousEndKey = isHourlyWindow ? dateKeyInZone(new Date(previousWindowEndMs! - 1)) : dateKeyAtOrdinal(previousEndOrdinal);
     const previousKeys = Array.from({ length: Math.max(1, Math.floor((dateOrdinal(previousEndKey) - dateOrdinal(previousStartKey)) / 86400000) + 1) }, (_, index) => dateKeyAtOrdinal(dateOrdinal(previousStartKey) + index * 86400000));
-    const previousWindowLogs = logs.filter(log => {
+    const previousWindowLogs = analyticsLogs.filter(log => {
       if (isHourlyWindow) { const at = new Date(log.at).getTime(); return at >= previousWindowStartMs! && at < previousWindowEndMs!; }
       const key = behaviorDayKey(log);
       return key >= previousStartKey && key <= previousEndKey;
@@ -1822,15 +1840,16 @@ export default function Home() {
       const cravings = periodLogs.filter(log => log.type === 'craving');
       const resolved = cravings.filter(log => getOutcome(log) !== 'unknown');
       const intensityValues = cravings.map(log => log.intensity).filter((value): value is number => value !== undefined);
-      const occurrenceDays = keys.map(key => summarizeDay(logs, selectedHabit.id, key, dailyConfirmations));
+      const occurrenceDays = keys.map(key => summarizeDay(analyticsLogs, selectedHabit.id, key, dailyConfirmations));
       const confirmations = dailyConfirmations.filter(item => {
         if (item.habitId !== selectedHabit.id || item.status === 'skip') return false;
         if (hourlyWindow && startMs !== undefined && endMs !== undefined) { const updatedAt = new Date(item.updatedAt).getTime(); return updatedAt >= startMs && updatedAt < endMs; }
         return item.date >= keys[0] && item.date <= keys[keys.length - 1];
       });
       return {
-        quantity: occurrences.reduce((sum, log) => sum + (log.quantity ?? 1), 0),
+        quantity: occurrences.reduce((sum, log) => sum + (log.legacyEvent ? 0 : (log.quantity ?? 0)), 0),
         occurrences: occurrences.length,
+        legacyOccurrences: occurrences.filter(log => log.legacyEvent).length,
         cravings: cravings.length,
         averageIntensity: intensityValues.length ? (intensityValues.reduce((sum, value) => sum + value, 0) / intensityValues.length).toFixed(1) : '—',
         resisted: resolved.filter(log => getOutcome(log) === 'resisted').length,
@@ -1841,13 +1860,17 @@ export default function Home() {
         confirmations: confirmations.length,
         days: keys.length,
         occurrenceCoverageComplete: isPeriodOccurrenceCoverageComplete(occurrenceDays, hourlyWindow),
+        quantityCoverageComplete: isPeriodOccurrenceCoverageComplete(
+          occurrenceDays.map(day => ({ ...day, knownOccurrenceCount: day.quantityKnown })),
+          hourlyWindow,
+        ) && (!hourlyWindow || periodLogs.every(log => log.type !== 'habit_occurrence' || (!log.legacyEvent && typeof log.quantity === 'number'))),
       };
     };
     const currentPeriod = summarizePeriod(windowLogs, insightKeys, isHourlyWindow, windowStartMs, windowEndMs);
     const previousPeriod = summarizePeriod(previousWindowLogs, previousKeys, isHourlyWindow, previousWindowStartMs, previousWindowEndMs);
     const delta = (current: number, previous: number) => previous === 0 ? (current === 0 ? '0' : 'New') : ((current - previous > 0 ? '+' : '') + Math.round((current - previous) / previous * 100) + '%');
     const rating = windowLogs.length === 0 ? 'No records in this period' : windowLogs.length < 12 ? 'Limited records in this period' : resolvedCravings.length < 5 ? 'Descriptive records, few resolved outcomes in this period' : 'Sufficient descriptive records for this period';
-    const maxOccurrence = Math.max(1, ...periodBuckets.map(bucket => isSmoke ? bucket.summary.quantity : bucket.summary.occurrenceEvents));
+    const maxOccurrence = Math.max(1, ...periodBuckets.map(bucket => isSmoke ? Math.max(bucket.summary.quantity, bucket.summary.legacyOccurrences) : bucket.summary.occurrenceEvents));
     const maxCravings = Math.max(1, ...periodBuckets.map(bucket => bucket.summary.cravings));
     const historyLogs = logs.filter(log => {
       const outcome = getOutcome(log);
@@ -2125,13 +2148,14 @@ export default function Home() {
           </section>
           <div className="logging-insight-grid">
             <section className="logging-insight-section" id="logging-trigger-analytics"><div className="logging-section-heading"><div><span className="eyebrow">04 · {periodEyebrow} · TRIGGERS</span><h2>Common triggers</h2></div></div>{triggerStats.length ? <div className="logging-trigger-list">{triggerStats.map(item => <div key={item.name} className="logging-trigger-analysis"><span>{item.name}</span><b>{item.count} logged · {item.episodes} episodes</b><i><em style={{ width: Math.max(8, item.count / Math.max(1, triggerStats[0]?.count ?? 1) * 100) + '%' }}/></i><small>{item.resolved ? item.resisted + '/' + item.resolved + ' resolved episodes resisted' : 'No resolved outcomes yet'}{item.resolved < 5 ? ' · limited observations' : ''}</small></div>)}</div> : <p className="logging-empty-hint">Add triggers to see their logged frequency and associated outcomes.</p>}<p className="logging-caveat">Counts show how often a trigger was recorded. Associated outcomes are descriptive, not causal.</p></section>
-            <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">05 · {periodEyebrow} · OUTCOME TREND</span><h2>{isSmoke ? 'Cigarette quantity trend' : 'Habit occurrence trend'}</h2></div><span className="logging-chart-note">{isHourlyWindow ? 'No event in an hour is not a confirmed zero' : 'No record is unknown'}</span></div><div className="logging-bars-scroll"><div className="logging-bars logging-bars-wide" role="img" aria-label={(isSmoke ? 'Cigarettes' : 'Habit occurrences') + (isHourlyWindow ? ' by hour over the past 24 hours.' : ' logged by local day. Unconfirmed days without an occurrence record are shown as unknown.')} style={{ minWidth: Math.max(320, periodBuckets.length * 25) + 'px' }}>{periodBuckets.map(bucket => { const value = isSmoke ? bucket.summary.quantity : bucket.summary.occurrenceEvents; const known = Boolean(bucket.summary.knownOccurrenceCount); const height = value ? Math.max(8, value / maxOccurrence * 100) : known ? 4 : 3; return <div className={'logging-bar-day ' + (!known ? 'unknown' : '')} key={bucket.key} title={bucket.detail + ': ' + (known ? value + ' logged' : 'no occurrence record')}><span>{known ? value : '·'}</span><i style={{ height: height + '%' }}/><small>{bucket.label}</small></div>; })}</div></div><div className="logging-legend"><span><i/> {isHourlyWindow ? 'Occurrence logged' : 'Logged or explicitly confirmed'}</span><span><i/> No occurrence data</span></div><p className="logging-caveat">{isHourlyWindow ? 'An hour without an occurrence record is not confirmed as zero.' : 'Confirmed no occurrence days require an explicit daily confirmation. Days without an occurrence entry are not counted as zero.'}</p></section>
+          <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">05 · {periodEyebrow} · OUTCOME TREND</span><h2>{isSmoke ? 'Cigarette quantity trend' : 'Habit occurrence trend'}</h2></div><span className="logging-chart-note">{isHourlyWindow ? 'No event in an hour is not a confirmed zero' : 'No record is unknown'}</span></div><div className="logging-bars-scroll"><div className="logging-bars logging-bars-wide" role="img" aria-label={(isSmoke ? 'Cigarette quantities' : 'Habit occurrences') + (isHourlyWindow ? ' by hour over the past 24 hours.' : ' logged by local day. Unconfirmed days without an occurrence record are shown as unknown.')} style={{ minWidth: Math.max(320, periodBuckets.length * 25) + 'px' }}>{periodBuckets.map(bucket => { const value = isSmoke ? bucket.summary.quantity : bucket.summary.occurrenceEvents; const occurrenceKnown = Boolean(bucket.summary.knownOccurrenceCount); const quantityKnown = Boolean(bucket.summary.quantityKnown); const unquantifiedLegacy = isSmoke && bucket.summary.legacyOccurrences > 0 && !quantityKnown; const known = isSmoke ? quantityKnown : occurrenceKnown; const height = unquantifiedLegacy ? Math.max(8, Math.max(bucket.summary.legacyOccurrences, value) / maxOccurrence * 100) : value ? Math.max(8, value / maxOccurrence * 100) : known ? 4 : 3; const display = unquantifiedLegacy ? '?' : known ? value : '·'; const detail = unquantifiedLegacy ? `${bucket.summary.legacyOccurrences} older “Old behavior” episode${bucket.summary.legacyOccurrences === 1 ? '' : 's'}; cigarette quantity not recorded${value ? `; ${value} cigarettes also recorded` : ''}` : isSmoke ? quantityKnown ? `${value} cigarettes recorded or confirmed` : 'cigarette quantity not confirmed' : occurrenceKnown ? `${value} occurrences logged or confirmed` : 'no occurrence record'; const classes = ['logging-bar-day', !known && !unquantifiedLegacy ? 'unknown' : '', unquantifiedLegacy ? 'quantity-unknown' : ''].filter(Boolean).join(' '); return <div className={classes} key={bucket.key} title={`${bucket.detail}: ${detail}`}><span>{display}</span><i style={{ height: height + '%' }}/><small>{bucket.label}</small></div>; })}</div></div><div className="logging-legend">{isSmoke ? <><span><i/> Cigarette quantity recorded or confirmed</span><span><i className="legacy-quantity-marker"/> Older “Old behavior” episode, quantity unknown</span><span><i/> No occurrence data</span></> : <><span><i/> {isHourlyWindow ? 'Occurrence logged' : 'Logged or explicitly confirmed'}</span><span><i/> No occurrence data</span></>}</div><p className="logging-caveat">{isSmoke && currentPeriod.legacyOccurrences > 0 ? 'Older “Old behavior” check-ins are counted as smoking episodes. They do not include cigarette quantities.' : isHourlyWindow ? 'An hour without an occurrence record is not confirmed as zero.' : 'Confirmed no occurrence days require an explicit daily confirmation. Days without an occurrence entry are not counted as zero.'}</p></section>
             <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">06 · {periodEyebrow} · CRAVING ANALYSIS</span><h2>Cravings logged</h2></div></div><div className="logging-bars-scroll"><div className="logging-bars logging-bars-wide" role="img" aria-label={isHourlyWindow ? "Number of cravings logged in each hour of the past 24 hours." : "Number of cravings logged each local day. Counts describe logging activity."} style={{ minWidth: Math.max(320, periodBuckets.length * 25) + 'px' }}>{periodBuckets.map(bucket => { const value = bucket.summary.cravings; return <div className="logging-bar-day" key={bucket.key} title={bucket.detail + ': ' + value + ' craving logs'}><span>{value}</span><i style={{ height: (value ? Math.max(8, value / maxCravings * 100) : 4) + '%' }}/><small>{bucket.label}</small></div>; })}</div></div><div className="logging-stat-grid compact"><div><b>{rangeCravings.length}</b><span>cravings logged in period</span></div><div><b>{avgIntensity}</b><span>average recorded intensity</span></div><div><b>{resolvedCravings.length}</b><span>known outcomes</span></div><div><b>{rangeCravings.length - resolvedCravings.length}</b><span>unresolved or unknown</span></div><div><b>{averageResolutionMinutes === '—' ? '—' : averageResolutionMinutes + ' min'}</b><span>average time to resolution when recorded · {resolutionMinutes.length} episodes</span></div></div><div className="logging-intensity-distribution"><b>Recorded intensity distribution</b>{intensityDistribution.map(item => <span key={item.label}>{item.label}/10 <i>{item.count}</i></span>)}</div><p className="logging-caveat">Fewer logged cravings do not show that cravings decreased when logging completeness is unknown.</p></section>
             <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">07 · {periodEyebrow} · TIME PATTERNS</span><h2>When events are logged</h2></div></div><div className="logging-time-blocks">{occurrenceBins.map(bin => <div key={bin.name}><b>{bin.count} occurrences</b><span>{bin.name}</span><small>{cravingBins.find(item => item.name === bin.name)?.count ?? 0} cravings</small></div>)}</div><div className="logging-hour-grid" role="img" aria-label="Hourly logged habit occurrence and craving event counts from midnight to 11 PM">{hourly.map(item => <div key={item.hour} title={item.hour + ':00 · ' + item.count + ' occurrences · ' + item.cravings + ' cravings'}><i style={{ height: Math.max(3, item.count / Math.max(1, ...hourly.map(value => value.count)) * 42) + 'px' }}/><i className="craving-bar" style={{ height: Math.max(3, item.cravings / Math.max(1, ...hourly.map(value => value.cravings)) * 42) + 'px' }}/><small>{item.hour % 3 === 0 ? item.hour : ''}</small></div>)}</div><div className="logging-legend"><span><i/> Occurrences</span><span className="craving-legend"><i/> Cravings</span></div><div className="logging-weekday-grid">{weekdayCounts.map(item => <div key={item.day}><b>{item.count}</b><span>{item.label}</span><small>{item.cravings} cravings</small></div>)}</div><p className="logging-caveat">Periods with few records can look prominent by chance. Counts describe entries, not underlying risk.</p></section>
           </div>
           <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">08 · {periodEyebrow} · COMPARISON</span><h2>Selected period vs previous period</h2></div></div><div className="logging-weekly-grid"><div className="logging-table-header"><span>Measure</span><span>Previous period</span><span>Selected period</span><span>Change</span></div>{([
             [isSmoke ? 'Cigarettes recorded' : 'Occurrence quantity', previousPeriod.quantity, currentPeriod.quantity, delta(currentPeriod.quantity, previousPeriod.quantity)],
             ['Occurrence events', previousPeriod.occurrences, currentPeriod.occurrences, delta(currentPeriod.occurrences, previousPeriod.occurrences)],
+            ...(isSmoke ? [['Older "Old behavior" episodes, quantity unknown', previousPeriod.legacyOccurrences, currentPeriod.legacyOccurrences, 'Not comparable to cigarettes']] : []),
             ['Cravings logged', previousPeriod.cravings, currentPeriod.cravings, delta(currentPeriod.cravings, previousPeriod.cravings)],
             ['Average recorded craving intensity', previousPeriod.averageIntensity, currentPeriod.averageIntensity, 'Descriptive'],
             ['Resolved cravings resisted', previousPeriod.resisted + '/' + previousPeriod.resolved + (previousPeriod.resolved ? ' (' + Math.round(previousPeriod.resisted / previousPeriod.resolved * 100) + '%)' : ''), currentPeriod.resisted + '/' + currentPeriod.resolved + (currentPeriod.resolved ? ' (' + Math.round(currentPeriod.resisted / currentPeriod.resolved * 100) + '%)' : ''), 'Counts and denominators shown'],

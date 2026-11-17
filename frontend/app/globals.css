@@ -123,8 +123,10 @@
 .logging-bar-day{display:grid;grid-template-rows:13px 1fr 14px;align-items:end;justify-items:center;gap:3px;height:100%;color:var(--muted)}
 .logging-bar-day>span{font-size:8px}.logging-bar-day>i{align-self:end;width:min(100%,15px);min-height:4px;border-radius:5px 5px 2px 2px;background:linear-gradient(180deg,#9085dc,#c5bff3)}
 .logging-bar-day.unknown>i{background:repeating-linear-gradient(135deg,#d8d6e0 0 3px,#f3f2f5 3px 6px)}
+.logging-bar-day.quantity-unknown>i{background:repeating-linear-gradient(135deg,#d69d64 0 3px,#f0d5b6 3px 6px)}
+.logging-legend i.legacy-quantity-marker{background:#d69d64}
 .logging-bar-day>small{font-size:8px}
-.logging-legend{display:flex;gap:14px;color:var(--muted);font-size:9px}.logging-legend span{display:flex;align-items:center;gap:5px}.logging-legend i{width:7px;height:7px;border-radius:3px;background:#9187dc}.logging-legend span:last-child i{background:#d8d6e0}
+.logging-legend{display:flex;flex-wrap:wrap;gap:6px 14px;color:var(--muted);font-size:9px}.logging-legend span{display:flex;align-items:center;gap:5px}.logging-legend i{width:7px;height:7px;border-radius:3px;background:#9187dc}.logging-legend span:last-child i{background:#d8d6e0}
 .logging-trigger-list{display:grid;gap:11px;margin:16px 0 11px}
 .logging-trigger-list>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;color:var(--ink);font-size:11px}.logging-trigger-list b{color:var(--muted);font-size:10px}
 .logging-trigger-list>div>i{grid-column:1/-1;height:5px;border-radius:8px;background:var(--surface-soft);overflow:hidden}.logging-trigger-list em{display:block;height:100%;border-radius:inherit;background:#a59be5}
@@ -1495,6 +1497,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 :root[data-theme="dark"] .milestone-track { background: var(--surface-soft); }
 :root[data-theme="dark"] .logging-bar-day > i { background: linear-gradient(180deg, #655d9d, #37324f); }
 :root[data-theme="dark"] .logging-bar-day.unknown > i { background: repeating-linear-gradient(135deg, #484555 0 3px, #302f3c 3px 6px); }
+:root[data-theme="dark"] .logging-bar-day.quantity-unknown > i { background: repeating-linear-gradient(135deg, #bd8350 0 3px, #634a3a 3px 6px); }
+:root[data-theme="dark"] .logging-legend i.legacy-quantity-marker { background: #d69d64; }
 :root[data-theme="dark"] .logging-legend span:last-child i { background: #4a4758; }
 :root[data-theme="dark"] .confetti-one,
 :root[data-theme="dark"] .confetti-three,

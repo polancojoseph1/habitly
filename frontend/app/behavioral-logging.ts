@@ -33,6 +33,8 @@ export type BehaviorLog = {
   variationId?: string;
   timing?: 'preventive' | 'responsive';
   quantity?: number;
+  /** Synthetic analytics row from the older HabitEvent OLD_HABIT stream. */
+  legacyEvent?: boolean;
   context?: ContextFields;
   automaticThought?: string;
   belief?: string;
@@ -123,7 +125,7 @@ export function summarizeDay(logs: BehaviorLog[], habitId: string, date: string,
   return {
     logs: dayLogs,
     occurrenceEvents: occurrences.length,
-    quantity: occurrences.reduce((total, log) => total + (log.quantity ?? 1), 0),
+    quantity: occurrences.reduce((total, log) => total + (log.legacyEvent ? 0 : (log.quantity ?? 0)), 0),
     cravings: cravings.length,
     resolvedCravings: resolved.length,
     resistedCravings: resolved.filter(log => outcomeForCraving(logs, log) === 'resisted').length,
@@ -132,6 +134,10 @@ export function summarizeDay(logs: BehaviorLog[], habitId: string, date: string,
     explicitNoOccurrence,
     conflict,
     knownOccurrenceCount: occurrences.length > 0 || explicitNoOccurrence,
+    quantityKnown: occurrences.length > 0
+      ? occurrences.every(log => !log.legacyEvent && typeof log.quantity === 'number' && Number.isFinite(log.quantity))
+      : explicitNoOccurrence,
+    legacyOccurrences: occurrences.filter(log => log.legacyEvent).length,
   };
 }
 

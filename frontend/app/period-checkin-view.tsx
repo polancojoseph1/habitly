@@ -11,12 +11,14 @@ import styles from './period-info-popover.module.css';
 type PeriodStats = {
   quantity: number;
   occurrences: number;
+  legacyOccurrences: number;
   cravings: number;
   resisted: number;
   resolved: number;
   techniques: number;
   days: number;
   occurrenceCoverageComplete: boolean;
+  quantityCoverageComplete: boolean;
 };
 
 type TriggerStat = { name: string; count: number };
@@ -151,8 +153,10 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
   const primaryCurrent = isSmoking ? current.quantity : current.occurrences;
   const primaryPrevious = isSmoking ? previous.quantity : previous.occurrences;
   const primaryUnit = isSmoking ? 'cigarette' : 'occurrence';
-  const primaryValue = primaryRecordedValue(isSmoking, current.quantity, current.occurrences, current.occurrenceCoverageComplete);
-  const comparison = compareRecordedPeriods(primaryCurrent, primaryPrevious, current.occurrenceCoverageComplete && previous.occurrenceCoverageComplete);
+  const currentCoverageComplete = isSmoking ? current.quantityCoverageComplete : current.occurrenceCoverageComplete;
+  const previousCoverageComplete = isSmoking ? previous.quantityCoverageComplete : previous.occurrenceCoverageComplete;
+  const primaryValue = primaryRecordedValue(isSmoking, current.quantity, current.occurrences, currentCoverageComplete);
+  const comparison = compareRecordedPeriods(primaryCurrent, primaryPrevious, currentCoverageComplete && previousCoverageComplete);
   const resistanceRate = resistancePercentage(current.resisted, current.resolved);
   const unknownCravings = Math.max(0, current.cravings - current.resolved);
   const comparisonWord = comparison.reliable ? (comparison.difference < 0 ? 'fewer' : 'more') : '';
@@ -207,13 +211,17 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
     <article className="period-primary-card" aria-labelledby="period-primary-title">
       <div className="period-card-heading">
         <div><span className="eyebrow">MAIN OUTCOME</span><h3 id="period-primary-title">{isSmoking ? 'Cigarettes recorded' : `Occurrences of ${habitName}`}</h3></div>
-        <PeriodInfoBubble label="How to read the comparison">Counts use this period and the previous equally long period. A comparison needs every day in both periods to have logged behavior or an explicit daily confirmation. Incomplete records can change the comparison.</PeriodInfoBubble>
+        <PeriodInfoBubble label="How to read the comparison">{isSmoking
+          ? 'Cigarette totals include recorded quantities and explicitly confirmed no-smoking days. Older “Old behavior” check-ins count as smoking episodes, but do not contain cigarette quantities.'
+          : 'Counts use this period and the previous equally long period. A comparison needs every day in both periods to have logged behavior or an explicit daily confirmation. Incomplete records can change the comparison.'}</PeriodInfoBubble>
       </div>
       <div className="period-primary-value">
         <strong className={primaryValue === undefined ? 'unavailable' : ''}>{primaryValue === undefined ? 'Not confirmed' : primaryValue.toLocaleString()}</strong>
         {primaryValue !== undefined && <>{' '}<span>{isSmoking ? unitName(primaryValue, 'cigarette') : unitName(primaryValue, 'occurrence')}</span></>}
       </div>
-      <p className="period-primary-support">{isSmoking
+      <p className="period-primary-support">{isSmoking && current.legacyOccurrences > 0
+        ? `${plural(current.legacyOccurrences, 'older “Old behavior” check-in')} counted as smoking ${current.legacyOccurrences === 1 ? 'episode' : 'episodes'}; cigarette quantities were not captured.`
+        : isSmoking
         ? current.occurrences > 0 || current.occurrenceCoverageComplete
           ? `${plural(current.occurrences, 'smoking event')} during the selected ${periodLabel}.`
           : 'No cigarette quantity confirmed in this period.'
@@ -262,7 +270,9 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
       {current.cravings > 0
         ? <span>{current.cravings.toLocaleString()} cravings logged <i>·</i> {unknownCravings.toLocaleString()} unresolved or unknown</span>
         : <span>No cravings logged during the selected {periodLabel}.</span>}
-      {!current.occurrenceCoverageComplete && <span className="period-support-note">Missing logs are not counted as zero behavior.</span>}
+      {isSmoking && current.legacyOccurrences > 0
+        ? <span className="period-support-note">Older “Old behavior” entries show episodes, not cigarette quantities.</span>
+        : !currentCoverageComplete && <span className="period-support-note">Missing logs are not counted as zero behavior.</span>}
     </div>
     {techniqueModalOpen && <div className="modal-backdrop period-technique-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setTechniqueModalOpen(false); }}>
       <section ref={techniqueDialogRef} id="period-technique-dialog" className="builder-modal period-technique-modal" role="dialog" aria-modal="true" aria-labelledby="period-technique-title" aria-describedby="period-technique-method" tabIndex={-1}>
