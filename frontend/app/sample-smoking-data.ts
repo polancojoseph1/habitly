@@ -66,15 +66,20 @@ function addMinutes(timestamp: string, minutes: number): string {
 /** Eight weeks of synthetic Smoking events for the unconnected sample workspace only. */
 export function createSampleSmokingLogs(referenceDate = new Date()): BehaviorLog[] {
   const todayKey = dateKeyInZone(referenceDate, TIMEZONE);
+  const referenceHour = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: TIMEZONE, hour: '2-digit', hourCycle: 'h23',
+  }).format(referenceDate));
   const resistedPerTwelve = [2, 3, 4, 5, 6, 7, 8, 9];
   const records: BehaviorLog[] = [];
   let episodeNumber = 0;
 
-  for (let daysAgo = 56; daysAgo >= 1; daysAgo -= 1) {
+  for (let daysAgo = 56; daysAgo >= 0; daysAgo -= 1) {
     const localDate = dateKeyDaysAgo(todayKey, daysAgo);
     const dayNumber = 56 - daysAgo;
     const weekNumber = Math.min(7, Math.floor(dayNumber / 7));
     const episodeCount = dayNumber % 3 === 0 ? 3 : dayNumber % 3 === 1 ? 1 : 2;
+    const availableHours = daysAgo === 0 ? hours.filter(hour => hour < referenceHour - 2) : hours;
+    if (!availableHours.length) continue;
 
     for (let withinDay = 0; withinDay < episodeCount; withinDay += 1) {
       const number = episodeNumber++;
@@ -82,7 +87,7 @@ export function createSampleSmokingLogs(referenceDate = new Date()): BehaviorLog
       const baseId = `sample-log-smoking-${localDate}-${withinDay + 1}`;
       const triggerIndex = (number * 3 + dayNumber) % triggers.length;
       const emotionIndex = (number * 5 + dayNumber) % emotions.length;
-      const hour = hours[(number * 7 + dayNumber * 2) % hours.length];
+      const hour = availableHours[(number * 7 + dayNumber * 2) % availableHours.length];
       const minute = (number * 13 + dayNumber * 7) % 60;
       const cravingAt = newYorkTimestamp(localDate, hour, minute);
       const trigger = triggers[triggerIndex];

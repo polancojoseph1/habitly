@@ -219,7 +219,16 @@ test('cue analytics include physical state, habit accessibility, and underlying 
 });
 
 test('Smoking sample data fills every cue and check-in analytics section', () => {
-  const logs = createSampleSmokingLogs(new Date('2026-11-16T17:00:00.000Z'));
+  const referenceDate = new Date('2026-11-16T17:00:00.000Z');
+  const logs = createSampleSmokingLogs(referenceDate);
+  const recent24Hours = logs.filter(log => {
+    const at = new Date(log.at).getTime();
+    return at >= referenceDate.getTime() - 24 * 60 * 60 * 1000 && at <= referenceDate.getTime();
+  });
+  assert.ok(recent24Hours.some(log => log.type === 'craving'), 'the 24 hour demo period should include craving data');
+  assert.ok(recent24Hours.some(log => log.type === 'habit_occurrence' || log.type === 'technique_applied'), 'the 24 hour demo period should include related analytics data');
+  assert.ok(logs.filter(log => log.localDate === '2026-11-16').every(log => new Date(log.at).getTime() <= referenceDate.getTime()), 'today’s sample timestamps must not be in the future');
+
   const dates = [...new Set(logs.filter(log => log.type === 'craving').map(log => log.localDate))].sort().slice(-5);
   const lastFiveDays = new Set(dates);
   const recentLogs = logs.filter(log => lastFiveDays.has(log.localDate));
