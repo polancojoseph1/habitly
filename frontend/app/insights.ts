@@ -22,6 +22,10 @@ export type TriggerInsight = {
   hasTechniqueApplication: boolean;
 };
 
+export type CueDimension = 'Time of day' | 'Location' | 'Emotional state' | 'Other people' | 'Immediately preceding action';
+export type CuePattern = { dimension: CueDimension; value?: string; count: number; recorded: number; days: number };
+export type CuePatternSummary = { cravings: number; observationDays: number; patterns: CuePattern[] };
+
 export type TechniquePractice = InsightTechniqueChoice & {
   configured: boolean;
   applications: BehaviorLog[];
@@ -78,6 +82,58 @@ function stableByName<T extends { name: string }>(a: T, b: T) {
 
 export function mostCommonTrigger(logs: BehaviorLog[]): TriggerInsight | undefined {
   return summarizeTriggers(logs, logs).sort((a, b) => b.appearances - a.appearances || stableByName(a, b))[0];
+}
+
+function localHour(log: BehaviorLog): number {
+  if (!log.timezone) return new Date(log.at).getHours();
+  try {
+    const value = new Intl.DateTimeFormat('en-US', { timeZone: log.timezone, hour: '2-digit', hourCycle: 'h23' })
+      .formatToParts(new Date(log.at)).find(part => part.type === 'hour')?.value;
+    return Number(value ?? new Date(log.at).getHours());
+  } catch {
+    return new Date(log.at).getHours();
+  }
+}
+
+function timeOfDay(log: BehaviorLog): string {
+  const hour = localHour(log);
+  if (hour >= 5 && hour <= 11) return 'Morning';
+  if (hour >= 12 && hour <= 16) return 'Afternoon';
+  if (hour >= 17 && hour <= 20) return 'Evening';
+  return 'Night';
+}
+
+export function summarizeCuePatterns(logs: BehaviorLog[], dateKeys: string[]): CuePatternSummary {
+  const window = new Set(dateKeys);
+  const cravings = logs.filter(log => log.type === 'craving' && window.has(behaviorDayKey(log)));
+  const observationDays = new Set(cravings.map(behaviorDayKey)).size;
+  const dimensions: { dimension: CueDimension; values: (log: BehaviorLog) => string[] }[] = [
+    { dimension: 'Time of day', values: log => [timeOfDay(log)] },
+    { dimension: 'Location', values: log => log.context?.environments ?? [] },
+    { dimension: 'Emotional state', values: log => log.context?.emotions ?? [] },
+    { dimension: 'Other people', values: log => log.context?.social ?? [] },
+    { dimension: 'Immediately preceding action', values: log => log.context?.activities ?? [] },
+  ];
+
+  const patterns = dimensions.map(({ dimension, values }) => {
+    const counts = new Map<string, { label: string; count: number; days: Set<string> }>();
+    let recorded = 0;
+    for (const log of cravings) {
+      const entryValues = [...new Set(values(log).map(value => value.trim()).filter(Boolean))];
+      if (entryValues.length) recorded += 1;
+      for (const value of entryValues) {
+        const key = value.toLocaleLowerCase();
+        const entry = counts.get(key) ?? { label: value, count: 0, days: new Set<string>() };
+        entry.count += 1;
+        entry.days.add(behaviorDayKey(log));
+        counts.set(key, entry);
+      }
+    }
+    const top = [...counts.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'en', { sensitivity: 'base' }))[0];
+    return { dimension, value: top?.label, count: top?.count ?? 0, recorded, days: top?.days.size ?? 0 };
+  });
+
+  return { cravings: cravings.length, observationDays, patterns };
 }
 
 export function summarizeTriggers(logs: BehaviorLog[], allLogs: BehaviorLog[]): TriggerInsight[] {

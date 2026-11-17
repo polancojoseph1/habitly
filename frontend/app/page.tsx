@@ -3,7 +3,7 @@
 import { FormEvent, KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './icons';
-import { buildStrategyGap, buildSuggestedExperiment, buildTechniquePracticeStats, mostCommonTrigger, mostPracticedTechnique } from './insights';
+import { buildStrategyGap, buildSuggestedExperiment, buildTechniquePracticeStats, mostCommonTrigger, mostPracticedTechnique, summarizeCuePatterns } from './insights';
 import { isPeriodOccurrenceCoverageComplete } from './period-checkin';
 import { PeriodCheckin } from './period-checkin-view';
 import notebookLMContent from './notebooklm-content.json';
@@ -329,6 +329,11 @@ export default function Home() {
   const [history, setHistory] = useState<Record<string, string[]>>({});
   const [habitEvents, setHabitEvents] = useState<HabitEvent[]>([]);
   const [behaviorLogs, setBehaviorLogs] = useState<BehaviorLog[]>([]);
+  const [quickCueCaptureLogId, setQuickCueCaptureLogId] = useState('');
+  const [cueLocation, setCueLocation] = useState('');
+  const [cueEmotion, setCueEmotion] = useState('');
+  const [cuePeople, setCuePeople] = useState('');
+  const [cuePrecedingAction, setCuePrecedingAction] = useState('');
   const [loggingHabitId, setLoggingHabitId] = useState('demo-smoking');
   const [loggingView, setLoggingView] = useState<'Log' | 'Insights' | 'History'>('Log');
   const [logType, setLogType] = useState<BehaviorLog['type']>('craving');
@@ -817,8 +822,8 @@ export default function Home() {
     setLogEmotions(''); setLogEnvironments(''); setLogActivities(''); setLogSocial(''); setLogContextTags(''); setLogAutomaticThought(''); setLogBelief(''); setLogConfidence(''); setLogReframing(''); setLogIntensityAfter(''); setLogFormOpen(false);
   }
 
-  function commitBehaviorLog(type: BehaviorType, quick = false) {
-    if (saveLogLock.current) return;
+  function commitBehaviorLog(type: BehaviorType, quick = false): string | undefined {
+    if (saveLogLock.current) return undefined;
     saveLogLock.current = true;
     window.setTimeout(() => { saveLogLock.current = false; }, 900);
     const habit = habits.find(item => item.id === loggingHabitId) ?? habits.find(item => item.kind === 'BREAK') ?? demoHabits[0];
@@ -827,12 +832,12 @@ export default function Home() {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
     const localInput = !quick ? logTimestamp : '';
     const occurredAt = localInput ? new Date(localInput) : previous && !quick ? new Date(previous.at) : now;
-    if (!Number.isFinite(occurredAt.getTime())) { setToast('That date and time is invalid.'); saveLogLock.current = false; return; }
+    if (!Number.isFinite(occurredAt.getTime())) { setToast('That date and time is invalid.'); saveLogLock.current = false; return undefined; }
     const timestamp = occurredAt.toISOString();
     const eventMetadata = metadataForEditedTimestamp(previous && !quick ? previous : undefined, timestamp, timezone);
     const resolvedDate = logResolvedTimestamp ? new Date(logResolvedTimestamp) : undefined;
     if (!quick && type === 'craving' && logOutcome !== 'pending' && logResolvedTimestamp && (!resolvedDate || !Number.isFinite(resolvedDate.getTime()) || resolvedDate < occurredAt)) {
-      setToast('Resolution time must be valid and after the craving started.'); saveLogLock.current = false; return;
+      setToast('Resolution time must be valid and after the craving started.'); saveLogLock.current = false; return undefined;
     }
     const cutoff = now.getTime() - 8 * 60 * 60 * 1000;
     const latestOpenCraving = [...behaviorLogs].filter(log => log.habitId === habit.id && log.type === 'craving' && log.outcome !== 'resisted' && log.outcome !== 'smoked' && new Date(log.at).getTime() >= cutoff).sort((a, b) => b.at.localeCompare(a.at))[0];
@@ -842,7 +847,7 @@ export default function Home() {
     if (type === 'craving' && logOutcome === 'resisted' && existingOccurrence) {
       setToast('This episode has an occurrence recorded. Correct or remove that occurrence before marking the craving resisted.');
       saveLogLock.current = false;
-      return;
+      return undefined;
     }
     const technique = techniques.find(item => item.id === logTechniqueId);
     const variation = variations.find(item => item.id === logVariationId || (item.techniqueId && item.techniqueId === logTechniqueId));
@@ -887,6 +892,7 @@ export default function Home() {
     setTimeout(() => setRecentSavedLogId(''), 4500);
     setToast(previous ? 'Entry updated.' : type === 'craving' ? 'Craving saved. You can update its outcome later.' : type === 'habit_occurrence' ? `${habit.name} occurrence saved.` : 'Technique application saved.');
     if (!quick) resetBehaviorDraft();
+    return item.id;
   }
 
   function saveBehaviorLog(event: FormEvent<HTMLFormElement>) {
@@ -898,16 +904,46 @@ export default function Home() {
 
   function quickLog(type: BehaviorType) {
     setLoggingView('Log');
+    setQuickCueCaptureLogId('');
+    setCueLocation(''); setCueEmotion(''); setCuePeople(''); setCuePrecedingAction('');
     if (type === 'technique_applied') {
       resetBehaviorDraft(); setLogType(type); setLogTiming('responsive'); setLogFormOpen(true);
       document.querySelector('.logging-advanced-form')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       return;
     }
     resetBehaviorDraft();
-    commitBehaviorLog(type, true);
+    const savedId = commitBehaviorLog(type, true);
+    if (type === 'craving' && savedId) setQuickCueCaptureLogId(savedId);
+  }
+
+  function dismissCueCapture() {
+    setQuickCueCaptureLogId('');
+    setCueLocation(''); setCueEmotion(''); setCuePeople(''); setCuePrecedingAction('');
+  }
+
+  function saveCueCapture(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const entry = behaviorLogs.find(log => log.id === quickCueCaptureLogId && log.type === 'craving');
+    if (!entry) { dismissCueCapture(); return; }
+    const enteredContext = {
+      ...(entry.context ?? {}),
+      environments: splitTags(cueLocation),
+      emotions: splitTags(cueEmotion),
+      social: splitTags(cuePeople),
+      activities: splitTags(cuePrecedingAction),
+    };
+    const cleanedContext = Object.fromEntries(Object.entries(enteredContext).filter(([, values]) => values.length)) as NonNullable<BehaviorLog['context']>;
+    const context = Object.keys(cleanedContext).length ? cleanedContext : undefined;
+    setBehaviorLogs(current => {
+      const currentEntry = current.find(log => log.id === quickCueCaptureLogId && log.type === 'craving');
+      return currentEntry ? applyBehaviorLogChanges(current, [{ ...currentEntry, context }]) : current;
+    });
+    setToast('Cue details saved with this craving.');
+    dismissCueCapture();
   }
 
   function editBehaviorLog(log: BehaviorLog) {
+    setQuickCueCaptureLogId('');
     setLoggingView('Log'); setLogFormOpen(true); setEditingLogId(log.id); setLogType(log.type); setLogTrigger(log.trigger ?? ''); setLogIntensity(log.intensity === undefined ? '' : String(log.intensity));
     setLogOutcome(log.outcome ?? 'pending'); setLogTechnique(log.technique ?? ''); setLogTechniqueId(log.techniqueId ?? ''); setLogVariationId(log.variationId ?? ''); setLogTiming(log.timing ?? 'responsive');
     setLogQuantity(log.quantity ?? 1); setLogNote(log.note ?? ''); setLogEpisodeId(log.episodeId ?? '');
@@ -939,6 +975,7 @@ export default function Home() {
   }
 
   function deleteBehaviorLog(id: string) {
+    if (quickCueCaptureLogId === id) dismissCueCapture();
     setBehaviorLogs(removeBehaviorLogRecord(behaviorLogs, id));
     if (editingLogId === id) resetBehaviorDraft();
     setToast('Entry removed.');
@@ -1469,6 +1506,8 @@ export default function Home() {
   function renderLogging() {
     const selectedHabit = habits.find(habit => habit.id === loggingHabitId) ?? habits.find(habit => habit.kind === 'BREAK') ?? demoHabits[0];
     const logs = behaviorLogs.filter(log => log.habitId === selectedHabit.id).sort((a, b) => b.at.localeCompare(a.at));
+    const cuePattern = summarizeCuePatterns(logs, localDateKeys(5));
+    const cueCaptureLog = logs.find(log => log.id === quickCueCaptureLogId && log.type === 'craving');
     const hasSampleSmokingData = selectedHabit.id === 'demo-smoking' && logs.some(log => log.id.startsWith('sample-log-smoking-'));
     const today = todayKey();
     const todaySummary = summarizeDay(logs, selectedHabit.id, today, dailyConfirmations);
@@ -1714,7 +1753,7 @@ export default function Home() {
     return <>
       <div className="page-heading-row logging-heading logging-heading-compact">
         <div><div className="eyebrow">BEHAVIORAL LOG</div><h1>Notice the pattern<span className="heading-period">.</span></h1></div>
-        <label className="logging-habit-picker">HABIT<select aria-label="Select habit to break" value={selectedHabit.id} onChange={event => { setLoggingHabitId(event.target.value); setHistoryLimit(30); }}>{habits.filter(habit => habit.kind === 'BREAK').map(habit => <option key={habit.id} value={habit.id}>{habit.name}</option>)}</select></label>
+        <label className="logging-habit-picker">HABIT<select aria-label="Select habit to break" value={selectedHabit.id} onChange={event => { setLoggingHabitId(event.target.value); setQuickCueCaptureLogId(''); setHistoryLimit(30); }}>{habits.filter(habit => habit.kind === 'BREAK').map(habit => <option key={habit.id} value={habit.id}>{habit.name}</option>)}</select></label>
       </div>
       {hasSampleSmokingData && <p className="logging-caveat">Sample analytics preview: eight weeks of varied Smoking cravings, outcomes, cigarette counts, triggers, contexts, and technique use. These synthetic records stay in this browser’s sample workspace and are filtered out of account imports.</p>}
       <div className="logging-view-tabs" role="tablist" aria-label="Behavioral logging views">
@@ -1733,7 +1772,20 @@ export default function Home() {
               <button type="button" className="logging-quick-action occurrence" onClick={() => quickLog('habit_occurrence')}><span className="logging-action-icon"><Icon name="arrow-up-right" size={20}/></span><span><b>{occurrenceActionLabel(selectedHabit)}</b><small>One {occurrenceUnit} by default</small></span><Icon name="plus" size={18}/></button>
               <button type="button" className="logging-quick-action technique" onClick={() => quickLog('technique_applied')}><span className="logging-action-icon"><Icon name="check" size={20}/></span><span><b>Used a technique</b><small>Choose from your strategy</small></span><Icon name="plus" size={18}/></button>
             </div>
-            {recentSavedLogId && <p className="logging-save-confirmation" role="status"><Icon name="check" size={16}/> Saved just now. <button type="button" onClick={() => { const saved = behaviorLogs.find(log => log.id === recentSavedLogId); if (saved) editBehaviorLog(saved); }}>Add details or change outcome</button></p>}
+            {cueCaptureLog && <form className="logging-cue-capture" onSubmit={saveCueCapture}>
+              <div className="logging-form-head"><div><span className="eyebrow">CUE SNAPSHOT</span><h2>What was happening when the urge started?</h2></div><button type="button" className="text-button" onClick={dismissCueCapture}>Close</button></div>
+              <p className="logging-cue-time">Time recorded automatically: <time dateTime={cueCaptureLog.at}>{formatTime(cueCaptureLog.at, cueCaptureLog.timezone)}</time></p>
+              <div className="logging-cue-grid">
+                <label className="logging-field">Where were you?<input value={cueLocation} onChange={event => setCueLocation(event.target.value)} placeholder="At my desk, in the car"/></label>
+                <label className="logging-field">How were you feeling?<input value={cueEmotion} onChange={event => setCueEmotion(event.target.value)} placeholder="Bored, stressed, tired"/></label>
+                <label className="logging-field">Who was around?<input value={cuePeople} onChange={event => setCuePeople(event.target.value)} placeholder="Alone, with coworkers"/></label>
+                <label className="logging-field">What did you do right before?<input value={cuePrecedingAction} onChange={event => setCuePrecedingAction(event.target.value)} placeholder="Finished lunch, closed my laptop"/></label>
+              </div>
+              <div className="logging-form-actions"><button type="submit" className="primary-button logging-submit"><Icon name="check" size={16}/>Save cue details</button><button type="button" className="text-button" onClick={dismissCueCapture}>Skip for now</button></div>
+              <small className="logging-cue-note">These details are optional. The urge and its time are already saved.</small>
+            </form>}
+            <p className="logging-cue-progress" role="status"><b>Cue observations: {cuePattern.observationDays} of 5 days</b><span>{cuePattern.observationDays >= 3 ? 'Review the early pattern in Insights.' : 'Log an urge on at least 3 different days to begin spotting a pattern.'}</span></p>
+            {recentSavedLogId && recentSavedLogId !== quickCueCaptureLogId && <p className="logging-save-confirmation" role="status"><Icon name="check" size={16}/> Saved just now. <button type="button" onClick={() => { const saved = behaviorLogs.find(log => log.id === recentSavedLogId); if (saved) editBehaviorLog(saved); }}>Add details or change outcome</button></p>}
           </section>
           <section className="logging-confirm-card">
             <div><span className="eyebrow">OPTIONAL DAILY CONFIRMATION</span><h2>Confirm today’s record</h2><p>Only confirmed days count as habit free. You can change this later.</p></div>
@@ -1785,6 +1837,21 @@ export default function Home() {
             <span className="logging-quality-pill" title="Descriptive evidence is based only on records in the selected period and the outcomes you entered">{rating}</span>
           </div>
           <section className="logging-insight-section"><div className="logging-section-heading"><div><span className="eyebrow">01 · {periodEyebrow} · OVERVIEW</span><h2>Period Check-in</h2></div><span className="logging-date-pill">{periodRangeText}</span></div><PeriodCheckin habitName={selectedHabit.name} isSmoking={isSmoke} periodLabel={periodLabel} current={currentPeriod} previous={previousPeriod} configuredTechniques={configured.size} techniqueApplicationCount={techniqueApplicationLogs.length} hasTechniqueFilters={hasTechniqueFilters} usedTechniques={techniquePractice.techniques} topTrigger={topTriggers[0] ? { name: topTriggers[0][0], count: topTriggers[0][1] } : undefined}/></section>
+          <section className="logging-insight-section logging-cue-insight">
+            <div className="logging-section-heading"><div><span className="eyebrow">CUE OBSERVATION · LAST 5 DAYS</span><h2>What tends to come before the urge?</h2></div><span className="logging-quality-pill">{cuePattern.observationDays} of 5 days observed</span></div>
+            <p className="logging-cue-insight-intro">{cuePattern.cravings} {cuePattern.cravings === 1 ? 'urge' : 'urges'} logged in this five day window. Record cues when you can; blank details stay unknown.</p>
+            {cuePattern.observationDays < 3
+              ? <p className="logging-cue-insight-prompt">Log an urge on at least 3 different days to see an early summary. More observations can make the pattern easier to read.</p>
+              : <>
+                <div className="logging-cue-pattern-grid">{cuePattern.patterns.map(pattern => <article key={pattern.dimension}>
+                  <span className="eyebrow">{pattern.dimension}</span>
+                  {pattern.value
+                    ? <><b>{pattern.value}</b><p>Recorded in {pattern.count} of {pattern.recorded} entries with this detail, across {pattern.days} {pattern.days === 1 ? 'day' : 'days'}.</p></>
+                    : <p>No {pattern.dimension.toLocaleLowerCase()} detail was recorded in this window.</p>}
+                </article>)}</div>
+                <p className="logging-cue-method-note">These summaries describe what appears in your entries. They do not show that a cue caused an urge.</p>
+              </>}
+          </section>
           <section className="logging-insight-section logging-review-card logging-behavior-insights">
             <div className="logging-section-heading">
               <div><span className="eyebrow">02 · {periodEyebrow} · BEHAVIORAL INSIGHTS</span><h2>Your Behavioral Insights</h2></div>
