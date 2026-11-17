@@ -1169,7 +1169,7 @@ export default function Home() {
   function renderLawAnswerTabs(law: HabitLaw, guidedContent: ReactNode) {
     const selectedTab = lawAnswerTabs[law];
     const customKey = customLawAnswerKeys[law];
-    return <>
+    return <div className="law-answer-section">
       <div className="law-answer-tabs" role="group" aria-label={`Plan style for ${lawGroups.find(item => item.id === law)?.[habitType === 'BUILD' ? 'build' : 'break'] ?? law}`}>
         <button type="button" className={selectedTab === 'GUIDED' ? 'law-answer-tab-selected' : ''} aria-pressed={selectedTab === 'GUIDED'} onClick={() => setLawAnswerTabs(current => ({ ...current, [law]: 'GUIDED' }))}>Guided prompts</button>
         <button type="button" className={selectedTab === 'CUSTOM' ? 'law-answer-tab-selected' : ''} aria-pressed={selectedTab === 'CUSTOM'} onClick={() => setLawAnswerTabs(current => ({ ...current, [law]: 'CUSTOM' }))}>My own plan</button>
@@ -1177,7 +1177,7 @@ export default function Home() {
       {selectedTab === 'CUSTOM'
         ? <MultiAnswerField label="Your own plan" helper={habitType === 'BREAK' ? 'Write what you will use instead for this part of the old routine. Add as many answers as you need.' : 'Write your own plan for this part of the habit loop. Add as many answers as you need.'} values={breakPlanAnswers[customKey]} onChange={values => updateBreakAnswer(customKey, values)} placeholder="Add your approach" addLabel="Add another answer"/>
         : guidedContent}
-    </>;
+    </div>;
   }
 
   function updateBreakCuePair(index: number, key: 'cueTimes' | 'cueLocations', value: string) {

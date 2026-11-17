@@ -1003,6 +1003,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .law-choice-label b { font-size: 13px; }
 .law-choice-label small { color: var(--muted); font-size: 11px; }
 .law-choice-body { display: grid; gap: 12px; padding: 14px; }
+.law-answer-section { display: grid; gap: 12px; min-width: 0; }
 .law-answer-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 11px; background: var(--surface-soft); }
 .law-answer-tabs button { min-width: 0; min-height: 40px; padding: 7px 9px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .16s, border-color .16s, color .16s, box-shadow .16s; }
 .law-answer-tabs button.law-answer-tab-selected { border-color: var(--accent-ink); background: var(--surface-raised); color: var(--accent-ink); box-shadow: 0 1px 4px rgba(36, 34, 71, .08); }
