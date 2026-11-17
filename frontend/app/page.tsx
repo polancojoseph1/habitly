@@ -1521,7 +1521,7 @@ export default function Home() {
       }
       setRewards(current => [...current, { id: rewardId, name: bundle.trim(), habitId: habit.id, detail: `A little treat after ${habit.name.toLowerCase()}` }]);
     }
-    setShowBuilder(false); setActive(habitType === 'BREAK' ? 'Habit to break' : builderReturnTo === 'My habits' ? 'My habits' : 'Today');
+    setShowBuilder(false); setActive(editingHabitId ? builderReturnTo : 'Today');
     setToast(editingHabitId ? 'Your plan is updated.' : habitType === 'BUILD' ? 'Your new habit plan is ready.' : inviteLink ? 'Change plan saved. Partner link copied.' : 'Your change plan is ready.');
     setHabitName(''); setTargetAction(''); setGatewayAction(''); setReplacementActions([]); setBreakPlanAnswers(createEmptyBreakPlanAnswers()); setLawAnswerTabs({ ...defaultLawAnswerTabs }); setGatewayMinutes(2); setCue(''); setTime(''); setLocation(''); setMotive(''); setReward(''); setPrepStep(''); setBundle(''); setHideCue(''); setFriction(''); setContract(''); setAccountabilityPartner(''); setAccountabilityEmail(''); setAccountabilityCost(''); setAlternativeRoutine(''); setAversionReminder(''); setRitual(''); setMilestoneDraft(''); setTechniqueIds([]); setTechniqueNotes({}); setBaselineDaily(''); setEditingHabitId(''); setHabitType('BUILD'); setCueType('STACK');
   }
