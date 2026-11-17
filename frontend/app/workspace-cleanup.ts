@@ -6,7 +6,7 @@ function isSmokingHabit(habit: Record<string, any>) {
 }
 
 export function removeSmokingWorkspaceData<T extends Record<string, any>>(workspace: T): T {
-  const cleaned = { ...workspace };
+  const cleaned: Record<string, any> = { ...workspace };
   const habits = Array.isArray(cleaned.habits) ? cleaned.habits : [];
   const smokingIds = new Set<string>(['demo-smoking']);
   for (const habit of habits) {
@@ -49,5 +49,5 @@ export function removeSmokingWorkspaceData<T extends Record<string, any>>(worksp
   if (Array.isArray(cleaned.customContextTags)) {
     cleaned.customContextTags = cleaned.customContextTags.filter((tag: unknown) => !smokingText.test(String(tag)));
   }
-  return cleaned;
+  return cleaned as T;
 }
