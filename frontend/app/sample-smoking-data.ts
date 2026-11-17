@@ -174,6 +174,22 @@ export function createSampleSmokingLogs(referenceDate = new Date()): BehaviorLog
   return records.sort((left, right) => right.at.localeCompare(left.at));
 }
 
+/** True only when a saved demo set includes the current cue and outcome fields. */
+export function hasCurrentSmokingSample(logs: BehaviorLog[], referenceDate = new Date()): boolean {
+  const cravings = logs.filter(log => log.id.startsWith('sample-log-smoking-') && log.type === 'craving');
+  const referenceHour = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: TIMEZONE, hour: '2-digit', hourCycle: 'h23',
+  }).format(referenceDate));
+  const todayKey = dateKeyInZone(referenceDate, TIMEZONE);
+  return cravings.length > 0 && cravings.every(log => log.questionnaireVersion === 1
+    && Boolean(log.context?.bodilyState)
+    && Boolean(log.context?.accessibility)
+    && Boolean(log.context?.motives?.length)
+    && (log.outcome !== 'resisted' || Boolean(log.urgeFollowUpDueAt && log.urgeFollowUpStatus))
+    && (log.outcome !== 'smoked' || Boolean(log.postEngagementSatisfaction)))
+    && (referenceHour < 10 || cravings.some(log => behaviorDayKey(log) === todayKey));
+}
+
 export function createSampleSmokingConfirmations(logs: BehaviorLog[]): DailyConfirmation[] {
   const dates = [...new Set(logs.filter(log => log.type === 'craving').map(behaviorDayKey))].sort();
   return dates.map(date => ({

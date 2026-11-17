@@ -35,7 +35,7 @@ import {
   summarizeCuePatterns,
   summarizeUrgeCheckIns,
 } from '../app/insights.ts';
-import { createSampleSmokingLogs } from '../app/sample-smoking-data.ts';
+import { createSampleSmokingLogs, hasCurrentSmokingSample } from '../app/sample-smoking-data.ts';
 
 const insightLog = (id, type, fields = {}) => ({
   id,
@@ -221,6 +221,10 @@ test('cue analytics include physical state, habit accessibility, and underlying 
 test('Smoking sample data fills every cue and check-in analytics section', () => {
   const referenceDate = new Date('2026-11-16T17:00:00.000Z');
   const logs = createSampleSmokingLogs(referenceDate);
+  assert.equal(hasCurrentSmokingSample(logs, referenceDate), true);
+  assert.equal(hasCurrentSmokingSample(logs.filter(log => log.localDate !== '2026-11-16'), referenceDate), false, 'older saved demo data should refresh when today’s sample is expected');
+  const earlyReference = new Date('2026-11-16T13:00:00.000Z');
+  assert.equal(hasCurrentSmokingSample(createSampleSmokingLogs(earlyReference), earlyReference), true, 'early morning demo sets are current before same day entries are generated');
   const recent24Hours = logs.filter(log => {
     const at = new Date(log.at).getTime();
     return at >= referenceDate.getTime() - 24 * 60 * 60 * 1000 && at <= referenceDate.getTime();

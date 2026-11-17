@@ -11,7 +11,7 @@ import { lawGroups, techniques, techniqueMap } from './techniques';
 import type { ChangeMode, Law } from './techniques';
 import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, recordPostEngagementSatisfaction, recordUrgeFollowUp, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, withoutSampleBehaviorLogs } from './behavioral-logging';
 import type { BehaviorLog, BehaviorType, DailyConfirmation, DailyConfirmationStatus, PostEngagementSatisfaction, UrgeFollowUpStatus } from './behavioral-logging';
-import { createSampleSmokingConfirmations, createSampleSmokingLogs } from './sample-smoking-data';
+import { createSampleSmokingConfirmations, createSampleSmokingLogs, hasCurrentSmokingSample } from './sample-smoking-data';
 
 type CueType = 'TIME_LOCATION' | 'STACK';
 type BreakPlanAnswers = {
@@ -615,15 +615,9 @@ export default function Home() {
         } else setHabits(savedHabits);
         const savedBehaviorLogs: BehaviorLog[] = data.behaviorLogs ?? [];
         const isUnconnectedSmokingSample = !data.remoteToken && isSampleWorkspace && originalHabits.some(habit => habit.id === 'demo-smoking');
-        const savedSampleCravings = savedBehaviorLogs.filter(log => log.id.startsWith('sample-log-smoking-') && log.type === 'craving');
-        const hasCurrentSmokingSample = savedSampleCravings.length > 0 && savedSampleCravings.every(log => log.questionnaireVersion === 1
-          && Boolean(log.context?.bodilyState)
-          && Boolean(log.context?.accessibility)
-          && Boolean(log.context?.motives?.length)
-          && (log.outcome !== 'resisted' || Boolean(log.urgeFollowUpDueAt && log.urgeFollowUpStatus))
-          && (log.outcome !== 'smoked' || Boolean(log.postEngagementSatisfaction)));
+        const hasCurrentSample = hasCurrentSmokingSample(savedBehaviorLogs);
         const sampleSmokingLogs = isUnconnectedSmokingSample
-          ? hasCurrentSmokingSample ? savedBehaviorLogs.filter(log => log.id.startsWith('sample-log-smoking-')) : createSampleSmokingLogs()
+          ? hasCurrentSample ? savedBehaviorLogs.filter(log => log.id.startsWith('sample-log-smoking-')) : createSampleSmokingLogs()
           : [];
         const loadedBehaviorLogs = isUnconnectedSmokingSample
           ? [...savedBehaviorLogs.filter(log => !log.id.startsWith('sample-log-smoking-')), ...sampleSmokingLogs]
