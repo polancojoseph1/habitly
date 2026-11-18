@@ -1256,6 +1256,13 @@ export default function Home() {
     setToast('Current difficulty level updated. Your streak stays the same.');
   }
 
+  function levelUpHabit(habit: Habit) {
+    const levels = orderedLevels(habit.difficultyLevels ?? []);
+    const currentIndex = levels.findIndex(level => level.id === habit.activeDifficultyLevelId);
+    const nextLevel = levels[currentIndex + 1];
+    if (nextLevel) void setHabitDifficultyLevel(habit, nextLevel.id);
+  }
+
   function logHabitMinutes(habit: Habit) {
     const minutes = durationDrafts[habit.id] ?? (habit.gatewayMinutes || 2);
     if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) { setToast('Enter a session from 1 to 1,440 minutes.'); return; }
@@ -1781,6 +1788,8 @@ export default function Home() {
     const streak = getResilientStreak(history, habit.id);
     const events = habitEvents.filter(event => event.habitId === habit.id);
     const activeDifficultyLevel = (habit.difficultyLevels ?? []).find(level => level.id === habit.activeDifficultyLevelId);
+    const activeDifficultyLevelIndex = (habit.difficultyLevels ?? []).findIndex(level => level.id === habit.activeDifficultyLevelId);
+    const canLevelUp = activeDifficultyLevelIndex < (habit.difficultyLevels?.length ?? 0) - 1;
     const habitVariations = variations.filter(item => item.habitId === habit.id);
     if (active === 'Today') {
       const laws = lawGroups.map(law => {
@@ -1801,12 +1810,12 @@ export default function Home() {
         <span className={`today-quick-mark ${isBuild && habit.completed ? 'checked' : ''}`} aria-hidden="true">{isBuild && habit.completed ? <Icon name="check" size={15}/> : <Icon name="spark" size={15}/>}</span>
         <div className="today-quick-main">
           <div className="today-quick-title"><div className="habit-title-copy"><h3>{habit.name}</h3>{!isBuild && <span className="today-choice-count">{helpfulChoices} helpful choice{helpfulChoices === 1 ? '' : 's'}</span>}{habit.missedYesterday && !habit.completed && <span className="recovery-pill">Recovery day</span>}</div></div>
-          <p className="today-quick-action"><span>{isBuild ? activeDifficultyLevel ? `LEVEL ${(habit.difficultyLevels ?? []).findIndex(level => level.id === activeDifficultyLevel.id) + 1}${activeDifficultyLevel.name ? ` · ${activeDifficultyLevel.name}` : ''}` : `${habit.gatewayMinutes || 2}-MIN START` : 'TRY INSTEAD'}</span>{actionSummary}</p>
+          <p className="today-quick-action"><span>{isBuild ? activeDifficultyLevel ? `LEVEL ${activeDifficultyLevelIndex + 1}${activeDifficultyLevel.name ? ` · ${activeDifficultyLevel.name}` : ''}` : `${habit.gatewayMinutes || 2}-MIN START` : 'TRY INSTEAD'}</span>{actionSummary}</p>
         </div>
         {renderHabitActions(habit)}
         <div className="today-quick-side">
           {isBuild
-            ? <><span><Icon name="flame" size={13}/>{streak.hasHistory ? streak.count : habit.streak} day chain</span><button type="button" className="today-quick-complete" onClick={() => completeHabit(habit)}>{habit.completed ? 'Done' : 'I did it'}</button></>
+            ? <><span><Icon name="flame" size={13}/>{streak.hasHistory ? streak.count : habit.streak} day chain</span><div className="today-quick-actions"><button type="button" className="today-quick-complete" onClick={() => completeHabit(habit)}>{habit.completed ? 'Done' : 'I did it'}</button>{(habit.difficultyLevels?.length ?? 0) > 0 && <button type="button" className="today-level-up" onClick={() => levelUpHabit(habit)} disabled={!canLevelUp} aria-label={canLevelUp ? `Move ${habit.name} to the next level` : `${habit.name} is at the maximum level`}>{canLevelUp ? 'Level up' : 'Max level'}</button>}</div></>
             : <details className="today-choice-menu"><summary>Log choice <Icon name="chevron" size={12}/></summary><div className="today-quick-break-actions"><button type="button" onClick={event => { event.currentTarget.closest('details')?.removeAttribute('open'); void recordHabitEvent(habit, 'URGE_PASSED'); }}>Urge passed</button><button type="button" onClick={event => { event.currentTarget.closest('details')?.removeAttribute('open'); void recordHabitEvent(habit, 'REPLACEMENT_USED'); }}>Used replacement</button></div></details>}
         </div>
         {laws.length > 0 && <details className="today-law-details"><summary>Plan details <span>{laws.length} strategies</span></summary><div className="today-law-list">{laws.map(({ law, setup, methods }) => <section className="today-law-row" key={law.id}><button type="button" className="today-law-guide" onClick={() => setInfoModal({ type: 'law', law: law.id, mode: habit.kind })} aria-label={`Learn about ${isBuild ? law.build : law.break}`}><span>{isBuild ? law.build : law.break}</span><span className="today-law-guide-info" aria-hidden="true">i</span></button>{setup && <p>{setup}</p>}{methods.length > 0 && <div className="today-law-methods"><small>Your techniques</small><div>{methods.map(method => <button type="button" className="chosen-technique" key={`${law.id}:${method.id}`} onClick={() => setInfoModal({ type: 'technique', id: method.id, mode: habit.kind })} aria-label={`Learn about ${method.name}`}><Icon name="check" size={12}/>{method.name}</button>)}</div>{methods.filter(method => method.note).map(method => <p className="technique-note" key={`${law.id}:${method.name}:note`}>{method.note}</p>)}</div>}</section>)}</div></details>}
