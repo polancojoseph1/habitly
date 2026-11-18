@@ -1127,6 +1127,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-replacement-choice small{flex:none;padding-right:6px;border-right:1px solid color-mix(in srgb,var(--accent-ink) 22%,var(--line));color:var(--muted);font-size:8px;font-weight:800;letter-spacing:.04em}
 .today-replacement-choice:hover{border-color:var(--accent-ink);background:var(--accent-soft)}
 .today-replacement-choice:focus-visible,.today-replacement-urge:focus-visible,.today-replacement-more summary:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.today-replacement-stack{min-width:0;max-width:100%}
+.today-replacement-stack summary{list-style:none;cursor:pointer}
+.today-replacement-stack summary::-webkit-details-marker{display:none}
+.today-replacement-stack-hint{color:var(--muted);font-size:9px;font-weight:600;white-space:nowrap}
+.today-replacement-stack[open]{flex-basis:100%}
+.today-replacement-stack-details{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:9px;margin-top:5px;padding:8px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-raised)}
+.today-replacement-stack-details ol{display:grid;gap:4px;margin:0;padding-left:20px;color:var(--ink);font-size:11px;line-height:1.35}
+.today-replacement-stack-log{min-height:30px;padding:5px 9px;border:1px solid color-mix(in srgb,var(--accent-ink) 25%,var(--line));border-radius:8px;background:var(--accent-soft);color:var(--accent-ink);font-size:10px;font-weight:700;white-space:nowrap;cursor:pointer}
+.today-replacement-stack-log:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
 .today-replacement-urge,.today-replacement-more summary{padding:5px 2px;border:0;background:none;color:var(--muted);font-size:10px;white-space:nowrap;cursor:pointer}
 .today-replacement-more{position:relative}
 .today-replacement-more summary{list-style:none}
@@ -1157,6 +1166,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .today-replacement-more{grid-column:2;justify-self:end}
   .today-replacement-choice{min-height:28px;gap:5px;padding:4px 7px;font-size:10px}
   .today-replacement-choice small{padding-right:5px;font-size:7px}
+  .today-replacement-stack-hint{font-size:8px}
+  .today-replacement-stack-details{grid-template-columns:minmax(0,1fr);gap:7px;padding:7px 8px}
+  .today-replacement-stack-log{justify-self:start}
   .today-quick-win{min-height:35px;padding:6px 10px;font-size:11px}
   .today-section-heading{gap:8px}
   .today-section-heading h2{font-size:clamp(17px,5vw,20px)}
