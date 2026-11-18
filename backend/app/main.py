@@ -342,6 +342,7 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
     habits = list(db.scalars(select(Habit).join(Identity).where(Identity.user_id == user_id, Habit.is_active.is_(True)).order_by(text("habits.rowid") if settings.database_url.startswith("sqlite") else Habit.id)))
     if not state and not habits:
         return {}
+    repaired_daily_steps = False
     data = dict(state.payload) if state else {}
     data["identity"] = identity.identity_statement if identity else data.get("identity", "")
     data["votes"] = identity.total_votes if identity else data.get("votes", 0)
@@ -352,6 +353,9 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
     events: list[dict] = []
     variations: list[dict] = []
     for habit in habits:
+        if habit.habit_type == "BUILD" and (habit.daily_target or 1) > 1 and len(habit.daily_steps or []) != habit.daily_target:
+            habit.daily_steps = [{"id": new_id(), "label": f"Completion {index + 1}"} for index in range(habit.daily_target)]
+            repaired_daily_steps = True
         logs = list(db.scalars(select(HabitLog).where(HabitLog.habit_id == habit.id).order_by(HabitLog.logged_date.desc())))
         streak, _warning = calculate_streak(logs)
         today = next((log for log in logs if log.logged_date == tracker_day()), None)
@@ -407,6 +411,8 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
     memberships = set(db.scalars(select(CircleMembership.circle_id).where(CircleMembership.identity_id == identity.id))) if identity else set()
     data["communityCircles"] = [{"id": circle.id, "name": circle.name, "category": circle.identity, "detail": circle.description, "members": db.scalar(select(func.count(CircleMembership.id)).where(CircleMembership.circle_id == circle.id)) or 0} for circle in circles]
     data["joinedTribes"] = list(memberships)
+    if repaired_daily_steps:
+        db.commit()
     return data
 
 
