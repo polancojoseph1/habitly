@@ -27,12 +27,12 @@
 
 /* Atomic Habits additions: simple, scannable actions with an indigo and coral palette. */
 :root{color-scheme:light;--paper:#f7f6fb;--white:#fff;--ink:#20213c;--muted:#77778e;--line:#e8e6f0;--green:#4541a8;--green-dark:#302d78;--lime:#e9e5ff;--shadow:0 12px 38px rgba(40,35,91,.075)}
-.primary-button{background:#4541a8;box-shadow:0 4px 11px rgba(69,65,168,.16)}
-.primary-button:hover{background:#363281}
-.nav-active{background:#eeecff;color:#302d78}
-.nav-active:before{background:#ef9b70}
-.brand-mark{background:#4541a8}
-.brand-dot,.heading-period{color:#ef9b70}
+.primary-button{background:var(--green);box-shadow:0 4px 11px color-mix(in srgb,var(--green) 22%,transparent)}
+.primary-button:hover{background:var(--green-dark)}
+.nav-active{background:var(--accent-soft);color:var(--accent-ink)}
+.nav-active:before{background:var(--accent-ink)}
+.brand-mark{background:var(--green)}
+.brand-dot,.heading-period{color:var(--accent-ink)}
 .identity-banner{background:#343178}
 .scorecard-nudge,.scorecard-hero,.community-hero{display:flex;align-items:center;gap:15px;padding:17px 19px;margin:0 0 17px;border:1px solid #e6e2fb;border-radius:13px;background:#f0eeff;color:#302d78;text-align:left;width:100%}
 .scorecard-nudge{cursor:pointer}.scorecard-nudge>span:nth-child(2){display:grid;gap:4px;flex:1}.scorecard-nudge small{font-size:15px;color:#77758f}
