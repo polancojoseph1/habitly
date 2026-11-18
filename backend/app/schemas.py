@@ -78,6 +78,7 @@ class HabitCreate(BaseModel):
     technique_ids: list[str] = Field(default_factory=list)
     technique_notes: dict[str, str] = Field(default_factory=dict)
     baseline_daily: int | None = Field(default=None, ge=0, le=1000)
+    daily_target: int = Field(default=1, ge=1, le=20)
 
     @model_validator(mode="after")
     def validate_habit_fields(self):
@@ -136,6 +137,7 @@ class HabitOut(BaseModel):
     technique_ids: list[str]
     technique_notes: dict[str, str]
     baseline_daily: int | None
+    daily_target: int = 1
     friction_votes: int
     is_active: bool
 
@@ -147,6 +149,11 @@ class LogCreate(BaseModel):
     environment_prepped: bool = False
 
 
+class CompletionCreate(BaseModel):
+    completed_via: Literal["WEB", "TELEGRAM_BOT"] = "WEB"
+    actual_minutes: int | None = Field(default=None, ge=1, le=1440)
+
+
 class LogOut(BaseModel):
     id: str
     habit_id: str
@@ -156,6 +163,9 @@ class LogOut(BaseModel):
     identity_votes: int
     resilient_streak: int
     warning_active: bool
+    completion_count: int = 0
+    daily_target: int = 1
+    target_reached: bool = False
 
 
 class HabitLogOut(BaseModel):
@@ -164,6 +174,7 @@ class HabitLogOut(BaseModel):
     habit_id: str
     logged_date: date
     status: str
+    completion_count: int = 0
     completed_via: str
     environment_prepped: bool
     difficulty_level_snapshot: dict | None = None
@@ -183,6 +194,7 @@ class HabitEventOut(BaseModel):
     id: str
     habit_id: str
     event_type: str
+    source: str = "WEB"
     occurred_at: datetime
     note: str | None
     actual_minutes: int | None
@@ -257,6 +269,7 @@ class HabitUpdate(BaseModel):
     technique_ids: list[str] | None = None
     technique_notes: dict[str, str] | None = None
     baseline_daily: int | None = Field(default=None, ge=0, le=1000)
+    daily_target: int | None = Field(default=None, ge=1, le=20)
     accountability_partner: str | None = None
     accountability_partner_email: str | None = None
     accountability_cost: str | None = None

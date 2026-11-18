@@ -1103,12 +1103,30 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-greeting-top{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .today-greeting-top .eyebrow{margin-bottom:0}
 .today-page-heading h1{font-size:clamp(30px,2.7vw,36px);line-height:1.15;letter-spacing:-1.2px}
+.today-quick-wins{margin:0 0 21px;padding:17px 19px 18px;border:1px solid color-mix(in srgb,var(--accent-ink) 16%,var(--line));border-radius:15px;background:linear-gradient(115deg,color-mix(in srgb,var(--accent-soft) 62%,var(--surface-raised)),var(--surface-raised));box-shadow:var(--shadow)}
+.today-quick-wins-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
+.today-quick-wins-heading .eyebrow{font-size:10px;color:var(--accent-ink)}
+.today-quick-wins-heading h2{margin:4px 0 0;color:var(--ink);font:700 20px/1.2 'Manrope',sans-serif;letter-spacing:-.4px}
+.today-quick-wins-heading p{margin:0 0 1px;color:var(--muted);font-size:12px}
+.today-quick-wins-pills{display:flex;flex-wrap:wrap;gap:8px}
+.today-quick-win{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:37px;max-width:100%;padding:7px 12px;border:1px solid color-mix(in srgb,var(--accent-ink) 25%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--accent-soft) 48%,var(--surface-raised));color:var(--accent-ink);font-size:12px;font-weight:700;line-height:1.35;text-align:left;overflow-wrap:anywhere;transition:transform .16s,border-color .16s,background .16s,box-shadow .16s}
+.today-quick-win:hover:not(:disabled){transform:translateY(-1px);border-color:var(--accent-ink);background:var(--accent-soft);box-shadow:0 4px 12px color-mix(in srgb,var(--accent-ink) 12%,transparent)}
+.today-quick-win:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.today-quick-win.is-complete{border-color:color-mix(in srgb,var(--green) 45%,var(--line));background:color-mix(in srgb,var(--green) 14%,var(--surface-raised));color:var(--accent-ink)}
+.today-quick-win.is-complete svg{flex:none}
+.today-quick-win:disabled{cursor:default}
 .today-section-heading{gap:12px}
 .today-add-button{min-height:44px;height:44px;padding:0 11px;border:1px solid color-mix(in srgb,var(--accent-ink) 24%,var(--line));border-radius:10px;box-shadow:none;font-size:14px;font-weight:700;gap:6px;color:var(--accent-ink);background:var(--accent-soft);white-space:nowrap;transition:background-color .16s,border-color .16s,transform .16s}
 .today-add-button:hover{border-color:color-mix(in srgb,var(--accent-ink) 42%,var(--line));background:color-mix(in srgb,var(--accent-soft) 76%,var(--accent-ink) 24%);transform:translateY(-1px)}
 @media(max-width:600px){
   .today-page-heading{margin-bottom:22px}
   .today-page-heading h1{font-size:clamp(27px,6.8vw,31px);letter-spacing:-1px}
+  .today-quick-wins{margin-bottom:18px;padding:15px 14px;border-radius:13px}
+  .today-quick-wins-heading{display:block;margin-bottom:10px}
+  .today-quick-wins-heading h2{font-size:18px}
+  .today-quick-wins-heading p{margin-top:5px;font-size:11px}
+  .today-quick-wins-pills{gap:6px}
+  .today-quick-win{min-height:35px;padding:6px 10px;font-size:11px}
   .today-section-heading{gap:8px}
   .today-section-heading h2{font-size:clamp(17px,5vw,20px)}
   .today-add-button{padding:0 10px;font-size:13px}

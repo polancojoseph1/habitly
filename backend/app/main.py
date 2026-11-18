@@ -19,11 +19,11 @@ from .models import (AccountabilityInvite, CircleMembership, CommunityCircle, Ha
 from .models import WorkspaceState, AccountToken
 from .models import new_id
 from .schemas import (UserCreate, UserOut, IdentityCreate, IdentityOut, HabitCreate, HabitOut,
-                      HabitLogOut, HabitUpdate, IdentityUpdate, LogCreate, LogOut, PrepUpdate,
+                      HabitLogOut, HabitUpdate, IdentityUpdate, LogCreate, LogOut, PrepUpdate, CompletionCreate,
                       RewardCreate, RewardStatusOut, RewardOut, TelegramLinkOut, HabitEventCreate, HabitEventOut)
 from .schemas import (AccountabilityInviteCreate, CircleCreate, CircleOut, DiagnosticCreate, DiagnosticOut,
                       HabitVariationCreate, HabitVariationOut, HabitVariationUpdate)
-from .streaks import calculate_streak, tracker_day
+from .streaks import calculate_streak, tracker_day, TRACKER_ZONE
 
 if settings.database_url.startswith("sqlite"):
     Base.metadata.create_all(bind=engine)
@@ -33,9 +33,9 @@ if settings.database_url.startswith("sqlite"):
         inspector = inspect(connection)
         local_additions = {
             "users": {"password_hash": "VARCHAR(256)", "api_token_hash": "VARCHAR(64)", "telegram_chat_id": "VARCHAR(64)"},
-            "habits": {"display_name": "VARCHAR(300)", "gateway_minutes": "INTEGER NOT NULL DEFAULT 2", "cue_to_hide": "VARCHAR(300)", "friction_strategy": "VARCHAR(300)", "habit_contract": "VARCHAR(300)", "motivation_ritual": "VARCHAR(300)", "shaping_milestones": "VARCHAR(1200)", "shaping_current_step": "INTEGER NOT NULL DEFAULT 0", "difficulty_levels": "JSON NOT NULL DEFAULT '[]'", "active_difficulty_level_id": "VARCHAR(80)", "accountability_partner": "VARCHAR(200)", "accountability_cost": "VARCHAR(300)", "accountability_partner_email": "VARCHAR(320)", "alternative_routine": "VARCHAR(300)", "replacement_actions": "JSON NOT NULL DEFAULT '[]'", "replacement_options": "JSON NOT NULL DEFAULT '[]'", "replacement_mode": "VARCHAR(20) NOT NULL DEFAULT 'STACK'", "break_plan_answers": "JSON NOT NULL DEFAULT '{}'", "aversion_reminder": "VARCHAR(300)", "friction_votes": "INTEGER NOT NULL DEFAULT 0", "technique_ids": "JSON", "technique_notes": "JSON", "baseline_daily": "INTEGER"},
-            "habit_logs": {"environment_prepped": "BOOLEAN NOT NULL DEFAULT FALSE", "difficulty_level_snapshot": "JSON"},
-            "habit_events": {"actual_minutes": "INTEGER", "strategy": "VARCHAR(300)", "variation_id": "VARCHAR(36)", "variation_name": "VARCHAR(160)"},
+            "habits": {"display_name": "VARCHAR(300)", "gateway_minutes": "INTEGER NOT NULL DEFAULT 2", "cue_to_hide": "VARCHAR(300)", "friction_strategy": "VARCHAR(300)", "habit_contract": "VARCHAR(300)", "motivation_ritual": "VARCHAR(300)", "shaping_milestones": "VARCHAR(1200)", "shaping_current_step": "INTEGER NOT NULL DEFAULT 0", "difficulty_levels": "JSON NOT NULL DEFAULT '[]'", "active_difficulty_level_id": "VARCHAR(80)", "accountability_partner": "VARCHAR(200)", "accountability_cost": "VARCHAR(300)", "accountability_partner_email": "VARCHAR(320)", "alternative_routine": "VARCHAR(300)", "replacement_actions": "JSON NOT NULL DEFAULT '[]'", "replacement_options": "JSON NOT NULL DEFAULT '[]'", "replacement_mode": "VARCHAR(20) NOT NULL DEFAULT 'STACK'", "break_plan_answers": "JSON NOT NULL DEFAULT '{}'", "aversion_reminder": "VARCHAR(300)", "friction_votes": "INTEGER NOT NULL DEFAULT 0", "technique_ids": "JSON", "technique_notes": "JSON", "baseline_daily": "INTEGER", "daily_target": "INTEGER NOT NULL DEFAULT 1"},
+            "habit_logs": {"environment_prepped": "BOOLEAN NOT NULL DEFAULT FALSE", "difficulty_level_snapshot": "JSON", "completion_count": "INTEGER NOT NULL DEFAULT 0"},
+            "habit_events": {"actual_minutes": "INTEGER", "strategy": "VARCHAR(300)", "variation_id": "VARCHAR(36)", "variation_name": "VARCHAR(160)", "source": "VARCHAR(20) NOT NULL DEFAULT 'WEB'"},
             "workspace_states": {"revision": "INTEGER NOT NULL DEFAULT 1"},
         }
         for table, columns in local_additions.items():
@@ -50,6 +50,8 @@ if settings.database_url.startswith("sqlite"):
             connection.execute(text("UPDATE habits SET technique_notes='{}' WHERE technique_notes IS NULL"))
             connection.execute(text("UPDATE habits SET replacement_actions='[]' WHERE replacement_actions IS NULL"))
             connection.execute(text("UPDATE habits SET break_plan_answers='{}' WHERE break_plan_answers IS NULL"))
+        if "habit_logs" in inspector.get_table_names():
+            connection.execute(text("UPDATE habit_logs SET completion_count=1 WHERE completion_count=0 AND status IN ('COMPLETED','RECOVERED')"))
 else:
     # Additive production migration: existing rows receive an empty level list and
     # retain all legacy completion records without rewriting them.
@@ -57,6 +59,11 @@ else:
         connection.execute(text("ALTER TABLE habits ADD COLUMN IF NOT EXISTS difficulty_levels JSON NOT NULL DEFAULT '[]'"))
         connection.execute(text("ALTER TABLE habits ADD COLUMN IF NOT EXISTS active_difficulty_level_id VARCHAR(80)"))
         connection.execute(text("ALTER TABLE habit_logs ADD COLUMN IF NOT EXISTS difficulty_level_snapshot JSON"))
+        connection.execute(text("ALTER TABLE habit_logs ADD COLUMN IF NOT EXISTS completion_count INTEGER NOT NULL DEFAULT 0"))
+        connection.execute(text("ALTER TABLE habits ADD COLUMN IF NOT EXISTS daily_target INTEGER NOT NULL DEFAULT 1"))
+        connection.execute(text("ALTER TABLE habit_events ADD COLUMN IF NOT EXISTS source VARCHAR(20) NOT NULL DEFAULT 'WEB'"))
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE habit_logs SET completion_count = 1 WHERE completion_count = 0 AND status IN ('COMPLETED', 'RECOVERED')"))
 app = FastAPI(title="Habitly API", version="0.2.0", description="Four Laws habit building and behavior change API")
 app.add_middleware(
     CORSMiddleware,
@@ -262,6 +269,48 @@ def account_info(request: Request, db: Session = Depends(get_db)):
     return {"id": user.id, "email": user.email, "identity": identity}
 
 
+def habit_completion_count(db: Session, habit_id: str, day: date) -> int:
+    log = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit_id, HabitLog.logged_date == day))
+    start = datetime.combine(day, datetime.min.time().replace(hour=6), tzinfo=TRACKER_ZONE).astimezone(timezone.utc)
+    end = start + timedelta(days=1)
+    events = list(db.scalars(select(HabitEvent).where(
+        HabitEvent.habit_id == habit_id,
+        HabitEvent.event_type == "ACTION_COMPLETED",
+        HabitEvent.occurred_at >= start,
+        HabitEvent.occurred_at < end,
+    )))
+    legacy_count = 1 if log and log.status in {"COMPLETED", "RECOVERED"} else 0
+    return max(len(events), log.completion_count if log else 0, legacy_count)
+
+
+def record_habit_completion(db: Session, habit: Habit, source: str = "WEB", actual_minutes: int | None = None):
+    day = tracker_day()
+    count = habit_completion_count(db, habit.id, day) + 1
+    now = datetime.now(timezone.utc)
+    event = HabitEvent(habit_id=habit.id, event_type="ACTION_COMPLETED", occurred_at=now,
+                       source=source, actual_minutes=actual_minutes)
+    db.add(event)
+    db.flush()
+    target_reached = count >= (habit.daily_target or 1)
+    yesterday = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit.id, HabitLog.logged_date == day - timedelta(days=1)))
+    status = ("RECOVERED" if yesterday and yesterday.status == "MISSED" else "COMPLETED") if target_reached else "IN_PROGRESS"
+    log = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit.id, HabitLog.logged_date == day))
+    if log:
+        log.status = status
+        log.completed_via = source
+        log.completion_count = count
+    else:
+        log = HabitLog(habit_id=habit.id, logged_date=day, status=status, completed_via=source, completion_count=count)
+        db.add(log)
+    if target_reached and not log.difficulty_level_snapshot:
+        levels = sorted(habit.difficulty_levels or [], key=lambda level: level.get("order", 0))
+        active = next((level for level in levels if level.get("id") == habit.active_difficulty_level_id), None)
+        if active:
+            log.difficulty_level_snapshot = {**active, "level_number": levels.index(active) + 1}
+    habit.identity.total_votes += 1
+    return event, log, count, target_reached
+
+
 def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
     identity = db.scalar(select(Identity).where(Identity.user_id == user_id).order_by(Identity.id).limit(1))
     habits = list(db.scalars(select(Habit).join(Identity).where(Identity.user_id == user_id, Habit.is_active.is_(True)).order_by(text("habits.rowid") if settings.database_url.startswith("sqlite") else Habit.id)))
@@ -281,6 +330,8 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
         streak, _warning = calculate_streak(logs)
         today = next((log for log in logs if log.logged_date == tracker_day()), None)
         yesterday = next((log for log in logs if log.logged_date == tracker_day() - timedelta(days=1)), None)
+        daily_target = habit.daily_target or 1
+        completion_count = habit_completion_count(db, habit.id, tracker_day())
         invite_token = db.scalar(select(AccountabilityInvite.token).where(AccountabilityInvite.habit_id == habit.id).order_by(AccountabilityInvite.created_at.desc()).limit(1))
         data["habits"].append({
             "id": habit.id, "name": habit.display_name or habit.target_action, "target": habit.target_action,
@@ -288,7 +339,8 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
             "cueType": habit.cue_type, "cue": habit.cue_trigger,
             "time": habit.cue_trigger if habit.cue_type == "TIME_LOCATION" else None,
             "location": habit.location, "motive": habit.craving_motive, "reward": habit.reward_payoff,
-            "prep": habit.prep_step or "", "completed": bool(today and today.status in {"COMPLETED", "RECOVERED"}),
+            "prep": habit.prep_step or "", "completed": completion_count >= daily_target,
+            "dailyTarget": daily_target, "completionCount": completion_count,
             "missedYesterday": bool(yesterday and yesterday.status == "MISSED"), "streak": streak,
             "kind": habit.habit_type, "hideCue": habit.cue_to_hide, "friction": habit.friction_strategy,
             "contract": habit.habit_contract, "aversionReminder": habit.aversion_reminder,
@@ -313,7 +365,7 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
             if log.difficulty_level_snapshot:
                 difficulty_history.setdefault(log.logged_date.isoformat(), {})[habit.id] = log.difficulty_level_snapshot
         for event in db.scalars(select(HabitEvent).where(HabitEvent.habit_id == habit.id).order_by(HabitEvent.occurred_at.desc())):
-            events.append({"id": event.id, "habitId": habit.id, "type": event.event_type, "at": event.occurred_at.isoformat(), "note": event.note, "actualMinutes": event.actual_minutes, "strategy": event.strategy, "variationId": event.variation_id, "variationName": event.variation_name})
+            events.append({"id": event.id, "habitId": habit.id, "type": event.event_type, "at": event.occurred_at.isoformat(), "note": event.note, "actualMinutes": event.actual_minutes, "strategy": event.strategy, "variationId": event.variation_id, "variationName": event.variation_name, "source": event.source})
         for variation in db.scalars(select(HabitVariation).where(HabitVariation.habit_id == habit.id).order_by(HabitVariation.created_at.desc())):
             variations.append({"id": variation.id, "habitId": habit.id, "law": variation.law, "name": variation.name, "techniqueId": variation.technique_id, "setup": variation.setup, "isActive": variation.is_active, "triedAt": variation.tried_at.isoformat() if variation.tried_at else None, "helped": variation.helped, "outcomeNote": variation.outcome_note, "createdAt": variation.created_at.isoformat()})
     data["history"] = history
@@ -395,6 +447,7 @@ def import_workspace(payload: dict, request: Request, db: Session = Depends(get_
             id=habit_id, identity_id=identity.id, habit_type=row.get("kind", "BUILD"), display_name=row.get("name"),
             target_action=row.get("target") or row.get("name") or "Habit", gateway_action=row.get("gateway", ""),
             gateway_minutes=int(row.get("gatewayMinutes", 0) or 0), cue_type=row.get("cueType", "STACK"),
+            daily_target=int(row.get("dailyTarget", 1) or 1) if row.get("kind", "BUILD") == "BUILD" else 1,
             cue_trigger=row.get("cue") or row.get("time") or "", location=row.get("location"),
             craving_motive=row.get("motive", ""), reward_payoff=row.get("reward", ""), prep_step=row.get("prep"),
             reward_bundle=row.get("rewardBundle"), cue_to_hide=row.get("hideCue"), friction_strategy=row.get("friction"),
@@ -421,7 +474,7 @@ def import_workspace(payload: dict, request: Request, db: Session = Depends(get_
             habit_id = str(value).removeprefix("missed:")
             if habit_id in habit_ids:
                 snapshot = (clean.get("difficultyHistory", {}).get(day, {}) or {}).get(habit_id) if not missed else None
-                db.add(HabitLog(habit_id=habit_id, logged_date=date.fromisoformat(day), status="MISSED" if missed else "COMPLETED", completed_via="WEB", difficulty_level_snapshot=snapshot))
+                db.add(HabitLog(habit_id=habit_id, logged_date=date.fromisoformat(day), status="MISSED" if missed else "COMPLETED", completed_via="WEB", difficulty_level_snapshot=snapshot, completion_count=0 if missed else 1))
     for habit_id, is_prepped in clean.get("preppedHabits", {}).items():
         if is_prepped and habit_id in habit_ids:
             logged = db.scalar(select(HabitLog.id).where(HabitLog.habit_id == habit_id, HabitLog.logged_date == tracker_day()))
@@ -431,7 +484,7 @@ def import_workspace(payload: dict, request: Request, db: Session = Depends(get_
                 db.add(HabitLog(habit_id=habit_id, logged_date=tracker_day(), status="PREPPED", completed_via="WEB", environment_prepped=True))
     for row in clean.get("habitEvents", []):
         if row.get("habitId") in habit_ids:
-            db.add(HabitEvent(id=row.get("id") or new_id(), habit_id=row["habitId"], event_type=row.get("type", "ACTION_COMPLETED"), occurred_at=datetime.fromisoformat(row["at"].replace("Z", "+00:00")) if row.get("at") else datetime.now(timezone.utc), note=row.get("note"), actual_minutes=row.get("actualMinutes"), strategy=row.get("strategy"), variation_id=row.get("variationId"), variation_name=row.get("variationName")))
+            db.add(HabitEvent(id=row.get("id") or new_id(), habit_id=row["habitId"], event_type=row.get("type", "ACTION_COMPLETED"), occurred_at=datetime.fromisoformat(row["at"].replace("Z", "+00:00")) if row.get("at") else datetime.now(timezone.utc), note=row.get("note"), actual_minutes=row.get("actualMinutes"), strategy=row.get("strategy"), variation_id=row.get("variationId"), variation_name=row.get("variationName"), source=row.get("source", "WEB")))
     for row in clean.get("variations", []):
         if row.get("habitId") in habit_ids:
             db.add(HabitVariation(id=row.get("id") or new_id(), habit_id=row["habitId"], law=row.get("law", "response"), name=row.get("name", "Variation"), technique_id=row.get("techniqueId"), setup=row.get("setup", ""), is_active=bool(row.get("isActive")), tried_at=datetime.fromisoformat(row["triedAt"].replace("Z", "+00:00")) if row.get("triedAt") else None, helped=row.get("helped"), outcome_note=row.get("outcomeNote"), created_at=datetime.fromisoformat(row["createdAt"].replace("Z", "+00:00")) if row.get("createdAt") else datetime.now(timezone.utc)))
@@ -537,6 +590,8 @@ def create_habit(payload: HabitCreate, db: Session = Depends(get_db)):
         raise HTTPException(422, "Time and location cues require a location")
     habit_data = payload.model_dump()
     habit_data["display_name"] = payload.display_name or payload.target_action
+    if payload.habit_type == "BREAK":
+        habit_data["daily_target"] = 1
     habit = Habit(**habit_data)
     db.add(habit)
     db.commit()
@@ -741,6 +796,8 @@ def log_habit(habit_id: str, payload: LogCreate, db: Session = Depends(get_db)):
     else:
         log = HabitLog(habit_id=habit_id, logged_date=logged_date, status=payload.status, completed_via=payload.completed_via)
         db.add(log)
+    if payload.status in {"COMPLETED", "RECOVERED"}:
+        log.completion_count = max(log.completion_count or 0, 1)
     if payload.status in {"COMPLETED", "RECOVERED"} and not log.difficulty_level_snapshot:
         levels = sorted(habit.difficulty_levels or [], key=lambda level: level.get("order", 0))
         active = next((level for level in levels if level.get("id") == habit.active_difficulty_level_id), None)
@@ -758,7 +815,35 @@ def log_habit(habit_id: str, payload: LogCreate, db: Session = Depends(get_db)):
     streak, warning = calculate_streak(rows)
     return LogOut(id=log.id, habit_id=habit_id, logged_date=log.logged_date, status=log.status,
                   completed_via=log.completed_via, identity_votes=habit.identity.total_votes,
-                  resilient_streak=streak, warning_active=warning)
+                  resilient_streak=streak, warning_active=warning,
+                  completion_count=habit_completion_count(db, habit_id, logged_date),
+                  daily_target=habit.daily_target or 1,
+                  target_reached=log.status in {"COMPLETED", "RECOVERED"})
+
+
+@app.post("/api/habits/{habit_id}/completions", status_code=201)
+def complete_habit_occurrence(habit_id: str, payload: CompletionCreate, db: Session = Depends(get_db)):
+    habit = db.get(Habit, habit_id)
+    if not habit:
+        raise HTTPException(404, "Habit not found")
+    if habit.habit_type != "BUILD":
+        raise HTTPException(422, "Only build habits use daily completion targets")
+    event, log, count, target_reached = record_habit_completion(db, habit, payload.completed_via, payload.actual_minutes)
+    db.flush()
+    sync_unified_events(db, habit.identity.user_id)
+    db.commit()
+    db.refresh(event)
+    rows = list(db.scalars(select(HabitLog).where(HabitLog.habit_id == habit_id).order_by(HabitLog.logged_date.desc())))
+    streak, warning = calculate_streak(rows)
+    return {
+        "id": log.id, "habit_id": habit_id, "logged_date": log.logged_date, "status": log.status,
+        "completed_via": payload.completed_via, "identity_votes": habit.identity.total_votes,
+        "resilient_streak": streak, "warning_active": warning, "completion_count": count,
+        "daily_target": habit.daily_target or 1, "target_reached": target_reached,
+        "event": {"id": event.id, "habitId": habit_id, "type": event.event_type,
+                  "at": event.occurred_at.isoformat(), "actualMinutes": event.actual_minutes,
+                  "source": event.source},
+    }
 
 
 @app.patch("/api/habits/{habit_id}", response_model=HabitOut)
@@ -767,6 +852,8 @@ def update_habit(habit_id: str, payload: HabitUpdate, db: Session = Depends(get_
     if not habit:
         raise HTTPException(404, "Habit not found")
     changes = payload.model_dump(exclude_unset=True)
+    if changes.get("habit_type", habit.habit_type) == "BREAK":
+        changes["daily_target"] = 1
     levels = changes.get("difficulty_levels", habit.difficulty_levels or [])
     level_ids = [level["id"] for level in levels]
     if len(level_ids) != len(set(level_ids)):
@@ -888,14 +975,13 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
     habits = list(db.scalars(select(Habit).where(Habit.identity_id.in_(identity_ids), Habit.is_active.is_(True)))) if identity_ids else []
     unfinished = []
     for habit in habits:
-        today_log = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit.id, HabitLog.logged_date == tracker_day()))
-        if today_log is None or today_log.status not in {"COMPLETED", "RECOVERED"}:
+        if habit_completion_count(db, habit.id, tracker_day()) < (habit.daily_target or 1):
             unfinished.append(habit)
     normalized = text.lower().replace("/done", "").replace("done", "").replace("stack complete", "").strip(" :,-")
     query_words = [word for word in normalized.replace("with ", "").replace("my ", "").replace("the ", "").split() if len(word) > 2]
     if normalized:
         matches = []
-        for candidate in unfinished:
+        for candidate in habits:
             action_words = (candidate.target_action + " " + candidate.gateway_action).lower().split()
             if normalized in candidate.target_action.lower() or normalized in candidate.gateway_action.lower() or any(
                 query.startswith(word) or word.startswith(query) for query in query_words for word in action_words if len(word) > 2
@@ -912,17 +998,13 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
         return {"ok": True, "logged": False}
 
     habit = matches[0]
-    yesterday = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit.id, HabitLog.logged_date == tracker_day() - timedelta(days=1)))
-    status = "RECOVERED" if yesterday and yesterday.status == "MISSED" else "COMPLETED"
-    today_log = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit.id, HabitLog.logged_date == tracker_day()))
-    if today_log:
-        today_log.status = status
-        today_log.completed_via = "TELEGRAM_BOT"
-    else:
-        db.add(HabitLog(habit_id=habit.id, logged_date=tracker_day(), status=status, completed_via="TELEGRAM_BOT"))
-    habit.identity.total_votes += 1
+    _event, _log, count, target_reached = record_habit_completion(db, habit, "TELEGRAM_BOT")
+    db.flush()
+    sync_unified_events(db, habit.identity.user_id)
     db.commit()
     logs = list(db.scalars(select(HabitLog).where(HabitLog.habit_id == habit.id).order_by(HabitLog.logged_date.desc())))
     streak, _ = calculate_streak(logs)
-    await reply(f"{('Recovery vote' if status == 'RECOVERED' else 'Identity vote')} cast for {habit.target_action}. Your resilient streak is {streak} days.")
-    return {"ok": True, "logged": True, "habit_id": habit.id, "resilient_streak": streak}
+    await reply(f"{count} of {habit.daily_target or 1} completed for {habit.target_action}. {'Daily target reached. ' if target_reached else ''}Your resilient streak is {streak} days.")
+    return {"ok": True, "logged": True, "habit_id": habit.id, "completion_count": count,
+            "daily_target": habit.daily_target or 1, "target_reached": target_reached,
+            "resilient_streak": streak}
