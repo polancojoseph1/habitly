@@ -1636,6 +1636,36 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-level-up { min-height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--accent-soft); color: var(--accent-ink); font-size: 11px; font-weight: 700; white-space: nowrap; cursor: pointer; }
 .today-level-up:hover:not(:disabled) { border-color: var(--accent-ink); }
 .today-level-up:disabled { opacity: .65; cursor: default; }
+.daily-step-editor { display: grid; gap: 10px; margin-top: 4px; padding: 15px; border: 1px solid var(--line); border-radius: 13px; background: var(--surface-soft); }
+.daily-step-editor-heading,.daily-repeat-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.daily-step-editor-heading b,.daily-repeat-heading b { display: block; color: var(--ink); font-size: 14px; }
+.daily-step-editor-heading p { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+.daily-step-editor-heading > span { color: var(--muted); font-size: 12px; font-weight: 700; }
+.daily-step-editor-list,.daily-repeat-list { display: grid; gap: 7px; }
+.daily-step-editor-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) 34px; align-items: center; gap: 7px; padding: 5px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-raised); }
+.daily-step-editor-row.is-dragging { opacity: .55; }
+.daily-step-editor-row.is-drop-target { border-color: var(--accent-ink); background: var(--accent-soft); }
+.daily-step-editor-row input { width: 100%; min-width: 0; height: 40px; padding: 0 10px; border: 1px solid transparent; border-radius: 7px; background: transparent; color: var(--ink); font: inherit; }
+.daily-step-editor-row input:focus { border-color: var(--accent-ink); outline: 0; background: var(--surface-raised); box-shadow: var(--focus-ring); }
+.daily-step-grip,.daily-step-remove { display: grid; place-items: center; width: 32px; height: 36px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-soft); color: var(--accent-ink); cursor: grab; }
+.daily-step-grip { user-select: none; font-size: 21px; line-height: 1; }
+.daily-step-remove { color: var(--muted); font-size: 20px; cursor: pointer; }
+.daily-step-add { justify-self: start; min-height: 38px; padding: 0 11px; border: 1px solid var(--line); border-radius: 9px; background: transparent; color: var(--accent-ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.daily-step-add:hover:not(:disabled),.daily-step-grip:hover,.daily-step-remove:hover { border-color: var(--accent-ink); background: var(--accent-soft); color: var(--ink); }
+.daily-step-add:disabled { opacity: .5; cursor: default; }
+.daily-repeat-panel { grid-column: 1 / -1; display: grid; gap: 10px; width: 100%; padding: 13px 15px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-soft); }
+.daily-repeat-heading { padding-bottom: 2px; }
+.daily-repeat-heading span { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
+.daily-repeat-heading .text-button { flex-shrink: 0; font-size: 12px; }
+.daily-repeat-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 42px; padding: 5px 7px 5px 11px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-raised); }
+.daily-repeat-row.is-done { background: var(--accent-soft); }
+.daily-repeat-label { min-width: 0; color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }
+.daily-repeat-done,.daily-repeat-check { display: inline-flex; align-items: center; justify-content: center; gap: 5px; min-width: 75px; min-height: 31px; padding: 0 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-soft); color: var(--accent-ink); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.daily-repeat-done { background: var(--accent-soft); }
+.daily-repeat-done:disabled { cursor: default; opacity: .8; }
+.daily-repeat-check:hover:not(:disabled),.daily-repeat-done:hover:not(:disabled) { border-color: var(--accent-ink); }
+.daily-repeat-expand { justify-self: start; font-size: 12px; }
+.daily-step-add:focus-visible,.daily-step-grip:focus-visible,.daily-step-remove:focus-visible,.daily-repeat-done:focus-visible,.daily-repeat-check:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
 @media (max-width: 480px) {
   .today-quick-action { grid-template-columns: max-content minmax(0, 1fr); }
   .today-quick-action > span { max-width: 42vw; }
@@ -1647,4 +1677,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .multi-answer-index { width: 24px; height: 24px; }
   .multi-answer-remove { min-width: 34px; }
   .break-cue-pair { grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 34px; gap: 5px; }
+  .daily-step-editor { padding: 11px; }
+  .daily-step-editor-row { grid-template-columns: 30px minmax(0, 1fr) 32px; gap: 5px; }
+  .daily-step-grip,.daily-step-remove { width: 30px; }
+  .daily-repeat-panel { padding: 11px; }
 }

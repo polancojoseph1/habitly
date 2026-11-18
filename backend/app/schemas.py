@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from typing import Literal
+from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
@@ -14,6 +15,16 @@ class DifficultyLevel(BaseModel):
     @field_validator("id", "activity", mode="before")
     @classmethod
     def trim_required_level_text(cls, value):
+        return value.strip() if isinstance(value, str) else value
+
+
+class DailyStep(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    label: str = Field(min_length=1, max_length=160)
+
+    @field_validator("label", mode="before")
+    @classmethod
+    def trim_label(cls, value):
         return value.strip() if isinstance(value, str) else value
 
 
@@ -79,6 +90,7 @@ class HabitCreate(BaseModel):
     technique_notes: dict[str, str] = Field(default_factory=dict)
     baseline_daily: int | None = Field(default=None, ge=0, le=1000)
     daily_target: int = Field(default=1, ge=1, le=20)
+    daily_steps: list[DailyStep] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_habit_fields(self):
@@ -87,6 +99,17 @@ class HabitCreate(BaseModel):
             raise ValueError("Difficulty level IDs must be unique")
         if self.active_difficulty_level_id and self.active_difficulty_level_id not in ids:
             raise ValueError("The active difficulty level must exist on this habit")
+        if self.habit_type == "BUILD" and self.daily_target > 1:
+            if not self.daily_steps:
+                self.daily_steps = [DailyStep(id=str(uuid4()), label=f"Completion {index + 1}") for index in range(self.daily_target)]
+            if len(self.daily_steps) != self.daily_target:
+                raise ValueError("Add one repeat entry for each daily completion")
+            step_ids = [step.id for step in self.daily_steps]
+            if len(step_ids) != len(set(step_ids)):
+                raise ValueError("Repeat entry IDs must be unique")
+        elif self.habit_type == "BREAK":
+            self.daily_target = 1
+            self.daily_steps = []
         self.difficulty_levels = [level.model_copy(update={"order": index}) for index, level in enumerate(sorted(self.difficulty_levels, key=lambda level: level.order))]
         if self.habit_type == "BUILD":
             if not self.cue_trigger:
@@ -138,6 +161,7 @@ class HabitOut(BaseModel):
     technique_notes: dict[str, str]
     baseline_daily: int | None
     daily_target: int = 1
+    daily_steps: list[DailyStep] = Field(default_factory=list)
     friction_votes: int
     is_active: bool
 
@@ -152,6 +176,7 @@ class LogCreate(BaseModel):
 class CompletionCreate(BaseModel):
     completed_via: Literal["WEB", "TELEGRAM_BOT"] = "WEB"
     actual_minutes: int | None = Field(default=None, ge=1, le=1440)
+    daily_slot_id: str | None = Field(default=None, max_length=80)
 
 
 class LogOut(BaseModel):
@@ -195,6 +220,7 @@ class HabitEventOut(BaseModel):
     habit_id: str
     event_type: str
     source: str = "WEB"
+    daily_slot_id: str | None = None
     occurred_at: datetime
     note: str | None
     actual_minutes: int | None
@@ -270,6 +296,7 @@ class HabitUpdate(BaseModel):
     technique_notes: dict[str, str] | None = None
     baseline_daily: int | None = Field(default=None, ge=0, le=1000)
     daily_target: int | None = Field(default=None, ge=1, le=20)
+    daily_steps: list[DailyStep] | None = None
     accountability_partner: str | None = None
     accountability_partner_email: str | None = None
     accountability_cost: str | None = None

@@ -46,14 +46,16 @@ type Habit = {
   cue: string; time?: string; location?: string; motive: string; reward: string;
   prep: string; completed: boolean; missedYesterday: boolean; streak: number;
   dailyTarget?: number; completionCount?: number;
+  dailySteps?: DailyStep[]; completedDailySteps?: string[];
   kind: 'BUILD' | 'BREAK'; hideCue?: string; friction?: string; contract?: string; aversionReminder?: string; frictionVotes?: number; rewardBundle?: string;
   alternativeRoutine?: string; replacementActions?: string[]; replacementOptions?: string[]; replacementMode?: ReplacementMode; breakPlanAnswers?: Partial<BreakPlanAnswers>;
   ritual?: string; milestones?: string[]; milestoneIndex?: number; accountabilityPartner?: string; accountabilityEmail?: string; accountabilityCost?: string; inviteLink?: string;
   difficultyLevels?: DifficultyLevel[]; activeDifficultyLevelId?: string;
   techniqueIds?: string[]; techniqueNotes?: Record<string, string>; baselineDaily?: number;
 };
+type DailyStep = { id: string; label: string };
 type PendingHabitDeletion = { id: string; habit: Habit; restoreBeforeId?: string; serverBacked: boolean };
-type HabitEvent = { id: string; habitId: string; type: 'ACTION_COMPLETED' | 'URGE_PASSED' | 'REPLACEMENT_USED' | 'OLD_HABIT'; at: string; note?: string; actualMinutes?: number; strategy?: string; variationId?: string; variationName?: string };
+type HabitEvent = { id: string; habitId: string; type: 'ACTION_COMPLETED' | 'URGE_PASSED' | 'REPLACEMENT_USED' | 'OLD_HABIT'; at: string; note?: string; actualMinutes?: number; strategy?: string; variationId?: string; variationName?: string; dailySlotId?: string };
 type HabitVariation = { id: string; habitId: string; law: Law; name: string; techniqueId?: string; setup: string; isActive: boolean; triedAt?: string; helped?: boolean | null; outcomeNote?: string; createdAt: string };
 type ScorecardEntry = { id: string; behavior: string; rating: '+' | '-' | '=' };
 type Diagnostic = { id: string; routine: string; craving: string; rewardExperiment: string; cueTime: string; cueLocation: string; cueEmotion: string; cuePeople: string; plan: string };
@@ -68,6 +70,12 @@ const palettes: { id: Palette; name: string; colors: [string, string, string] }[
   { id: 'amber', name: 'Amber', colors: ['#a96b25', '#e3ad62', '#fff3dc'] },
   { id: 'sage', name: 'Sage', colors: ['#527e70', '#91b6a2', '#e6f2eb'] },
 ];
+function makeDailySteps(count: number, existing: DailyStep[] = []): DailyStep[] {
+  return Array.from({ length: Math.max(0, Math.min(20, count)) }, (_, index) => existing[index] ?? ({
+    id: `daily-step-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+    label: `Completion ${index + 1}`,
+  }));
+}
 const bodilyStateOptions = [
   ['tired', 'Tired or short on sleep'],
   ['hungry_thirsty', 'Hungry or thirsty'],
@@ -495,6 +503,11 @@ export default function Home() {
   const [habitName, setHabitName] = useState('');
   const [targetAction, setTargetAction] = useState('');
   const [dailyTarget, setDailyTarget] = useState('1');
+  const [dailySteps, setDailySteps] = useState<DailyStep[]>([]);
+  const [dailyStepDragId, setDailyStepDragId] = useState('');
+  const [dailyStepDropId, setDailyStepDropId] = useState('');
+  const [expandedDailyHabits, setExpandedDailyHabits] = useState<Set<string>>(new Set());
+  const [showAllDailySteps, setShowAllDailySteps] = useState<Record<string, boolean>>({});
   const [gatewayAction, setGatewayAction] = useState('');
   const [replacementActions, setReplacementActions] = useState<string[]>([]);
   const [replacementOptions, setReplacementOptions] = useState<string[]>([]);
@@ -988,14 +1001,19 @@ export default function Home() {
     } catch (error) { setConnectionError(`${error instanceof Error ? error.message : 'Import failed'}. Local data is still in this browser. Export it in Settings before clearing site data.`); }
   }
 
-  async function completeHabit(habit: Habit) {
+  async function completeHabit(habit: Habit, requestedSlotId?: string) {
     if (habit.completed && (habit.dailyTarget ?? 1) <= 1) return;
     const dailyTarget = Math.max(1, habit.dailyTarget ?? 1);
+    const completedDailySteps = habit.completedDailySteps ?? [];
+    const slotId = requestedSlotId ?? (habit.dailyTarget && habit.dailyTarget > 1
+      ? (habit.dailySteps ?? []).find(step => !completedDailySteps.includes(step.id))?.id
+      : undefined);
+    if (slotId && completedDailySteps.includes(slotId)) return;
     const completionCount = (habit.completionCount ?? (habit.completed ? 1 : 0)) + 1;
     const targetReached = completionCount >= dailyTarget;
-    const localEvent: HabitEvent = { id: `local-${habit.id}-${Date.now()}`, habitId: habit.id, type: 'ACTION_COMPLETED', at: new Date().toISOString() };
+    const localEvent: HabitEvent = { id: `local-${habit.id}-${Date.now()}`, habitId: habit.id, type: 'ACTION_COMPLETED', at: new Date().toISOString(), dailySlotId: slotId };
     setHabitEvents(current => [...current, localEvent]);
-    setHabits(current => current.map(h => h.id === habit.id ? { ...h, completionCount, completed: targetReached, missedYesterday: targetReached ? false : h.missedYesterday } : h));
+    setHabits(current => current.map(h => h.id === habit.id ? { ...h, completionCount, completed: targetReached, completedDailySteps: slotId ? [...new Set([...(h.completedDailySteps ?? []), slotId])] : h.completedDailySteps, missedYesterday: targetReached ? false : h.missedYesterday } : h));
     const currentDay = todayKey();
     const nextHistory = { ...history, [currentDay]: [...(history[currentDay] ?? []).filter(x => x !== `missed:${habit.id}` && x !== habit.id), ...(targetReached ? [habit.id] : [])] };
     setHistory(nextHistory);
@@ -1006,11 +1024,11 @@ export default function Home() {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) navigator.vibrate(18);
     if (apiUrl && remoteIdentityId && !habit.id.startsWith('demo-')) {
       try {
-        const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits/${habit.id}/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ completed_via: 'WEB' }) });
+        const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits/${habit.id}/completions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ completed_via: 'WEB', daily_slot_id: slotId ?? null }) });
         if (response.ok) {
           const result = await response.json();
           setVotes(result.identity_votes);
-          setHabits(current => current.map(h => h.id === habit.id ? { ...h, completionCount: result.completion_count, completed: result.target_reached, missedYesterday: result.target_reached ? false : h.missedYesterday } : h));
+          setHabits(current => current.map(h => h.id === habit.id ? { ...h, completionCount: result.completion_count, completed: result.target_reached, completedDailySteps: result.event?.dailySlotId ? [...new Set([...(h.completedDailySteps ?? []), result.event.dailySlotId])] : h.completedDailySteps, missedYesterday: result.target_reached ? false : h.missedYesterday } : h));
           setHabitEvents(current => [...current.filter(event => event.id !== localEvent.id), result.event as HabitEvent]);
           if (result.target_reached) setHistory(current => ({ ...current, [currentDay]: [...(current[currentDay] ?? []).filter(x => x !== `missed:${habit.id}` && x !== habit.id), habit.id] }));
           setToast(`${result.completion_count} of ${result.daily_target} today${result.target_reached ? ' · Daily target reached' : ''}`);
@@ -1021,6 +1039,31 @@ export default function Home() {
     }
     const updatedStreak = getResilientStreak(nextHistory, habit.id).count;
     setToast(`${completionCount} of ${dailyTarget} today${targetReached ? ` · ${updatedStreak}-day chain` : ''}`);
+  }
+
+  async function undoHabitOccurrence(habit: Habit, event: HabitEvent) {
+    if (!window.confirm(`Undo “${(habit.dailySteps ?? []).find(step => step.id === event.dailySlotId)?.label ?? 'this completion'}”?`)) return;
+    const eventDate = new Date(event.at);
+    const isToday = trackerDayKey(eventDate) === todayKey();
+    setHabitEvents(current => current.filter(item => item.id !== event.id));
+    setHabits(current => current.map(item => item.id === habit.id ? {
+      ...item,
+      completionCount: Math.max(0, (item.completionCount ?? 0) - (isToday ? 1 : 0)),
+      completedDailySteps: (item.completedDailySteps ?? []).filter(id => id !== event.dailySlotId),
+      completed: isToday ? Math.max(0, (item.completionCount ?? 0) - 1) >= (item.dailyTarget ?? 1) : item.completed,
+    } : item));
+    setVotes(current => Math.max(0, current - 1));
+    if (isToday) setHistory(current => ({ ...current, [todayKey()]: (current[todayKey()] ?? []).filter(id => id !== habit.id) }));
+    if (apiUrl && remoteIdentityId && !habit.id.startsWith('demo-') && !event.id.startsWith('local-')) {
+      try {
+        const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits/${habit.id}/completions/${event.id}`, { method: 'DELETE' });
+        if (!response.ok) throw new Error('Undo failed');
+        const result = await response.json();
+        setVotes(result.identity_votes ?? Math.max(0, votes - 1));
+        setHabits(current => current.map(item => item.id === habit.id ? { ...item, completionCount: result.completion_count, completed: result.target_reached, completedDailySteps: (item.completedDailySteps ?? []).filter(id => id !== event.dailySlotId) } : item));
+      } catch { setToast('Undo saved here. API sync will resume when connected.'); return; }
+    }
+    setToast('Completion undone.');
   }
 
   async function markMissed(habit: Habit) {
@@ -1346,10 +1389,41 @@ export default function Home() {
 
   function startNewHabit(mode: ChangeMode) {
     setEditingHabitId(''); setBuilderReturnTo(active); setHabitType(mode); setCueType('STACK'); setReplacementMode('STACK'); setReplacementOptions([]);
-    setHabitName(''); setTargetAction(''); setDailyTarget('1'); setGatewayAction(''); setReplacementActions(mode === 'BREAK' ? [''] : []); setBreakPlanAnswers(createEmptyBreakPlanAnswers()); setLawAnswerTabs({ ...defaultLawAnswerTabs }); setGatewayMinutes(0); setCue(''); setTime(''); setLocation(''); setMotive(''); setReward('');
+    setHabitName(''); setTargetAction(''); setDailyTarget('1'); setDailySteps([]); setGatewayAction(''); setReplacementActions(mode === 'BREAK' ? [''] : []); setBreakPlanAnswers(createEmptyBreakPlanAnswers()); setLawAnswerTabs({ ...defaultLawAnswerTabs }); setGatewayMinutes(0); setCue(''); setTime(''); setLocation(''); setMotive(''); setReward('');
     setPrepStep(''); setBundle(''); setHideCue(''); setFriction(''); setContract(''); setAccountabilityPartner(''); setAccountabilityEmail('');
     setAccountabilityCost(''); setAlternativeRoutine(''); setAversionReminder(''); setRitual(''); setMilestoneDraft(''); setDifficultyEnabled(false); setDifficultyLevels([]); setActiveDifficultyLevelId(''); setExpandedDifficultyLevelId(''); setTechniqueIds([]);
     setTechniqueNotes({}); setBaselineDaily(''); setShowBuilder(true);
+  }
+
+  function updateDailyTargetDraft(value: string) {
+    setDailyTarget(value);
+    const nextTarget = Math.max(1, Math.min(20, Number(value) || 1));
+    setDailySteps(current => nextTarget > 1 ? makeDailySteps(nextTarget, current) : []);
+  }
+
+  function moveDailyStep(draggedId: string, targetId: string) {
+    if (!draggedId || !targetId || draggedId === targetId) return;
+    setDailySteps(current => {
+      const from = current.findIndex(step => step.id === draggedId);
+      const to = current.findIndex(step => step.id === targetId);
+      if (from < 0 || to < 0) return current;
+      const next = [...current]; const [item] = next.splice(from, 1); next.splice(to, 0, item);
+      return next;
+    });
+  }
+
+  function addDailyStep() {
+    const target = Number(dailyTarget) || 1;
+    if (target >= 20) { setToast('A habit can have up to 20 daily repetitions.'); return; }
+    updateDailyTargetDraft(String(target + 1));
+  }
+
+  function removeDailyStep(id: string) {
+    const step = dailySteps.find(item => item.id === id);
+    if (!step || !window.confirm(`Remove “${step.label}” from this daily plan?`)) return;
+    const next = dailySteps.filter(item => item.id !== id);
+    const target = Math.max(1, next.length);
+    setDailyTarget(String(target)); setDailySteps(target > 1 ? next : []);
   }
 
   function toggleTechnique(id: string) {
@@ -1490,6 +1564,7 @@ export default function Home() {
     setHabitName(habit.name);
     setTargetAction(habit.target);
     setDailyTarget(String(habit.dailyTarget ?? 1));
+    setDailySteps(habit.kind === 'BUILD' && (habit.dailyTarget ?? 1) > 1 ? makeDailySteps(habit.dailyTarget ?? 1, habit.dailySteps ?? []) : []);
     setGatewayAction(habit.kind === 'BREAK' ? actions[0] ?? '' : habit.gateway ?? '');
     const mode = habit.replacementMode ?? 'STACK';
     setReplacementMode(mode);
@@ -1634,7 +1709,7 @@ export default function Home() {
     let inviteLink = '';
     if (apiUrl && remoteIdentityId && !editingHabitId.startsWith('demo-')) {
       try {
-        const payload = { habit_type: habitType, display_name: savedHabitName, target_action: targetAction.trim(), daily_target: habitType === 'BUILD' ? Math.max(1, Math.min(20, Number(dailyTarget) || 1)) : 1, gateway_action: starterAction, replacement_actions: savedReplacementActions, replacement_options: savedReplacementOptions, replacement_mode: replacementMode, break_plan_answers: savedBreakPlanAnswers, gateway_minutes: savedGatewayMinutes, cue_type: cueType, cue_trigger: savedCue, location: savedLocation || null, craving_motive: savedMotive, reward_payoff: savedReward, prep_step: prepStep.trim() || null, reward_bundle: bundle.trim() || null, cue_to_hide: savedHideCue || null, friction_strategy: savedFriction || null, habit_contract: savedContract || null, alternative_routine: habitType === 'BREAK' ? savedReplacementActions[0] ?? savedReplacementOptions[0] : gatewayAction.trim() || alternativeRoutine.trim() || null, aversion_reminder: savedReframe || null, motivation_ritual: ritual.trim() || null, shaping_milestones: habitType === 'BUILD' ? [starterAction, ...milestoneDraft.split('\n').map(item => item.trim()).filter(Boolean), targetAction.trim()].filter((item, i, all) => !!item && all.indexOf(item) === i).join('\n') : null, shaping_current_step: existingHabit?.milestoneIndex ?? 0, difficulty_levels: savedDifficultyLevels, active_difficulty_level_id: savedActiveDifficultyLevelId || null, accountability_partner: accountabilityPartner.trim() || null, accountability_partner_email: accountabilityEmail.trim() || null, accountability_cost: accountabilityCost.trim() || null, technique_ids: techniqueIds, technique_notes: techniqueNotes, baseline_daily: baselineDaily !== '' ? Number(baselineDaily) : null };
+        const payload = { habit_type: habitType, display_name: savedHabitName, target_action: targetAction.trim(), daily_target: habitType === 'BUILD' ? Math.max(1, Math.min(20, Number(dailyTarget) || 1)) : 1, daily_steps: habitType === 'BUILD' && Number(dailyTarget) > 1 ? dailySteps : [], gateway_action: starterAction, replacement_actions: savedReplacementActions, replacement_options: savedReplacementOptions, replacement_mode: replacementMode, break_plan_answers: savedBreakPlanAnswers, gateway_minutes: savedGatewayMinutes, cue_type: cueType, cue_trigger: savedCue, location: savedLocation || null, craving_motive: savedMotive, reward_payoff: savedReward, prep_step: prepStep.trim() || null, reward_bundle: bundle.trim() || null, cue_to_hide: savedHideCue || null, friction_strategy: savedFriction || null, habit_contract: savedContract || null, alternative_routine: habitType === 'BREAK' ? savedReplacementActions[0] ?? savedReplacementOptions[0] : gatewayAction.trim() || alternativeRoutine.trim() || null, aversion_reminder: savedReframe || null, motivation_ritual: ritual.trim() || null, shaping_milestones: habitType === 'BUILD' ? [starterAction, ...milestoneDraft.split('\n').map(item => item.trim()).filter(Boolean), targetAction.trim()].filter((item, i, all) => !!item && all.indexOf(item) === i).join('\n') : null, shaping_current_step: existingHabit?.milestoneIndex ?? 0, difficulty_levels: savedDifficultyLevels, active_difficulty_level_id: savedActiveDifficultyLevelId || null, accountability_partner: accountabilityPartner.trim() || null, accountability_partner_email: accountabilityEmail.trim() || null, accountability_cost: accountabilityCost.trim() || null, technique_ids: techniqueIds, technique_notes: techniqueNotes, baseline_daily: baselineDaily !== '' ? Number(baselineDaily) : null };
         const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits${editingHabitId ? `/${editingHabitId}` : ''}`, { method: editingHabitId ? 'PATCH' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editingHabitId ? payload : { ...payload, identity_id: remoteIdentityId, habit_type: habitType }) });
         if (!response.ok) throw new Error('Unable to save the habit to the server.');
         {
@@ -1650,6 +1725,7 @@ export default function Home() {
       ...existingHabit,
       id: habitId, name: savedHabitName, target: targetAction.trim(), gateway: starterAction, gatewayMinutes: savedGatewayMinutes,
       dailyTarget: habitType === 'BUILD' ? Math.max(1, Math.min(20, Number(dailyTarget) || 1)) : 1,
+      dailySteps: habitType === 'BUILD' && Number(dailyTarget) > 1 ? dailySteps : [], completedDailySteps: existingHabit?.completedDailySteps ?? [],
       cueType, cue: savedCue, time: cueType === 'TIME_LOCATION' ? savedCue : undefined,
       location: cueType === 'TIME_LOCATION' ? savedLocation : undefined, motive: savedMotive, reward: savedReward,
       prep: prepStep.trim(), completed: (existingHabit?.completionCount ?? (existingHabit?.completed ? 1 : 0)) >= (habitType === 'BUILD' ? Math.max(1, Math.min(20, Number(dailyTarget) || 1)) : 1), completionCount: existingHabit?.completionCount ?? (existingHabit?.completed ? 1 : 0), missedYesterday: existingHabit?.missedYesterday ?? false, streak: existingHabit?.streak ?? 0, kind: habitType,
@@ -1836,6 +1912,18 @@ export default function Home() {
     const activeDifficultyLevelIndex = (habit.difficultyLevels ?? []).findIndex(level => level.id === habit.activeDifficultyLevelId);
     const canLevelUp = activeDifficultyLevelIndex < (habit.difficultyLevels?.length ?? 0) - 1;
     const habitVariations = variations.filter(item => item.habitId === habit.id);
+    const repeatSteps = habit.dailySteps ?? [];
+    const completedRepeatIds = new Set(habit.completedDailySteps ?? []);
+    const shownRepeatSteps = showAllDailySteps[habit.id] ? repeatSteps : repeatSteps.slice(0, 8);
+    const dailyStepPanel = habit.kind === 'BUILD' && (habit.dailyTarget ?? 1) > 1 ? <section className="daily-repeat-panel">
+      <div className="daily-repeat-heading"><div><b>Today’s repetitions</b><span>{completedRepeatIds.size} of {habit.dailyTarget} complete</span></div><button type="button" className="text-button" onClick={() => editHabitPlan(habit)}>Edit and reorder</button></div>
+      <div className="daily-repeat-list">{shownRepeatSteps.map(step => {
+        const isDone = completedRepeatIds.has(step.id);
+        const loggedEvent = events.find(event => event.type === 'ACTION_COMPLETED' && event.dailySlotId === step.id);
+        return <div key={step.id} className={`daily-repeat-row${isDone ? ' is-done' : ''}`}><span className="daily-repeat-label">{step.label}</span>{isDone ? <button type="button" className="daily-repeat-done" onClick={() => loggedEvent && void undoHabitOccurrence(habit, loggedEvent)} disabled={!loggedEvent} aria-label={`Undo ${step.label}`}><Icon name="check" size={14}/> Done</button> : <button type="button" className="daily-repeat-check" onClick={() => void completeHabit(habit, step.id)} aria-label={`Complete ${step.label}`}>Mark done</button>}</div>;
+      })}</div>
+      {repeatSteps.length > 8 && <button type="button" className="text-button daily-repeat-expand" onClick={() => setShowAllDailySteps(current => ({ ...current, [habit.id]: !current[habit.id] }))}>{showAllDailySteps[habit.id] ? 'Show fewer' : `Show all ${repeatSteps.length} repetitions`}</button>}
+    </section> : null;
     if (active === 'Today') {
       const laws = lawGroups.map(law => {
         const configured: Partial<Record<Law, string>> = habit.kind === 'BUILD'
@@ -1864,6 +1952,7 @@ export default function Home() {
             ? <><span><Icon name="flame" size={13}/>{streak.hasHistory ? streak.count : habit.streak} day chain</span><div className="today-quick-actions"><button type="button" className={`today-quick-complete${habit.completed ? ' is-complete' : ''}`} onClick={() => completeHabit(habit)} disabled={habit.completed && (habit.dailyTarget ?? 1) <= 1} aria-label={`Log completion ${((habit.completionCount ?? (habit.completed ? 1 : 0)) + 1)} for ${habit.name}`}>{habit.completed ? <><Icon name="check" size={14}/>{habit.completionCount ?? 1} of {habit.dailyTarget ?? 1}{(habit.dailyTarget ?? 1) > 1 ? ' · Log again' : ' · Done today'}</> : <>{habit.completionCount ?? 0} of {habit.dailyTarget ?? 1} · I did it</>}</button>{(habit.difficultyLevels?.length ?? 0) > 0 && <button type="button" className="today-level-up" onClick={() => levelUpHabit(habit)} disabled={!canLevelUp} aria-label={canLevelUp ? `Move ${habit.name} to the next level` : `${habit.name} is at the maximum level`}>{canLevelUp ? 'Level up' : 'Max level'}</button>}</div></>
             : <details className="today-choice-menu"><summary>Log choice <Icon name="chevron" size={12}/></summary><div className="today-quick-break-actions"><button type="button" onClick={event => { event.currentTarget.closest('details')?.removeAttribute('open'); void recordHabitEvent(habit, 'URGE_PASSED'); }}>Urge passed</button><button type="button" onClick={event => { event.currentTarget.closest('details')?.removeAttribute('open'); void recordHabitEvent(habit, 'REPLACEMENT_USED'); }}>Used replacement</button></div></details>}
         </div>
+        {dailyStepPanel}
         {laws.length > 0 && <details className="today-law-details"><summary>Plan details <span>{laws.length} strategies</span></summary><div className="today-law-list">{laws.map(({ law, setup, methods }) => <section className="today-law-row" key={law.id}><button type="button" className="today-law-guide" onClick={() => setInfoModal({ type: 'law', law: law.id, mode: habit.kind })} aria-label={`Learn about ${isBuild ? law.build : law.break}`}><span>{isBuild ? law.build : law.break}</span><span className="today-law-guide-info" aria-hidden="true">i</span></button>{setup && <p>{setup}</p>}{methods.length > 0 && <div className="today-law-methods"><small>Your techniques</small><div>{methods.map(method => <button type="button" className="chosen-technique" key={`${law.id}:${method.id}`} onClick={() => setInfoModal({ type: 'technique', id: method.id, mode: habit.kind })} aria-label={`Learn about ${method.name}`}><Icon name="check" size={12}/>{method.name}</button>)}</div>{methods.filter(method => method.note).map(method => <p className="technique-note" key={`${law.id}:${method.name}:note`}>{method.note}</p>)}</div>}</section>)}</div></details>}
       </article>;
     }
@@ -1879,6 +1968,7 @@ export default function Home() {
         </div>
         {renderHabitActions(habit)}
       </div>
+      {dailyStepPanel}
       <div className="habit-card-foot">
         <span><Icon name="flame" size={14}/>{streak.hasHistory ? streak.count : habit.streak} day chain{streak.warning && !habit.completed ? ' · recover today' : ''}</span>
         <button className={`complete-button ${habit.completed ? 'complete-button-done' : ''}`} onClick={() => completeHabit(habit)} disabled={habit.completed && (habit.dailyTarget ?? 1) <= 1} aria-label={`${habit.completed ? 'Log another completion for' : 'Complete'} ${habit.name}`}>
@@ -2622,7 +2712,7 @@ export default function Home() {
         {!editingHabitId && <div className="form-kind-tabs"><button type="button" className={habitType === 'BUILD' ? 'selected' : ''} onClick={() => { setHabitType('BUILD'); setGatewayMinutes(0); setCueType('STACK'); setTechniqueIds([]); setTechniqueNotes({}); }}>Build a habit</button><button type="button" className={habitType === 'BREAK' ? 'selected' : ''} onClick={() => { setHabitType('BREAK'); setGatewayMinutes(0); setCueType('STACK'); setTechniqueIds([]); setTechniqueNotes({}); }}>Break a habit</button></div>}
         {editingHabitId && <label className="field-label">Habit name <span className="optional">SHOWN ON YOUR HABIT CARD</span><input value={habitName} onChange={e => setHabitName(e.target.value)} placeholder="Name this habit" required/></label>}
         <label className="field-label">{editingHabitId ? 'Target action' : habitType === 'BUILD' ? 'What do you want to do?' : 'What habit do you want to change?'}<input value={targetAction} onChange={e => setTargetAction(e.target.value)} placeholder={habitType === 'BUILD' ? 'e.g. Run three miles' : 'e.g. Scroll social media in bed'} required/></label>
-        {habitType === 'BUILD' && <label className="field-label">How many times per day? <span className="optional">DEFAULT: ONCE</span><input type="number" min="1" max="20" step="1" value={dailyTarget} onChange={e => setDailyTarget(e.target.value)} onBlur={() => setDailyTarget(String(Math.max(1, Math.min(20, Number(dailyTarget) || 1))))}/><span className="field-example">Set this above 1 for routines you want to repeat during the day.</span></label>}
+        {habitType === 'BUILD' && <><label className="field-label">How many times per day? <span className="optional">DEFAULT: ONCE</span><input type="number" min="1" max="20" step="1" value={dailyTarget} onChange={e => updateDailyTargetDraft(e.target.value)} onBlur={() => updateDailyTargetDraft(String(Math.max(1, Math.min(20, Number(dailyTarget) || 1))))}/><span className="field-example">Set this above 1 for routines you want to repeat during the day.</span></label>{Number(dailyTarget) > 1 && <section className="daily-step-editor"><div className="daily-step-editor-heading"><div><b>Daily repetitions</b><p>Drag to reorder. Rename or remove any entry.</p></div><span>{dailySteps.length} / 20</span></div><div className="daily-step-editor-list">{dailySteps.map((step, index) => <div key={step.id} className={`daily-step-editor-row${dailyStepDragId === step.id ? ' is-dragging' : ''}${dailyStepDropId === step.id ? ' is-drop-target' : ''}`} onDragOver={event => { event.preventDefault(); setDailyStepDropId(step.id); }} onDrop={event => { event.preventDefault(); moveDailyStep(dailyStepDragId, step.id); setDailyStepDragId(''); setDailyStepDropId(''); }}><button type="button" className="daily-step-grip" draggable aria-label={`Drag ${step.label} to reorder`} onDragStart={event => { event.dataTransfer.effectAllowed = 'move'; setDailyStepDragId(step.id); }} onDragEnd={() => { setDailyStepDragId(''); setDailyStepDropId(''); }}><span aria-hidden="true">⠿</span></button><input aria-label={`Repetition ${index + 1} name`} value={step.label} onChange={event => setDailySteps(current => current.map(item => item.id === step.id ? { ...item, label: event.target.value } : item))}/><button type="button" className="daily-step-remove" onClick={() => removeDailyStep(step.id)} aria-label={`Remove ${step.label}`}>×</button></div>)}</div><button type="button" className="daily-step-add" onClick={addDailyStep} disabled={dailySteps.length >= 20}>＋ Add repetition</button></section>}</>}
         {habitType === 'BREAK' && <label className="field-label">How often does it happen now? <span className="optional">OPTIONAL ESTIMATE PER DAY</span><input type="number" min="0" max="1000" value={baselineDaily} onChange={e => setBaselineDaily(e.target.value)}/></label>}
 {habitType === 'BREAK' ? <><div className="field-label">How do you want to use replacement habits?<div className="cue-tabs" role="group" aria-label="Choose how replacement habits work"><button type="button" aria-pressed={replacementMode === 'STACK'} className={replacementMode === 'STACK' ? 'cue-tab-selected' : ''} onClick={() => setReplacementMode('STACK')}>Stack only</button><button type="button" aria-pressed={replacementMode === 'OPTIONS'} className={replacementMode === 'OPTIONS' ? 'cue-tab-selected' : ''} onClick={() => setReplacementMode('OPTIONS')}>Choose one (OR)</button><button type="button" aria-pressed={replacementMode === 'BOTH'} className={replacementMode === 'BOTH' ? 'cue-tab-selected' : ''} onClick={() => setReplacementMode('BOTH')}>Stack + options</button></div></div>{replacementMode !== 'OPTIONS' && <MultiAnswerField label="Steps for your replacement routine" helper="When the cue appears, move through these steps in order. Keep the first one small enough to repeat." values={replacementActions} onChange={setReplacementActions} ordered addLabel="Add another step" placeholder="Write one step"/>}{replacementMode !== 'STACK' && <MultiAnswerField label="Alternative replacement habits" helper={replacementMode === 'BOTH' ? 'Use one of these instead of the stacked routine when another option fits better.' : 'Add different actions you could take when the cue appears. Choose whichever option fits the moment.'} values={replacementOptions} onChange={setReplacementOptions} addLabel="Add another option" placeholder="Write one replacement habit"/>}</> : <label className="field-label">Starter action <span className="optional">OPTIONAL</span><input value={gatewayAction} onChange={e => setGatewayAction(e.target.value)} placeholder={targetAction ? suggestStarter(targetAction) : 'Add a starter if it would help'}/></label>}{habitType === 'BUILD' && targetAction && <p className="form-note">Add a smaller first step only if it would help. You can also start with the full habit.</p>}{habitType === 'BUILD' && renderDifficultyBuilder()}      </div><div className="laws-page">
         <section className="builder-law" data-law="cue"><div className="builder-law-heading"><span className="builder-law-index"><Icon name="clock" size={16}/></span><div><small>SET THE MOMENT</small><h3>{habitType === 'BUILD' ? 'When will you start?' : 'What usually triggers it?'}</h3></div></div><div className="law-fields">        <div className="field-label">{habitType === 'BUILD' ? 'Choose a cue for your routine' : 'Notice the cue that starts the old routine'}<div className="cue-tabs" role="group" aria-label="Choose a cue type"><button type="button" aria-pressed={cueType === 'STACK'} className={cueType === 'STACK' ? 'cue-tab-selected' : ''} onClick={() => setCueType('STACK')}>After a routine or cue</button><button type="button" aria-pressed={cueType === 'TIME_LOCATION'} className={cueType === 'TIME_LOCATION' ? 'cue-tab-selected' : ''} onClick={() => setCueType('TIME_LOCATION')}>At a time and place</button></div></div>
