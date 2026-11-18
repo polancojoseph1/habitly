@@ -712,7 +712,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .settings-card-head h2,.settings-privacy h2,.tribe-card h3,.scorecard-row>b,.vault-add-card h3 { color: var(--ink); }
 .settings-card-head p,.settings-privacy p,.tribe-card p { color: var(--muted); }
 .modal-backdrop { align-items: center; background: rgba(16,14,31,.58); backdrop-filter: blur(8px); }
-.builder-modal,.identity-modal { max-height: calc(100dvh - 32px); overflow: auto; border-color: var(--line); border-radius: 20px; box-shadow: 0 26px 90px rgba(0,0,0,.28); }
+.builder-modal,.identity-modal { max-height: calc(100dvh - 32px); overflow: auto; scrollbar-width: none; border-color: var(--line); border-radius: 20px; box-shadow: 0 26px 90px rgba(0,0,0,.28); }
+.modal-backdrop,.modal-backdrop * { scrollbar-width: none; }
+.modal-backdrop::-webkit-scrollbar,.modal-backdrop *::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .modal-header h2,.identity-modal h2 { color: var(--ink); }
 .modal-header p,.identity-modal>p,.field-label { color: var(--muted); }
 .modal-header,.modal-actions { border-color: var(--line); }
@@ -724,10 +726,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .form-note { color: var(--muted); }
 .toast-message { max-width: min(420px, calc(100vw - 28px)); overflow-wrap: anywhere; }
 @media (max-width: 600px) {
-  .toast-message:not(.toast-habit-added) { width: min(420px, calc(100vw - 32px)); padding: 10px 14px; line-height: 1.4; }
+  .toast-message { width: min(420px, calc(100vw - 32px)); padding: 10px 14px; line-height: 1.4; }
   .toast-message .toast-star { flex: 0 0 auto; }
 }
-.toast-message.toast-habit-added { width: min(560px, calc(100vw - 32px)); min-height: 112px; justify-content: center; padding: 24px 32px; border-radius: 20px; font-size: 20px; }
 
 :root[data-theme="dark"] body { background: var(--paper); color: var(--ink); }
 :root[data-theme="dark"] .sidebar,:root[data-theme="dark"] .topbar,:root[data-theme="dark"] .summary-card,:root[data-theme="dark"] .habit-card,:root[data-theme="dark"] .settings-card,:root[data-theme="dark"] .reward-card,:root[data-theme="dark"] .calendar-card,:root[data-theme="dark"] .anti-card,:root[data-theme="dark"] .tribe-card,:root[data-theme="dark"] .scorecard-row,:root[data-theme="dark"] .vault-add-card { background: var(--surface-raised); border-color: var(--line); color: var(--ink); }

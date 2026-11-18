@@ -88,8 +88,8 @@ class HabitCreate(BaseModel):
             raise ValueError("The active difficulty level must exist on this habit")
         self.difficulty_levels = [level.model_copy(update={"order": index}) for index, level in enumerate(sorted(self.difficulty_levels, key=lambda level: level.order))]
         if self.habit_type == "BUILD":
-            if not self.gateway_action or not self.cue_trigger:
-                raise ValueError("Habits to build require a starter action and cue")
+            if not self.cue_trigger:
+                raise ValueError("Habits to build require a cue")
             if self.cue_type == "TIME_LOCATION" and not self.location:
                 raise ValueError("Time and location cues require a location")
         else:
