@@ -1811,7 +1811,7 @@ export default function Home() {
         <span className={`today-quick-mark ${isBuild && habit.completed ? 'checked' : ''}`} aria-hidden="true">{isBuild && habit.completed ? <Icon name="check" size={15}/> : <Icon name="spark" size={15}/>}</span>
         <div className="today-quick-main">
           <div className="today-quick-title"><div className="habit-title-copy"><h3>{habit.name}</h3>{!isBuild && <span className="today-choice-count">{helpfulChoices} helpful choice{helpfulChoices === 1 ? '' : 's'}</span>}{habit.missedYesterday && !habit.completed && <span className="recovery-pill">Recovery day</span>}</div></div>
-          {(actionSummary || habit.gatewayMinutes > 0 || !isBuild) && <p className="today-quick-action"><span>{isBuild ? activeDifficultyLevel ? `LEVEL ${activeDifficultyLevelIndex + 1}${activeDifficultyLevel.name ? ` · ${activeDifficultyLevel.name}` : ''}` : habit.gatewayMinutes ? `${habit.gatewayMinutes}-MIN START` : 'START' : 'TRY INSTEAD'}</span>{actionSummary}</p>}
+          {(actionSummary || !isBuild) && <p className="today-quick-action"><span>{isBuild ? activeDifficultyLevel ? `LEVEL ${activeDifficultyLevelIndex + 1}${activeDifficultyLevel.name ? ` · ${activeDifficultyLevel.name}` : ''}` : habit.gatewayMinutes ? `${habit.gatewayMinutes}-MIN START` : 'START' : 'TRY INSTEAD'}</span>{actionSummary}</p>}
         </div>
         {renderHabitActions(habit)}
         <div className="today-quick-side">
@@ -1830,7 +1830,7 @@ export default function Home() {
         <div className="habit-main">
           <div className="habit-title-copy"><h3>{habit.name}</h3>{habit.missedYesterday && !habit.completed && <span className="recovery-pill">Recovery day</span>}</div>
           <p className="habit-cue"><Icon name={habit.cueType === 'STACK' ? 'spark' : 'clock'} size={14}/>{cueLine}</p>
-          {(activeDifficultyLevel?.activity || habit.gateway || habit.gatewayMinutes > 0) && <p className="habit-starter"><span>{activeDifficultyLevel ? `LEVEL ${(habit.difficultyLevels ?? []).findIndex(level => level.id === activeDifficultyLevel.id) + 1}${activeDifficultyLevel.name ? ` · ${activeDifficultyLevel.name}` : ''}` : habit.gatewayMinutes ? `${habit.gatewayMinutes}-MIN START` : 'START'}</span>{activeDifficultyLevel?.activity ?? habit.gateway}</p>}
+          {(activeDifficultyLevel?.activity || habit.gateway) && <p className="habit-starter"><span>{activeDifficultyLevel ? `LEVEL ${(habit.difficultyLevels ?? []).findIndex(level => level.id === activeDifficultyLevel.id) + 1}${activeDifficultyLevel.name ? ` · ${activeDifficultyLevel.name}` : ''}` : habit.gatewayMinutes ? `${habit.gatewayMinutes}-MIN START` : 'START'}</span>{activeDifficultyLevel?.activity ?? habit.gateway}</p>}
         </div>
         {renderHabitActions(habit)}
       </div>
