@@ -2587,11 +2587,14 @@ export default function Home() {
             const steps = habit.replacementMode === 'OPTIONS' ? [] : getReplacementActions(habit);
             const options = getReplacementOptions(habit);
             return <article className="today-replacement-item" key={habit.id}>
-              <div className="today-replacement-heading"><b>{habit.name}</b>{habit.cue && <span>When: {habit.cue}</span>}</div>
-              {steps.length > 0 && <div className="today-replacement-actions"><span className="today-replacement-label">Replacement routine</span><button type="button" className="today-quick-win" onClick={() => void recordHabitEvent(habit, 'REPLACEMENT_USED', undefined, steps.join(' → '))} aria-label={`Log replacement routine for ${habit.name}`}>I used my replacement routine</button></div>}
-              {options.length > 0 && <div className="today-replacement-actions"><span className="today-replacement-label">{habit.replacementMode === 'BOTH' ? 'Or choose one' : 'Choose a replacement'}</span><div className="today-quick-wins-pills">{options.map((action, index) => <button key={`${habit.id}-replacement-${index}`} type="button" className="today-quick-win" onClick={() => void recordHabitEvent(habit, 'REPLACEMENT_USED', undefined, action)}>{action}</button>)}</div></div>}
-              {!steps.length && !options.length && <p className="today-checkin-empty">No replacement action added yet.</p>}
-              <div className="today-replacement-secondary"><button type="button" onClick={() => void recordHabitEvent(habit, 'URGE_PASSED')}>Urge passed</button><button type="button" onClick={() => void recordHabitEvent(habit, 'OLD_HABIT')}>Log old behavior</button></div>
+              <div className="today-replacement-heading" title={habit.cue ? `Cue: ${habit.cue}` : undefined}><b>{habit.name}</b>{habit.cue && <span>{habit.cue}</span>}</div>
+              <div className="today-replacement-choices">
+                {steps.length > 0 && <button type="button" className="today-replacement-choice" title={steps.join(' → ')} onClick={() => void recordHabitEvent(habit, 'REPLACEMENT_USED', undefined, steps.join(' → '))} aria-label={`Log replacement routine for ${habit.name}: ${steps.join(', ')}`}><span>{steps[0]}{steps.length > 1 ? ` +${steps.length - 1}` : ''}</span></button>}
+                {options.map((action, index) => <button key={`${habit.id}-replacement-${index}`} type="button" className="today-replacement-choice" onClick={() => void recordHabitEvent(habit, 'REPLACEMENT_USED', undefined, action)}>{action}</button>)}
+                {!steps.length && !options.length && <span className="today-replacement-unset">No replacement set</span>}
+              </div>
+              <button type="button" className="today-replacement-urge" onClick={() => void recordHabitEvent(habit, 'URGE_PASSED')}>Urge passed</button>
+              <details className="today-replacement-more"><summary>More</summary><button type="button" onClick={() => void recordHabitEvent(habit, 'OLD_HABIT')}>Log old behavior</button></details>
             </article>;
           }) : <div className="today-checkin-empty"><p>No replacement plans yet.</p><button type="button" className="text-button" onClick={() => startNewHabit('BREAK')}>Create a replacement plan</button></div>}
         </div>}
