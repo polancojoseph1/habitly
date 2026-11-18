@@ -1109,6 +1109,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .today-quick-wins-heading h2{margin:4px 0 0;color:var(--ink);font:700 20px/1.2 'Manrope',sans-serif;letter-spacing:-.4px}
 .today-quick-wins-heading p{margin:0 0 1px;color:var(--muted);font-size:12px}
 .today-quick-wins-pills{display:flex;flex-wrap:wrap;gap:8px}
+.today-checkin-tabs{display:flex;gap:5px;width:max-content;max-width:100%;margin:0 0 12px;padding:4px;border:1px solid var(--line);border-radius:11px;background:color-mix(in srgb,var(--surface) 78%,var(--accent-soft))}
+.today-checkin-tabs button{min-height:34px;padding:7px 12px;border:0;border-radius:8px;background:transparent;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;transition:background .16s,color .16s,box-shadow .16s}
+.today-checkin-tabs button.is-active{background:var(--surface-raised);color:var(--accent-ink);box-shadow:0 1px 4px color-mix(in srgb,var(--ink) 12%,transparent)}
+.today-checkin-tabs button:focus-visible,.today-replacement-secondary button:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
+.today-checkin-panel{min-width:0}
+.today-checkin-empty{margin:2px 0;color:var(--muted);font-size:12px}
+.today-replacement-list{display:grid;gap:10px}
+.today-replacement-item{display:grid;gap:10px;padding:12px;border:1px solid var(--line);border-radius:11px;background:color-mix(in srgb,var(--surface-raised) 78%,var(--accent-soft))}
+.today-replacement-heading{display:grid;gap:3px}
+.today-replacement-heading b{color:var(--ink);font-size:13px}
+.today-replacement-heading span,.today-replacement-label{color:var(--muted);font-size:11px}
+.today-replacement-actions{display:grid;gap:6px}
+.today-replacement-secondary{display:flex;flex-wrap:wrap;gap:14px}
+.today-replacement-secondary button{padding:2px 0;border:0;background:none;color:var(--muted);font-size:11px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .today-quick-win{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:37px;max-width:100%;padding:7px 12px;border:1px solid color-mix(in srgb,var(--accent-ink) 25%,var(--line));border-radius:999px;background:color-mix(in srgb,var(--accent-soft) 48%,var(--surface-raised));color:var(--accent-ink);font-size:12px;font-weight:700;line-height:1.35;text-align:left;overflow-wrap:anywhere;transition:transform .16s,border-color .16s,background .16s,box-shadow .16s}
 .today-quick-win:hover:not(:disabled){transform:translateY(-1px);border-color:var(--accent-ink);background:var(--accent-soft);box-shadow:0 4px 12px color-mix(in srgb,var(--accent-ink) 12%,transparent)}
 .today-quick-win:focus-visible{outline:2px solid var(--accent-ink);outline-offset:2px}
@@ -1126,6 +1140,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .today-quick-wins-heading h2{font-size:18px}
   .today-quick-wins-heading p{margin-top:5px;font-size:11px}
   .today-quick-wins-pills{gap:6px}
+  .today-checkin-tabs button{min-height:33px;padding:7px 10px;font-size:11px}
+  .today-replacement-item{padding:10px}
   .today-quick-win{min-height:35px;padding:6px 10px;font-size:11px}
   .today-section-heading{gap:8px}
   .today-section-heading h2{font-size:clamp(17px,5vw,20px)}
