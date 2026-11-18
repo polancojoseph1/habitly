@@ -2589,8 +2589,8 @@ export default function Home() {
             return <article className="today-replacement-item" key={habit.id}>
               <div className="today-replacement-heading" title={habit.cue ? `Cue: ${habit.cue}` : undefined}><b>{habit.name}</b>{habit.cue && <span>{habit.cue}</span>}</div>
               <div className="today-replacement-choices">
-                {steps.length > 0 && <button type="button" className="today-replacement-choice" title={steps.join(' → ')} onClick={() => void recordHabitEvent(habit, 'REPLACEMENT_USED', undefined, steps.join(' → '))} aria-label={`Log replacement routine for ${habit.name}: ${steps.join(', ')}`}><span>{steps[0]}{steps.length > 1 ? ` +${steps.length - 1}` : ''}</span></button>}
-                {options.map((action, index) => <button key={`${habit.id}-replacement-${index}`} type="button" className="today-replacement-choice" onClick={() => void recordHabitEvent(habit, 'REPLACEMENT_USED', undefined, action)}>{action}</button>)}
+                {steps.length > 0 && <button type="button" className="today-replacement-choice" title={steps.join(' → ')} onClick={() => void recordHabitEvent(habit, 'REPLACEMENT_USED', undefined, steps.join(' → '))} aria-label={`Log ${steps.length > 1 ? 'habit stack' : 'single replacement habit'} for ${habit.name}: ${steps.join(', ')}`}><small>{steps.length > 1 ? 'STACK' : 'SINGLE'}</small><span>{steps[0]}{steps.length > 1 ? ` +${steps.length - 1}` : ''}</span></button>}
+                {options.map((action, index) => <button key={`${habit.id}-replacement-${index}`} type="button" className="today-replacement-choice" onClick={() => void recordHabitEvent(habit, 'REPLACEMENT_USED', undefined, action)} aria-label={`Log single replacement habit ${action} for ${habit.name}`}><small>SINGLE</small><span>{action}</span></button>)}
                 {!steps.length && !options.length && <span className="today-replacement-unset">No replacement set</span>}
               </div>
               <button type="button" className="today-replacement-urge" onClick={() => void recordHabitEvent(habit, 'URGE_PASSED')}>Urge passed</button>
