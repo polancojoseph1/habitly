@@ -578,6 +578,23 @@
       ]
     },
     {
+      "name": "Delayed Response",
+      "law": "response",
+      "mode": "BREAK",
+      "cardText": "Put a manageable pause between an urge and the action. Use that time to substitute another action or mindfully ride out the urge.",
+      "explanation": "A pause adds a step before the unwanted response and gives you a chance to choose what happens next. Cravings can feel like sensations moving through the body: you can notice them, breathe, and let them change without either fighting them or acting on them.",
+      "steps": "Choose a small, realistic starting delay, such as five minutes; prepare a substitute like water, sugar-free gum, a straw, or a short walk; notice where the urge is felt in your body and breathe slowly while observing how it rises, shifts, and eases; when the pause feels manageable, extend it gradually; track pauses and time between cigarettes to notice your progress.",
+      "example": "After a meal, when I want a cigarette, I’ll wait five minutes, chew sugar-free gum or take a short walk, and notice the urge in my body as it changes and eases.",
+      "laws": [
+        "response"
+      ],
+      "examples": [
+        "After a meal, when I want a cigarette, I’ll wait five minutes, chew sugar-free gum or take a short walk, and notice the urge in my body as it changes and eases.",
+        "If I still choose to smoke, I’ll record the pause and use that information to choose a manageable next step."
+      ],
+      "sources": []
+    },
+    {
       "name": "Commitment Device",
       "law": "response",
       "mode": "BREAK",
