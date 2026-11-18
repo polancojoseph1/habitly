@@ -105,6 +105,8 @@ CREATE TABLE habits (
 	motivation_ritual VARCHAR(300),
 	shaping_milestones VARCHAR(1200),
 	shaping_current_step INTEGER NOT NULL,
+	difficulty_levels JSON NOT NULL DEFAULT '[]',
+	active_difficulty_level_id VARCHAR(80),
 	accountability_partner VARCHAR(200),
 	accountability_partner_email VARCHAR(320),
 	accountability_cost VARCHAR(300),
@@ -165,6 +167,7 @@ CREATE TABLE habit_logs (
 	status VARCHAR(12) NOT NULL,
 	completed_via VARCHAR(20) NOT NULL,
 	environment_prepped BOOLEAN NOT NULL,
+	difficulty_level_snapshot JSON,
 	PRIMARY KEY (id),
 	CONSTRAINT uq_habit_log_day UNIQUE (habit_id, logged_date),
 	FOREIGN KEY(habit_id) REFERENCES habits (id) ON DELETE CASCADE

@@ -33,8 +33,8 @@ if settings.database_url.startswith("sqlite"):
         inspector = inspect(connection)
         local_additions = {
             "users": {"password_hash": "VARCHAR(256)", "api_token_hash": "VARCHAR(64)", "telegram_chat_id": "VARCHAR(64)"},
-            "habits": {"display_name": "VARCHAR(300)", "gateway_minutes": "INTEGER NOT NULL DEFAULT 2", "cue_to_hide": "VARCHAR(300)", "friction_strategy": "VARCHAR(300)", "habit_contract": "VARCHAR(300)", "motivation_ritual": "VARCHAR(300)", "shaping_milestones": "VARCHAR(1200)", "shaping_current_step": "INTEGER NOT NULL DEFAULT 0", "accountability_partner": "VARCHAR(200)", "accountability_cost": "VARCHAR(300)", "accountability_partner_email": "VARCHAR(320)", "alternative_routine": "VARCHAR(300)", "replacement_actions": "JSON NOT NULL DEFAULT '[]'", "replacement_options": "JSON NOT NULL DEFAULT '[]'", "replacement_mode": "VARCHAR(20) NOT NULL DEFAULT 'STACK'", "break_plan_answers": "JSON NOT NULL DEFAULT '{}'", "aversion_reminder": "VARCHAR(300)", "friction_votes": "INTEGER NOT NULL DEFAULT 0", "technique_ids": "JSON", "technique_notes": "JSON", "baseline_daily": "INTEGER"},
-            "habit_logs": {"environment_prepped": "BOOLEAN NOT NULL DEFAULT FALSE"},
+            "habits": {"display_name": "VARCHAR(300)", "gateway_minutes": "INTEGER NOT NULL DEFAULT 2", "cue_to_hide": "VARCHAR(300)", "friction_strategy": "VARCHAR(300)", "habit_contract": "VARCHAR(300)", "motivation_ritual": "VARCHAR(300)", "shaping_milestones": "VARCHAR(1200)", "shaping_current_step": "INTEGER NOT NULL DEFAULT 0", "difficulty_levels": "JSON NOT NULL DEFAULT '[]'", "active_difficulty_level_id": "VARCHAR(80)", "accountability_partner": "VARCHAR(200)", "accountability_cost": "VARCHAR(300)", "accountability_partner_email": "VARCHAR(320)", "alternative_routine": "VARCHAR(300)", "replacement_actions": "JSON NOT NULL DEFAULT '[]'", "replacement_options": "JSON NOT NULL DEFAULT '[]'", "replacement_mode": "VARCHAR(20) NOT NULL DEFAULT 'STACK'", "break_plan_answers": "JSON NOT NULL DEFAULT '{}'", "aversion_reminder": "VARCHAR(300)", "friction_votes": "INTEGER NOT NULL DEFAULT 0", "technique_ids": "JSON", "technique_notes": "JSON", "baseline_daily": "INTEGER"},
+            "habit_logs": {"environment_prepped": "BOOLEAN NOT NULL DEFAULT FALSE", "difficulty_level_snapshot": "JSON"},
             "habit_events": {"actual_minutes": "INTEGER", "strategy": "VARCHAR(300)", "variation_id": "VARCHAR(36)", "variation_name": "VARCHAR(160)"},
             "workspace_states": {"revision": "INTEGER NOT NULL DEFAULT 1"},
         }
@@ -50,6 +50,13 @@ if settings.database_url.startswith("sqlite"):
             connection.execute(text("UPDATE habits SET technique_notes='{}' WHERE technique_notes IS NULL"))
             connection.execute(text("UPDATE habits SET replacement_actions='[]' WHERE replacement_actions IS NULL"))
             connection.execute(text("UPDATE habits SET break_plan_answers='{}' WHERE break_plan_answers IS NULL"))
+else:
+    # Additive production migration: existing rows receive an empty level list and
+    # retain all legacy completion records without rewriting them.
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE habits ADD COLUMN IF NOT EXISTS difficulty_levels JSON NOT NULL DEFAULT '[]'"))
+        connection.execute(text("ALTER TABLE habits ADD COLUMN IF NOT EXISTS active_difficulty_level_id VARCHAR(80)"))
+        connection.execute(text("ALTER TABLE habit_logs ADD COLUMN IF NOT EXISTS difficulty_level_snapshot JSON"))
 app = FastAPI(title="Habitly API", version="0.2.0", description="Four Laws habit building and behavior change API")
 app.add_middleware(
     CORSMiddleware,
@@ -265,6 +272,7 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
     data["votes"] = identity.total_votes if identity else data.get("votes", 0)
     data["habits"] = []
     history: dict[str, list[str]] = {}
+    difficulty_history: dict[str, dict[str, dict]] = {}
     prep: dict[str, bool] = {}
     events: list[dict] = []
     variations: list[dict] = []
@@ -289,6 +297,8 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
             "replacementActions": habit.replacement_actions or [], "replacementOptions": habit.replacement_options or [], "replacementMode": habit.replacement_mode or "STACK", "breakPlanAnswers": habit.break_plan_answers or {},
             "milestones": habit.shaping_milestones.split("\n") if habit.shaping_milestones else [],
             "milestoneIndex": habit.shaping_current_step, "accountabilityPartner": habit.accountability_partner,
+            "difficultyLevels": habit.difficulty_levels or [],
+            "activeDifficultyLevelId": habit.active_difficulty_level_id,
             "accountabilityEmail": habit.accountability_partner_email, "accountabilityCost": habit.accountability_cost,
             "techniqueIds": habit.technique_ids or [], "techniqueNotes": habit.technique_notes or {},
             "baselineDaily": habit.baseline_daily, "inviteLink": f"/?accountability={invite_token}" if invite_token else None,
@@ -300,11 +310,14 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
                 statuses.pop()
             if log.logged_date == date.today() and log.environment_prepped:
                 prep[habit.id] = True
+            if log.difficulty_level_snapshot:
+                difficulty_history.setdefault(log.logged_date.isoformat(), {})[habit.id] = log.difficulty_level_snapshot
         for event in db.scalars(select(HabitEvent).where(HabitEvent.habit_id == habit.id).order_by(HabitEvent.occurred_at.desc())):
             events.append({"id": event.id, "habitId": habit.id, "type": event.event_type, "at": event.occurred_at.isoformat(), "note": event.note, "actualMinutes": event.actual_minutes, "strategy": event.strategy, "variationId": event.variation_id, "variationName": event.variation_name})
         for variation in db.scalars(select(HabitVariation).where(HabitVariation.habit_id == habit.id).order_by(HabitVariation.created_at.desc())):
             variations.append({"id": variation.id, "habitId": habit.id, "law": variation.law, "name": variation.name, "techniqueId": variation.technique_id, "setup": variation.setup, "isActive": variation.is_active, "triedAt": variation.tried_at.isoformat() if variation.tried_at else None, "helped": variation.helped, "outcomeNote": variation.outcome_note, "createdAt": variation.created_at.isoformat()})
     data["history"] = history
+    data["difficultyHistory"] = difficulty_history
     data["preppedHabits"] = prep
     data["habitEvents"] = events
     data["variations"] = variations
@@ -387,6 +400,8 @@ def import_workspace(payload: dict, request: Request, db: Session = Depends(get_
             reward_bundle=row.get("rewardBundle"), cue_to_hide=row.get("hideCue"), friction_strategy=row.get("friction"),
             habit_contract=row.get("contract"), motivation_ritual=row.get("ritual"),
             shaping_milestones="\n".join(row.get("milestones", [])) or None, shaping_current_step=row.get("milestoneIndex", 0) or 0,
+            difficulty_levels=row.get("difficultyLevels", []) or [],
+            active_difficulty_level_id=row.get("activeDifficultyLevelId"),
             accountability_partner=row.get("accountabilityPartner"), accountability_partner_email=row.get("accountabilityEmail"),
             accountability_cost=row.get("accountabilityCost"), alternative_routine=row.get("alternativeRoutine"),
             replacement_actions=row.get("replacementActions", []) or [], replacement_options=row.get("replacementOptions", []) or [], replacement_mode=row.get("replacementMode", "STACK"), break_plan_answers=row.get("breakPlanAnswers", {}) or {},
@@ -405,7 +420,8 @@ def import_workspace(payload: dict, request: Request, db: Session = Depends(get_
             missed = str(value).startswith("missed:")
             habit_id = str(value).removeprefix("missed:")
             if habit_id in habit_ids:
-                db.add(HabitLog(habit_id=habit_id, logged_date=date.fromisoformat(day), status="MISSED" if missed else "COMPLETED", completed_via="WEB"))
+                snapshot = (clean.get("difficultyHistory", {}).get(day, {}) or {}).get(habit_id) if not missed else None
+                db.add(HabitLog(habit_id=habit_id, logged_date=date.fromisoformat(day), status="MISSED" if missed else "COMPLETED", completed_via="WEB", difficulty_level_snapshot=snapshot))
     for habit_id, is_prepped in clean.get("preppedHabits", {}).items():
         if is_prepped and habit_id in habit_ids:
             logged = db.scalar(select(HabitLog.id).where(HabitLog.habit_id == habit_id, HabitLog.logged_date == date.today()))
@@ -725,6 +741,12 @@ def log_habit(habit_id: str, payload: LogCreate, db: Session = Depends(get_db)):
     else:
         log = HabitLog(habit_id=habit_id, logged_date=logged_date, status=payload.status, completed_via=payload.completed_via)
         db.add(log)
+    if payload.status in {"COMPLETED", "RECOVERED"} and not log.difficulty_level_snapshot:
+        levels = sorted(habit.difficulty_levels or [], key=lambda level: level.get("order", 0))
+        active = next((level for level in levels if level.get("id") == habit.active_difficulty_level_id), None)
+        if active:
+            snapshot = {**active, "level_number": levels.index(active) + 1}
+            log.difficulty_level_snapshot = snapshot
     if payload.status in {"COMPLETED", "RECOVERED"} and previous_status not in {"COMPLETED", "RECOVERED"}:
         habit.identity.total_votes += 1
     log.environment_prepped = payload.environment_prepped or (existing.environment_prepped if existing else False)
@@ -745,6 +767,15 @@ def update_habit(habit_id: str, payload: HabitUpdate, db: Session = Depends(get_
     if not habit:
         raise HTTPException(404, "Habit not found")
     changes = payload.model_dump(exclude_unset=True)
+    levels = changes.get("difficulty_levels", habit.difficulty_levels or [])
+    level_ids = [level["id"] for level in levels]
+    if len(level_ids) != len(set(level_ids)):
+        raise HTTPException(422, "Difficulty level IDs must be unique")
+    active_id = changes.get("active_difficulty_level_id", habit.active_difficulty_level_id)
+    if active_id and active_id not in level_ids:
+        raise HTTPException(422, "The active difficulty level must exist on this habit")
+    if "difficulty_levels" in changes:
+        changes["difficulty_levels"] = [dict(level, order=index) for index, level in enumerate(sorted(levels, key=lambda level: level["order"]))]
     if "friction_votes" in changes:
         changes["friction_votes"] = max(habit.friction_votes, changes["friction_votes"])
     for key, value in changes.items():

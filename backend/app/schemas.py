@@ -1,6 +1,20 @@
 from datetime import date, datetime
 from typing import Literal
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+
+class DifficultyLevel(BaseModel):
+    id: str = Field(min_length=1, max_length=80)
+    order: int = Field(ge=0)
+    name: str | None = Field(default=None, max_length=80)
+    activity: str = Field(min_length=1, max_length=300)
+    target: str | None = Field(default=None, max_length=160)
+    criteria: str | None = Field(default=None, max_length=300)
+
+    @field_validator("id", "activity", mode="before")
+    @classmethod
+    def trim_required_level_text(cls, value):
+        return value.strip() if isinstance(value, str) else value
 
 
 class UserCreate(BaseModel):
@@ -54,6 +68,8 @@ class HabitCreate(BaseModel):
     motivation_ritual: str | None = None
     shaping_milestones: str | None = None
     shaping_current_step: int = Field(default=0, ge=0)
+    difficulty_levels: list[DifficultyLevel] = Field(default_factory=list)
+    active_difficulty_level_id: str | None = Field(default=None, max_length=80)
     accountability_partner: str | None = None
     accountability_partner_email: str | None = None
     accountability_cost: str | None = None
@@ -65,6 +81,12 @@ class HabitCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_habit_fields(self):
+        ids = [level.id for level in self.difficulty_levels]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Difficulty level IDs must be unique")
+        if self.active_difficulty_level_id and self.active_difficulty_level_id not in ids:
+            raise ValueError("The active difficulty level must exist on this habit")
+        self.difficulty_levels = [level.model_copy(update={"order": index}) for index, level in enumerate(sorted(self.difficulty_levels, key=lambda level: level.order))]
         if self.habit_type == "BUILD":
             if not self.gateway_action or not self.cue_trigger:
                 raise ValueError("Habits to build require a starter action and cue")
@@ -104,6 +126,8 @@ class HabitOut(BaseModel):
     motivation_ritual: str | None
     shaping_milestones: str | None
     shaping_current_step: int
+    difficulty_levels: list[DifficultyLevel]
+    active_difficulty_level_id: str | None
     accountability_partner: str | None
     accountability_partner_email: str | None
     accountability_cost: str | None
@@ -142,6 +166,7 @@ class HabitLogOut(BaseModel):
     status: str
     completed_via: str
     environment_prepped: bool
+    difficulty_level_snapshot: dict | None = None
 
 
 class HabitEventCreate(BaseModel):
@@ -208,6 +233,8 @@ class HabitUpdate(BaseModel):
     display_name: str | None = Field(default=None, max_length=300)
     friction_votes: int | None = None
     shaping_current_step: int | None = Field(default=None, ge=0)
+    difficulty_levels: list[DifficultyLevel] | None = None
+    active_difficulty_level_id: str | None = Field(default=None, max_length=80)
     target_action: str | None = Field(default=None, min_length=1, max_length=300)
     gateway_action: str | None = Field(default=None, max_length=300)
     replacement_actions: list[str] | None = None

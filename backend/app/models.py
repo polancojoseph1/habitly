@@ -64,6 +64,8 @@ class Habit(Base):
     motivation_ritual: Mapped[str | None] = mapped_column(String(300), nullable=True)
     shaping_milestones: Mapped[str | None] = mapped_column(String(1200), nullable=True)
     shaping_current_step: Mapped[int] = mapped_column(Integer, default=0)
+    difficulty_levels: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    active_difficulty_level_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     accountability_partner: Mapped[str | None] = mapped_column(String(200), nullable=True)
     accountability_partner_email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     accountability_cost: Mapped[str | None] = mapped_column(String(300), nullable=True)
@@ -91,6 +93,7 @@ class HabitLog(Base):
     status: Mapped[str] = mapped_column(String(12))
     completed_via: Mapped[str] = mapped_column(String(20), default="WEB")
     environment_prepped: Mapped[bool] = mapped_column(Boolean, default=False)
+    difficulty_level_snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     habit: Mapped[Habit] = relationship(back_populates="logs")
 
 

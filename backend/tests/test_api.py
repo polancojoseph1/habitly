@@ -201,6 +201,37 @@ def test_identity_habit_creation_and_formula_validation(client):
     assert create_habit(client, identity["id"], gateway_minutes=-1).status_code == 422
 
 
+def test_unlimited_difficulty_levels_and_completion_snapshot_survive_edits(client):
+    _, identity = create_identity(client)
+    levels = [
+        {"id": f"level-{index}", "order": index - 1, "name": f"Step {index}",
+         "activity": f"Practice for {index} minutes", "target": f"{index} minutes",
+         "criteria": f"Finish {index} minutes"}
+        for index in range(1, 8)
+    ]
+    created = create_habit(client, identity["id"], difficulty_levels=levels, active_difficulty_level_id="level-4")
+    assert created.status_code == 201
+    habit_id = created.json()["id"]
+    assert len(created.json()["difficulty_levels"]) == 7
+    assert created.json()["active_difficulty_level_id"] == "level-4"
+    assert client.patch(f"/api/habits/{habit_id}", json={"active_difficulty_level_id": "missing"}).status_code == 422
+    assert create_habit(client, identity["id"], difficulty_levels=[{"id": "blank", "order": 0, "activity": "   "}], active_difficulty_level_id="blank").status_code == 422
+
+    logged = client.post(f"/api/habits/{habit_id}/log", json={"status": "COMPLETED"})
+    assert logged.status_code == 201
+    original_snapshot = client.get(f"/api/habits/{habit_id}/logs").json()["logs"][0]["difficulty_level_snapshot"]
+    assert original_snapshot["id"] == "level-4"
+    assert original_snapshot["level_number"] == 4
+    assert original_snapshot["target"] == "4 minutes"
+
+    changed_levels = [level for level in reversed(levels) if level["id"] != "level-4"]
+    updated = client.patch(f"/api/habits/{habit_id}", json={"difficulty_levels": changed_levels, "active_difficulty_level_id": "level-7"})
+    assert updated.status_code == 200
+    assert updated.json()["active_difficulty_level_id"] == "level-7"
+    saved_snapshot = client.get(f"/api/habits/{habit_id}/logs").json()["logs"][0]["difficulty_level_snapshot"]
+    assert saved_snapshot == original_snapshot
+
+
 def test_habit_variations_and_multiple_attributed_checkins(client):
     _, identity = create_identity(client)
     habit = create_habit(client, identity["id"], habit_type="BREAK", technique_ids=["increase-friction"], technique_notes={"response": "Keep the phone outside the bedroom"})

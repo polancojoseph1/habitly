@@ -39,6 +39,7 @@ jobs:
         run: |
           npm ci --no-audit --no-fund
           npm run test:logging
+          npm run test:difficulty
           npm run build
 
   build-and-push:
