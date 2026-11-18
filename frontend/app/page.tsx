@@ -11,7 +11,7 @@ import { lawGroups, techniques, techniqueMap } from './techniques';
 import { createSuggestedLevels, newRecordId as newDifficultyLevelId, orderedLevels, snapshotForLevel, suggestedLevelNames } from './difficulty-levels';
 import type { DifficultyLevel } from './difficulty-levels';
 import type { ChangeMode, Law } from './techniques';
-import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, legacyHabitEventsToBehaviorLogs, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, prepareBehavioralWorkspaceImport, recordPostEngagementSatisfaction, recordUrgeFollowUp, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, withoutSampleBehaviorLogs } from './behavioral-logging';
+import { applyBehaviorLogChanges, behaviorDayKey, dateKeyInZone, episodeKey, episodeResolvedOutcome, isRecoveryPrincipleApplication, legacyHabitEventsToBehaviorLogs, localDateKeys, metadataForEditedTimestamp, minutesToCravingResolution, outcomeForCraving, prepareBehavioralWorkspaceImport, recordPostEngagementSatisfaction, recordUrgeFollowUp, removeBehaviorLogRecord, resolvedEpisodeOutcome, summarizeDay, trackerDayKey, withoutSampleBehaviorLogs } from './behavioral-logging';
 import type { BehaviorLog, BehaviorType, DailyConfirmation, DailyConfirmationStatus, PostEngagementSatisfaction, UrgeFollowUpStatus } from './behavioral-logging';
 
 type CueType = 'TIME_LOCATION' | 'STACK';
@@ -176,11 +176,11 @@ const nav: { title: Tab; icon: string }[] = [
   { title: 'Playbook', icon: 'spark' }, { title: 'Settings', icon: 'heart' },
 ];
 
-function todayKey() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function todayKey() { return trackerDayKey(); }
 function greeting() { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; }
 function weekDays() {
-  const now = new Date(); const day = (now.getDay() + 6) % 7; const start = new Date(now); start.setDate(now.getDate() - day);
-  return Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return { label: d.toLocaleDateString('en-US', { weekday: 'short' }), day: d.getDate(), today: d.toDateString() === now.toDateString(), date: todayKeyFromDate(d) }; });
+  const trackerDate = new Date(`${todayKey()}T12:00:00`); const day = (trackerDate.getDay() + 6) % 7; const start = new Date(trackerDate); start.setDate(trackerDate.getDate() - day);
+  return Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); const date = todayKeyFromDate(d); return { label: d.toLocaleDateString('en-US', { weekday: 'short' }), day: d.getDate(), today: date === todayKey(), date }; });
 }
 function todayKeyFromDate(d: Date) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
 function newRecordId(prefix: string) { return `${prefix}-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`; }
@@ -231,9 +231,9 @@ function occurrenceActionLabel(habit: Habit) {
   if (/vape/i.test(name)) return 'I Vaped';
   return `I engaged in ${name.toLowerCase()}`;
 }
-function dayOffsetKey(offset: number) { const d = new Date(); d.setDate(d.getDate() + offset); return todayKeyFromDate(d); }
+function dayOffsetKey(offset: number) { const d = new Date(`${todayKey()}T12:00:00`); d.setDate(d.getDate() + offset); return todayKeyFromDate(d); }
 function getResilientStreak(history: Record<string, string[]>, habitId: string) {
-  const today = new Date();
+  const today = new Date(`${todayKey()}T12:00:00`);
   let cursor = new Date(today);
   const todays = history[todayKeyFromDate(today)] ?? [];
   if (!todays.includes(habitId) && !todays.includes(`missed:${habitId}`)) cursor.setDate(cursor.getDate() - 1);
@@ -405,6 +405,9 @@ export default function Home() {
   const [prepped, setPrepped] = useState(false);
   const [preppedHabits, setPreppedHabits] = useState<Record<string, boolean>>({});
   const [history, setHistory] = useState<Record<string, string[]>>({});
+  const historyRef = useRef(history);
+  historyRef.current = history;
+  const trackerDayRef = useRef(todayKey());
   const [difficultyHistory, setDifficultyHistory] = useState<Record<string, Record<string, { level_number: number; name?: string; activity: string; target?: string; criteria?: string; id: string }>>>({});
   const [habitEvents, setHabitEvents] = useState<HabitEvent[]>([]);
   const [behaviorLogs, setBehaviorLogs] = useState<BehaviorLog[]>([]);
@@ -717,6 +720,29 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
+    const resetForNewTrackerDay = () => {
+      const currentDay = todayKey();
+      if (trackerDayRef.current === currentDay) return;
+      trackerDayRef.current = currentDay;
+      const previousStatuses = historyRef.current[dayOffsetKey(-1)] ?? [];
+      setHabits(current => current.map(habit => ({
+        ...habit,
+        completed: false,
+        missedYesterday: previousStatuses.includes(`missed:${habit.id}`),
+      })));
+    };
+    const interval = window.setInterval(resetForNewTrackerDay, 15_000);
+    window.addEventListener('focus', resetForNewTrackerDay);
+    document.addEventListener('visibilitychange', resetForNewTrackerDay);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', resetForNewTrackerDay);
+      document.removeEventListener('visibilitychange', resetForNewTrackerDay);
+    };
+  }, [hydrated]);
+
+  useEffect(() => {
     if (habits.some(habit => habit.id === loggingHabitId)) return;
     const next = habits.find(habit => habit.kind === 'BREAK') ?? habits[0];
     if (next) setLoggingHabitId(next.id);
@@ -870,7 +896,7 @@ export default function Home() {
   const progress = buildHabits.length ? Math.round((completed / buildHabits.length) * 100) : 0;
   const unlockedRewards = useMemo(() => rewards.filter(r => habits.find(h => h.id === r.habitId)?.completed), [rewards, habits]);
   const needRecovery = habits.some(h => h.missedYesterday && !h.completed);
-  const currentDate = hydrated ? new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'Today';
+  const currentDate = hydrated ? new Date(`${todayKey()}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : 'Today';
 
   function save() {
     setToast(remoteToken ? 'Changes are syncing to your Habitly account.' : 'Saved on this device. Connect an account to sync across browsers.');
@@ -1812,11 +1838,12 @@ export default function Home() {
         <div className="today-quick-main">
           <div className="today-quick-title"><div className="habit-title-copy"><h3>{habit.name}</h3>{!isBuild && <span className="today-choice-count">{helpfulChoices} helpful choice{helpfulChoices === 1 ? '' : 's'}</span>}{habit.missedYesterday && !habit.completed && <span className="recovery-pill">Recovery day</span>}</div></div>
           {(actionSummary || !isBuild) && <p className="today-quick-action"><span>{isBuild ? activeDifficultyLevel ? `LEVEL ${activeDifficultyLevelIndex + 1}${activeDifficultyLevel.name ? ` · ${activeDifficultyLevel.name}` : ''}` : habit.gatewayMinutes ? `${habit.gatewayMinutes}-MIN START` : 'START' : 'TRY INSTEAD'}</span>{actionSummary}</p>}
+          {isBuild && habit.completed && <div className="today-completion-banner" role="status"><span><Icon name="check" size={15}/></span><div><b>You showed up today.</b><small>This habit is logged for today.</small></div></div>}
         </div>
         {renderHabitActions(habit)}
         <div className="today-quick-side">
           {isBuild
-            ? <><span><Icon name="flame" size={13}/>{streak.hasHistory ? streak.count : habit.streak} day chain</span><div className="today-quick-actions"><button type="button" className="today-quick-complete" onClick={() => completeHabit(habit)}>{habit.completed ? 'Done' : 'I did it'}</button>{(habit.difficultyLevels?.length ?? 0) > 0 && <button type="button" className="today-level-up" onClick={() => levelUpHabit(habit)} disabled={!canLevelUp} aria-label={canLevelUp ? `Move ${habit.name} to the next level` : `${habit.name} is at the maximum level`}>{canLevelUp ? 'Level up' : 'Max level'}</button>}</div></>
+            ? <><span><Icon name="flame" size={13}/>{streak.hasHistory ? streak.count : habit.streak} day chain</span><div className="today-quick-actions"><button type="button" className={`today-quick-complete${habit.completed ? ' is-complete' : ''}`} onClick={() => completeHabit(habit)} disabled={habit.completed}>{habit.completed ? <><Icon name="check" size={14}/> Done today</> : 'I did it'}</button>{(habit.difficultyLevels?.length ?? 0) > 0 && <button type="button" className="today-level-up" onClick={() => levelUpHabit(habit)} disabled={!canLevelUp} aria-label={canLevelUp ? `Move ${habit.name} to the next level` : `${habit.name} is at the maximum level`}>{canLevelUp ? 'Level up' : 'Max level'}</button>}</div></>
             : <details className="today-choice-menu"><summary>Log choice <Icon name="chevron" size={12}/></summary><div className="today-quick-break-actions"><button type="button" onClick={event => { event.currentTarget.closest('details')?.removeAttribute('open'); void recordHabitEvent(habit, 'URGE_PASSED'); }}>Urge passed</button><button type="button" onClick={event => { event.currentTarget.closest('details')?.removeAttribute('open'); void recordHabitEvent(habit, 'REPLACEMENT_USED'); }}>Used replacement</button></div></details>}
         </div>
         {laws.length > 0 && <details className="today-law-details"><summary>Plan details <span>{laws.length} strategies</span></summary><div className="today-law-list">{laws.map(({ law, setup, methods }) => <section className="today-law-row" key={law.id}><button type="button" className="today-law-guide" onClick={() => setInfoModal({ type: 'law', law: law.id, mode: habit.kind })} aria-label={`Learn about ${isBuild ? law.build : law.break}`}><span>{isBuild ? law.build : law.break}</span><span className="today-law-guide-info" aria-hidden="true">i</span></button>{setup && <p>{setup}</p>}{methods.length > 0 && <div className="today-law-methods"><small>Your techniques</small><div>{methods.map(method => <button type="button" className="chosen-technique" key={`${law.id}:${method.id}`} onClick={() => setInfoModal({ type: 'technique', id: method.id, mode: habit.kind })} aria-label={`Learn about ${method.name}`}><Icon name="check" size={12}/>{method.name}</button>)}</div>{methods.filter(method => method.note).map(method => <p className="technique-note" key={`${law.id}:${method.name}:note`}>{method.note}</p>)}</div>}</section>)}</div></details>}
@@ -2434,7 +2461,7 @@ export default function Home() {
   function renderToday() {
     return <>
       <div className="page-heading-row today-page-heading"><div className="today-greeting"><div className="today-greeting-top"><div className="eyebrow">{currentDate}</div><button type="button" className="habit-arrange-button" aria-label={reorderingHabits ? 'Done arranging habits' : 'Arrange habits'} title={reorderingHabits ? 'Done arranging' : 'Arrange habits'} aria-pressed={reorderingHabits} onClick={() => setReorderingHabits(value => !value)}>{reorderingHabits ? <Icon name="check" size={18}/> : <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="5" r="1.6"/><circle cx="16" cy="5" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg>}</button></div><h1>{hydrated ? greeting() : 'Welcome'}, Joseph<span className="heading-period">.</span></h1></div></div>
-      <section className="today-section"><div className="section-heading today-section-heading"><div><span className="eyebrow">YOUR SMALL PROMISES</span><h2>Today’s habits <span className="soft-count">{todayHabits.length}</span></h2><p className="today-progress-note">{completed} of {buildHabits.length} build habits completed</p></div><div className="today-list-actions"><button className="text-button today-add-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus" size={15}/> Add habit</button></div></div><div className="habit-list">{todayHabits.length ? todayHabits.map((habit, i) => <div className={`today-order-item${dragState?.id === habit.id ? ' is-dragging' : ''}${dragState && dragState.id !== habit.id && dragState.target === i ? ' is-drop-target' : ''}`} key={habit.id} style={dragState?.id === habit.id ? { transform: `translateY(${dragState.offset}px)` } : undefined}>{renderHabitCard(habit, i)}{reorderingHabits && <button type="button" className="habit-drag-handle" aria-label={`Drag to move ${habit.name}. Use up or down arrow keys to reorder.`} onPointerDown={event => { if (event.button !== 0) return; event.currentTarget.setPointerCapture(event.pointerId); dragStart.current = { id: habit.id, y: event.clientY, target: i }; setDragState({ id: habit.id, offset: 0, target: i }); }} onPointerMove={event => { const drag = dragStart.current; if (!drag || drag.id !== habit.id) return; const target = dragTarget(event.clientY); drag.target = target; setDragState({ id: drag.id, offset: event.clientY - drag.y, target }); if (event.clientY < 70) window.scrollBy(0, -14); else if (event.clientY > window.innerHeight - 70) window.scrollBy(0, 14); }} onPointerUp={event => { const drag = dragStart.current; if (drag?.id === habit.id) moveHabit(i, drag.target); dragStart.current = null; setDragState(null); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} onPointerCancel={() => { dragStart.current = null; setDragState(null); }} onKeyDown={event => { if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); moveHabit(i, i + (event.key === 'ArrowUp' ? -1 : 1)); } }}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="5" r="1.6"/><circle cx="16" cy="5" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg><span>Drag to reorder</span></button>}</div>) : <div className="empty-card"><div className="empty-flower"><Icon name="spark" size={18}/></div><h3>Start with one tiny promise.</h3><p>Choose a cue, make the action easy, and give your future self a clear path.</p><button className="primary-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus"/> Create your first habit</button></div>}</div></section>
+      <section className="today-section"><div className="section-heading today-section-heading"><div><span className="eyebrow">YOUR SMALL PROMISES</span><h2>Today’s habits <span className="soft-count">{todayHabits.length}</span></h2><p className={`today-progress-note${completed ? ' has-completions' : ''}`}>{completed ? `You showed up today · ${completed} of ${buildHabits.length} habit${buildHabits.length === 1 ? '' : 's'} complete` : `${completed} of ${buildHabits.length} build habits completed`}</p>{buildHabits.length > 0 && <div className="today-progress-track" role="progressbar" aria-label="Today’s completed habits" aria-valuemin={0} aria-valuemax={buildHabits.length} aria-valuenow={completed}><span style={{ width: `${progress}%` }}/></div>}</div><div className="today-list-actions"><button className="text-button today-add-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus" size={15}/> Add habit</button></div></div><div className="habit-list">{todayHabits.length ? todayHabits.map((habit, i) => <div className={`today-order-item${dragState?.id === habit.id ? ' is-dragging' : ''}${dragState && dragState.id !== habit.id && dragState.target === i ? ' is-drop-target' : ''}`} key={habit.id} style={dragState?.id === habit.id ? { transform: `translateY(${dragState.offset}px)` } : undefined}>{renderHabitCard(habit, i)}{reorderingHabits && <button type="button" className="habit-drag-handle" aria-label={`Drag to move ${habit.name}. Use up or down arrow keys to reorder.`} onPointerDown={event => { if (event.button !== 0) return; event.currentTarget.setPointerCapture(event.pointerId); dragStart.current = { id: habit.id, y: event.clientY, target: i }; setDragState({ id: habit.id, offset: 0, target: i }); }} onPointerMove={event => { const drag = dragStart.current; if (!drag || drag.id !== habit.id) return; const target = dragTarget(event.clientY); drag.target = target; setDragState({ id: drag.id, offset: event.clientY - drag.y, target }); if (event.clientY < 70) window.scrollBy(0, -14); else if (event.clientY > window.innerHeight - 70) window.scrollBy(0, 14); }} onPointerUp={event => { const drag = dragStart.current; if (drag?.id === habit.id) moveHabit(i, drag.target); dragStart.current = null; setDragState(null); if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }} onPointerCancel={() => { dragStart.current = null; setDragState(null); }} onKeyDown={event => { if (event.key === 'ArrowUp' || event.key === 'ArrowDown') { event.preventDefault(); moveHabit(i, i + (event.key === 'ArrowUp' ? -1 : 1)); } }}><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="5" r="1.6"/><circle cx="16" cy="5" r="1.6"/><circle cx="8" cy="12" r="1.6"/><circle cx="16" cy="12" r="1.6"/><circle cx="8" cy="19" r="1.6"/><circle cx="16" cy="19" r="1.6"/></svg><span>Drag to reorder</span></button>}</div>) : <div className="empty-card"><div className="empty-flower"><Icon name="spark" size={18}/></div><h3>Start with one tiny promise.</h3><p>Choose a cue, make the action easy, and give your future self a clear path.</p><button className="primary-button" onClick={() => startNewHabit('BUILD')}><Icon name="plus"/> Create your first habit</button></div>}</div></section>
     </>;
   }
 
@@ -2446,7 +2473,8 @@ export default function Home() {
   function renderRecovery() {
     const needs = habits.filter(h => h.missedYesterday);
     const circuitBreaker = needs.some(h => getResilientStreak(history, h.id).broken);
-    const recentDays = Array.from({ length: 28 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - (27 - i)); const key = todayKeyFromDate(d); const statuses = history[key] ?? []; return { key, day: d.getDate(), done: statuses.filter(x => !x.startsWith('missed:')).length, missed: statuses.filter(x => x.startsWith('missed:')).length }; });
+    const trackerDate = new Date(`${todayKey()}T12:00:00`);
+    const recentDays = Array.from({ length: 28 }, (_, i) => { const d = new Date(trackerDate); d.setDate(trackerDate.getDate() - (27 - i)); const key = todayKeyFromDate(d); const statuses = history[key] ?? []; return { key, day: d.getDate(), done: statuses.filter(x => !x.startsWith('missed:')).length, missed: statuses.filter(x => x.startsWith('missed:')).length }; });
     return <><div className="page-heading-row"><div><div className="eyebrow">THE COMEBACK COUNTS</div><h1>History and recovery<span className="heading-period">.</span></h1><p className="page-subtitle">You never have to be perfect. Just return to the path.</p></div></div><section className="calendar-card"><div className="calendar-heading"><div><span className="eyebrow">PROGRESS YOU CAN SEE</span><h3>Last 28 days</h3></div><div className="calendar-legend"><span><i className="activity-done"/> Showed up</span><span><i className="activity-missed"/> Rest / miss</span></div></div><div className="activity-calendar">{recentDays.map(d => <div key={d.key} title={`${d.key}: ${d.done} votes, ${d.missed} missed`} className={`activity-cell ${d.done ? 'activity-done' : d.missed ? 'activity-missed' : ''}`}><span>{d.day}</span></div>)}</div></section>{needs.length > 0 && <div className={`recovery-hero ${circuitBreaker ? 'recovery-circuit-breaker' : ''}`}><div className="recovery-sun"><Icon name="arrow-up-right" size={24}/></div><span className="overline">{circuitBreaker ? 'CIRCUIT BREAKER · RESET THE ACTION, NOT YOUR IDENTITY' : 'RECOVERY RULE · NEVER MISS TWICE'}</span><h2>{circuitBreaker ? 'Two misses are a signal to shrink the next step.' : needs.length ? 'You missed a day. You still belong here.' : 'You’re back in rhythm.'}</h2><p>{circuitBreaker ? 'Make the next action almost impossible to skip. Choose the smallest gateway action and put the cue directly in your path. Your identity votes are still here.' : needs.length ? 'After a lapse, return to your plan at the next opportunity. One slip does not have to become a pattern.' : 'No recovery needed right now. Keep your next step small and your cues clear.'}</p><div className="recovery-stats"><div><b>{votes}</b><span>identity votes kept</span></div><div><b>{needs.filter(h => h.completed).length}/{needs.length || 0}</b><span>comeback actions</span></div><div><b>1 day</b><span>grace built in</span></div></div></div>}<div className="section-heading space-top"><div><span className="eyebrow">A GENTLE NUDGE</span><h2>{needs.length ? 'Pick one to restart' : 'Your habits today'}</h2></div></div><div className="habit-list">{(needs.length ? needs : todayHabits).map(renderHabitCard)}</div></>;
   }
 

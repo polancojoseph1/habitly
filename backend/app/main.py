@@ -23,7 +23,7 @@ from .schemas import (UserCreate, UserOut, IdentityCreate, IdentityOut, HabitCre
                       RewardCreate, RewardStatusOut, RewardOut, TelegramLinkOut, HabitEventCreate, HabitEventOut)
 from .schemas import (AccountabilityInviteCreate, CircleCreate, CircleOut, DiagnosticCreate, DiagnosticOut,
                       HabitVariationCreate, HabitVariationOut, HabitVariationUpdate)
-from .streaks import calculate_streak
+from .streaks import calculate_streak, tracker_day
 
 if settings.database_url.startswith("sqlite"):
     Base.metadata.create_all(bind=engine)
@@ -279,8 +279,8 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
     for habit in habits:
         logs = list(db.scalars(select(HabitLog).where(HabitLog.habit_id == habit.id).order_by(HabitLog.logged_date.desc())))
         streak, _warning = calculate_streak(logs)
-        today = next((log for log in logs if log.logged_date == date.today()), None)
-        yesterday = next((log for log in logs if log.logged_date == date.today() - timedelta(days=1)), None)
+        today = next((log for log in logs if log.logged_date == tracker_day()), None)
+        yesterday = next((log for log in logs if log.logged_date == tracker_day() - timedelta(days=1)), None)
         invite_token = db.scalar(select(AccountabilityInvite.token).where(AccountabilityInvite.habit_id == habit.id).order_by(AccountabilityInvite.created_at.desc()).limit(1))
         data["habits"].append({
             "id": habit.id, "name": habit.display_name or habit.target_action, "target": habit.target_action,
@@ -308,7 +308,7 @@ def build_workspace(db: Session, user_id: str, state: WorkspaceState | None):
             statuses.append(f"missed:{habit.id}" if log.status == "MISSED" else habit.id if log.status in {"COMPLETED", "RECOVERED"} else "")
             if not statuses[-1]:
                 statuses.pop()
-            if log.logged_date == date.today() and log.environment_prepped:
+            if log.logged_date == tracker_day() and log.environment_prepped:
                 prep[habit.id] = True
             if log.difficulty_level_snapshot:
                 difficulty_history.setdefault(log.logged_date.isoformat(), {})[habit.id] = log.difficulty_level_snapshot
@@ -424,11 +424,11 @@ def import_workspace(payload: dict, request: Request, db: Session = Depends(get_
                 db.add(HabitLog(habit_id=habit_id, logged_date=date.fromisoformat(day), status="MISSED" if missed else "COMPLETED", completed_via="WEB", difficulty_level_snapshot=snapshot))
     for habit_id, is_prepped in clean.get("preppedHabits", {}).items():
         if is_prepped and habit_id in habit_ids:
-            logged = db.scalar(select(HabitLog.id).where(HabitLog.habit_id == habit_id, HabitLog.logged_date == date.today()))
+            logged = db.scalar(select(HabitLog.id).where(HabitLog.habit_id == habit_id, HabitLog.logged_date == tracker_day()))
             if logged:
                 db.get(HabitLog, logged).environment_prepped = True
             else:
-                db.add(HabitLog(habit_id=habit_id, logged_date=date.today(), status="PREPPED", completed_via="WEB", environment_prepped=True))
+                db.add(HabitLog(habit_id=habit_id, logged_date=tracker_day(), status="PREPPED", completed_via="WEB", environment_prepped=True))
     for row in clean.get("habitEvents", []):
         if row.get("habitId") in habit_ids:
             db.add(HabitEvent(id=row.get("id") or new_id(), habit_id=row["habitId"], event_type=row.get("type", "ACTION_COMPLETED"), occurred_at=datetime.fromisoformat(row["at"].replace("Z", "+00:00")) if row.get("at") else datetime.now(timezone.utc), note=row.get("note"), actual_minutes=row.get("actualMinutes"), strategy=row.get("strategy"), variation_id=row.get("variationId"), variation_name=row.get("variationName")))
@@ -731,7 +731,7 @@ def log_habit(habit_id: str, payload: LogCreate, db: Session = Depends(get_db)):
     habit = db.get(Habit, habit_id)
     if not habit:
         raise HTTPException(404, "Habit not found")
-    logged_date = payload.logged_date or date.today()
+    logged_date = payload.logged_date or tracker_day()
     existing = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit_id, HabitLog.logged_date == logged_date))
     previous_status = existing.status if existing else None
     if existing:
@@ -790,7 +790,7 @@ def update_environment_prep(habit_id: str, payload: PrepUpdate, db: Session = De
     habit = db.get(Habit, habit_id)
     if not habit:
         raise HTTPException(404, "Habit not found")
-    logged_date = payload.logged_date or date.today()
+    logged_date = payload.logged_date or tracker_day()
     log = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit_id, HabitLog.logged_date == logged_date))
     if log:
         log.environment_prepped = payload.environment_prepped
@@ -804,7 +804,7 @@ def update_environment_prep(habit_id: str, payload: PrepUpdate, db: Session = De
 @app.get("/api/rewards", response_model=list[RewardStatusOut])
 def list_rewards(request: Request, db: Session = Depends(get_db)):
     rewards = list(db.scalars(select(Reward).join(Habit).join(Identity).where(Reward.is_active.is_(True), Identity.user_id == request.state.user_id)))
-    today = date.today()
+    today = tracker_day()
     result = []
     for reward in rewards:
         completed = db.scalar(select(HabitLog.id).where(
@@ -888,7 +888,7 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
     habits = list(db.scalars(select(Habit).where(Habit.identity_id.in_(identity_ids), Habit.is_active.is_(True)))) if identity_ids else []
     unfinished = []
     for habit in habits:
-        today_log = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit.id, HabitLog.logged_date == date.today()))
+        today_log = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit.id, HabitLog.logged_date == tracker_day()))
         if today_log is None or today_log.status not in {"COMPLETED", "RECOVERED"}:
             unfinished.append(habit)
     normalized = text.lower().replace("/done", "").replace("done", "").replace("stack complete", "").strip(" :,-")
@@ -912,14 +912,14 @@ async def telegram_webhook(request: Request, db: Session = Depends(get_db)):
         return {"ok": True, "logged": False}
 
     habit = matches[0]
-    yesterday = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit.id, HabitLog.logged_date == date.today() - timedelta(days=1)))
+    yesterday = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit.id, HabitLog.logged_date == tracker_day() - timedelta(days=1)))
     status = "RECOVERED" if yesterday and yesterday.status == "MISSED" else "COMPLETED"
-    today_log = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit.id, HabitLog.logged_date == date.today()))
+    today_log = db.scalar(select(HabitLog).where(HabitLog.habit_id == habit.id, HabitLog.logged_date == tracker_day()))
     if today_log:
         today_log.status = status
         today_log.completed_via = "TELEGRAM_BOT"
     else:
-        db.add(HabitLog(habit_id=habit.id, logged_date=date.today(), status=status, completed_via="TELEGRAM_BOT"))
+        db.add(HabitLog(habit_id=habit.id, logged_date=tracker_day(), status=status, completed_via="TELEGRAM_BOT"))
     habit.identity.total_votes += 1
     db.commit()
     logs = list(db.scalars(select(HabitLog).where(HabitLog.habit_id == habit.id).order_by(HabitLog.logged_date.desc())))

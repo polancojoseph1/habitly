@@ -181,6 +181,22 @@ function isDateKey(value: string | undefined): value is string {
   return Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
 }
 
+/** Habitly's tracker day follows MStones: 6 a.m. America/New_York to 5:59 a.m. */
+export function trackerDayKey(at: string | Date = new Date()): string {
+  const value = typeof at === 'string' ? new Date(at) : at;
+  if (!Number.isFinite(value.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', hourCycle: 'h23',
+  }).formatToParts(value);
+  const pick = (kind: string) => parts.find(part => part.type === kind)?.value ?? '';
+  const year = Number(pick('year'));
+  const month = Number(pick('month'));
+  const day = Number(pick('day'));
+  const trackerDate = new Date(Date.UTC(year, month - 1, day - (Number(pick('hour')) < 6 ? 1 : 0)));
+  return `${trackerDate.getUTCFullYear()}-${String(trackerDate.getUTCMonth() + 1).padStart(2, '0')}-${String(trackerDate.getUTCDate()).padStart(2, '0')}`;
+}
+
 export function dateKeyInZone(at: string | Date, timezone?: string): string {
   const value = typeof at === 'string' ? new Date(at) : at;
   if (!Number.isFinite(value.getTime())) return '';

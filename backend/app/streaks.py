@@ -1,4 +1,15 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+TRACKER_TIMEZONE = "America/New_York"
+TRACKER_RESET_HOUR = 6
+TRACKER_ZONE = ZoneInfo(TRACKER_TIMEZONE)
+
+
+def tracker_day(now: datetime | None = None) -> date:
+    """Return the shared tracker date, rolling over at 6 a.m. New York time."""
+    instant = (now or datetime.now(timezone.utc)).astimezone(TRACKER_ZONE)
+    return (instant - timedelta(hours=TRACKER_RESET_HOUR)).date()
 
 
 def calculate_streak(logs, as_of: date | None = None) -> tuple[int, bool]:
@@ -7,7 +18,7 @@ def calculate_streak(logs, as_of: date | None = None) -> tuple[int, bool]:
     A single missed day is bridged. A second consecutive missed day ends the chain.
     An unlogged current day is treated as still in progress; evaluation starts yesterday.
     """
-    today = as_of or date.today()
+    today = as_of or tracker_day()
     by_day = {row.logged_date: row.status for row in logs if row.status in {"COMPLETED", "RECOVERED", "MISSED"}}
     cursor = today if today in by_day else today - timedelta(days=1)
     streak = 0
