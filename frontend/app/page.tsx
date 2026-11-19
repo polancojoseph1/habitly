@@ -492,6 +492,7 @@ export default function Home() {
   const [todayCheckinTab, setTodayCheckinTab] = useState<'BUILD' | 'REPLACEMENT'>('BUILD');
   const [hydrated, setHydrated] = useState(false);
   const [toast, setToast] = useState('');
+  const [toastUndo, setToastUndo] = useState<{ message: string; label: string; onUndo: () => void } | null>(null);
   const [pendingHabitDeletions, setPendingHabitDeletions] = useState<PendingHabitDeletion[]>([]);
   const pendingHabitDeletionsRef = useRef<PendingHabitDeletion[]>([]);
   const pendingHabitDeletionTimers = useRef(new Map<string, number>());
@@ -859,7 +860,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(''), 3200);
+    const timer = window.setTimeout(() => { setToast(''); setToastUndo(null); }, 7000);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
@@ -1121,6 +1122,7 @@ export default function Home() {
     const completionCount = (habit.completionCount ?? (habit.completed ? 1 : 0)) + 1;
     const targetReached = completionCount >= dailyTarget;
     const localEvent: HabitEvent = { id: `local-${habit.id}-${Date.now()}`, habitId: habit.id, type: 'ACTION_COMPLETED', at: new Date().toISOString(), dailySlotId: slotId };
+    let undoEvent = localEvent;
     setHabitEvents(current => [...current, localEvent]);
     setHabits(current => current.map(h => h.id === habit.id ? { ...h, completionCount, completed: targetReached, completedDailySteps: slotId ? [...new Set([...(h.completedDailySteps ?? []), slotId])] : h.completedDailySteps, missedYesterday: targetReached ? false : h.missedYesterday } : h));
     const currentDay = todayKey();
@@ -1138,20 +1140,28 @@ export default function Home() {
           const result = await response.json();
           setVotes(result.identity_votes);
           setHabits(current => current.map(h => h.id === habit.id ? { ...h, completionCount: result.completion_count, completed: result.target_reached, completedDailySteps: result.event?.dailySlotId ? [...new Set([...(h.completedDailySteps ?? []), result.event.dailySlotId])] : h.completedDailySteps, missedYesterday: result.target_reached ? false : h.missedYesterday } : h));
-          setHabitEvents(current => [...current.filter(event => event.id !== localEvent.id), result.event as HabitEvent]);
+          undoEvent = result.event as HabitEvent;
+          setHabitEvents(current => [...current.filter(event => event.id !== localEvent.id), undoEvent]);
           if (result.target_reached) setHistory(current => ({ ...current, [currentDay]: [...(current[currentDay] ?? []).filter(x => x !== `missed:${habit.id}` && x !== habit.id), habit.id] }));
-          setToast(`${result.completion_count} of ${result.daily_target} today${result.target_reached ? ' · Daily target reached' : ''}`);
+          const message = `${result.completion_count} of ${result.daily_target} today${result.target_reached ? ' · Daily target reached' : ''}`;
+          setToast(message);
+          setToastUndo({ message, label: 'Undo', onUndo: () => void undoHabitOccurrence(habit, undoEvent, false) });
           return;
         }
       } catch { /* Local log remains available while the API is offline. */ }
-      setToast('Saved here. API sync will resume when connected.'); return;
+      const message = 'Saved here. API sync will resume when connected.';
+      setToast(message);
+      setToastUndo({ message, label: 'Undo', onUndo: () => void undoHabitOccurrence(habit, undoEvent, false) });
+      return;
     }
     const updatedStreak = getResilientStreak(nextHistory, habit.id).count;
-    setToast(`${completionCount} of ${dailyTarget} today${targetReached ? ` · ${updatedStreak}-day chain` : ''}`);
+    const message = `${completionCount} of ${dailyTarget} today${targetReached ? ` · ${updatedStreak}-day chain` : ''}`;
+    setToast(message);
+    setToastUndo({ message, label: 'Undo', onUndo: () => void undoHabitOccurrence(habit, undoEvent, false) });
   }
 
-  async function undoHabitOccurrence(habit: Habit, event: HabitEvent) {
-    if (!window.confirm(`Undo “${(habit.dailySteps ?? []).find(step => step.id === event.dailySlotId)?.label ?? 'this completion'}”?`)) return;
+  async function undoHabitOccurrence(habit: Habit, event: HabitEvent, confirmUndo = true) {
+    if (confirmUndo && !window.confirm(`Undo “${(habit.dailySteps ?? []).find(step => step.id === event.dailySlotId)?.label ?? 'this completion'}”?`)) return;
     const eventDate = new Date(event.at);
     const isToday = trackerDayKey(eventDate) === todayKey();
     setHabitEvents(current => current.filter(item => item.id !== event.id));
@@ -1162,7 +1172,12 @@ export default function Home() {
       completed: isToday ? Math.max(0, (item.completionCount ?? 0) - 1) >= (item.dailyTarget ?? 1) : item.completed,
     } : item));
     setVotes(current => Math.max(0, current - 1));
-    if (isToday) setHistory(current => ({ ...current, [todayKey()]: (current[todayKey()] ?? []).filter(id => id !== habit.id) }));
+    if (isToday) {
+      const stillComplete = Math.max(0, (habit.completionCount ?? 0) - 1) >= (habit.dailyTarget ?? 1);
+      setHistory(current => ({ ...current, [todayKey()]: stillComplete
+        ? [...new Set([...(current[todayKey()] ?? []).filter(id => id !== `missed:${habit.id}`), habit.id])]
+        : (current[todayKey()] ?? []).filter(id => id !== habit.id) }));
+    }
     if (apiUrl && remoteIdentityId && !habit.id.startsWith('demo-') && !event.id.startsWith('local-')) {
       try {
         const response = await apiFetch(`${apiUrl.replace(/\/$/, '')}/api/habits/${habit.id}/completions/${event.id}`, { method: 'DELETE' });
@@ -1173,6 +1188,7 @@ export default function Home() {
       } catch { setToast('Undo saved here. API sync will resume when connected.'); return; }
     }
     setToast('Completion undone.');
+    setToastUndo(null);
   }
 
   async function markMissed(habit: Habit) {
@@ -2895,7 +2911,7 @@ export default function Home() {
     {showIdentity && <div className="modal-backdrop" onMouseDown={e => { if (e.target === e.currentTarget) setShowIdentity(false); }}><section className="identity-modal" role="dialog" aria-modal="true" aria-labelledby="identity-title"><button className="modal-close" onClick={() => setShowIdentity(false)} aria-label="Close"><Icon name="x"/></button><span className="identity-modal-star"><Icon name="spark" size={18}/></span><span className="eyebrow">IDENTITY BEFORE OUTCOME</span><h2 id="identity-title">Who do you want to become?</h2><p>An outcome tells you what you want. An identity gives you a direction to practice.</p><form onSubmit={saveIdentity}><label className="field-label">WHAT’S THE OUTCOME YOU’RE AFTER?<input value={goal} onChange={e => { setGoal(e.target.value); const reframe = reframeGoal(e.target.value); if (reframe) setIdentity(reframe); }} placeholder="e.g. write a book"/></label><div className="reframe-card"><span>TO MOVE TOWARD THAT, PRACTICE BEING…</span><input value={identity} onChange={e => setIdentity(e.target.value)} placeholder="e.g. The Writer"/><small>Every small action becomes a vote for this person.</small></div><button className="primary-button identity-save" type="submit">Save my identity <Icon name="arrow" size={16}/></button></form></section></div>}
     {celebrating && <div className="celebration-overlay" aria-hidden="true"><div className="celebration-spark"><Icon name="spark" size={18}/></div><div className="celebration-copy"><span>A VOTE CAST</span><b>That’s how you become<br/>{identity.toLowerCase()}.</b><small>One small action matters.</small></div><i className="confetti confetti-one"/><i className="confetti confetti-two"/><i className="confetti confetti-three"/><i className="confetti confetti-four"/><i className="confetti confetti-five"/><i className="confetti confetti-six"/></div>}
     {pendingHabitDeletions.map((deletion, index) => <div className="toast-message toast-habit-delete" role="status" key={deletion.id} style={{ bottom: `${24 + (pendingHabitDeletions.length - index - 1) * 62}px` }}><span className="toast-star"><Icon name="spark" size={18}/></span><span className="toast-delete-copy">Habit removed.</span><button type="button" className="toast-undo-button" onClick={() => undoHabitDeletion(deletion.id)} aria-label={`Undo deleting ${deletion.habit.name}`}>Undo</button></div>)}
-    {toast && <div className="toast-message" role="status" style={pendingHabitDeletions.length ? { bottom: `${24 + pendingHabitDeletions.length * 62}px` } : undefined}><span className="toast-star"><Icon name="spark" size={18}/></span>{toast}</div>}
+    {toast && <div className="toast-message" role="status" style={pendingHabitDeletions.length ? { bottom: `${24 + pendingHabitDeletions.length * 62}px` } : undefined}><span className="toast-star"><Icon name="spark" size={18}/></span><span>{toast}</span>{toastUndo?.message === toast && <button type="button" className="toast-undo-button" onClick={toastUndo.onUndo}>{toastUndo.label}</button>}</div>}
     </>, document.body)}
   </div>;
 }
