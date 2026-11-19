@@ -965,7 +965,7 @@ export default function Home() {
   }
 
   function restoreLocalWorkspace(backup: any) {
-    if (!backup || !Array.isArray(backup.habits) || !backup.habits.every((habit: any) => habit?.id && habit?.name)) {
+    if (!backup || !Array.isArray(backup.habits) || backup.habits.length === 0 || !backup.habits.every((habit: any) => habit?.id && habit?.name)) {
       throw new Error('This file does not contain a valid Habitly workspace.');
     }
     preserveLocalWorkspace();
@@ -993,36 +993,72 @@ export default function Home() {
     const restoredEvents = uniqueById<HabitEvent>(saved.habitEvents ?? habitEvents, backup.habitEvents ?? []);
     const restoredOrder = [...new Set([...(backup.habitOrder ?? []), ...(saved.habitOrder ?? habitOrder), ...restoredHabits.map((habit: Habit) => habit.id)])].filter(id => restoredHabits.some(habit => habit.id === id));
     const restoredIds = new Set(restoredHabits.map(habit => habit.id));
+    const mergedConfirmations = [...confirmations.values()].filter(row => restoredIds.has(row.habitId));
+    const mergedRewards = uniqueById<Reward>(saved.rewards ?? rewards, backup.rewards ?? []).filter(row => restoredIds.has(row.habitId));
+    const mergedVariations = uniqueById<HabitVariation>(saved.variations ?? variations, backup.variations ?? []).filter(row => restoredIds.has(row.habitId));
+    const restoredWorkspace = {
+      ...backup,
+      ...saved,
+      habits: restoredHabits,
+      habitOrder: restoredOrder,
+      history: mergedHistory,
+      behaviorLogs: restoredLogs,
+      habitEvents: restoredEvents,
+      dailyConfirmations: mergedConfirmations,
+      rewards: mergedRewards,
+      variations: mergedVariations,
+      difficultyHistory: { ...(backup.difficultyHistory ?? {}), ...(saved.difficultyHistory ?? {}) },
+      preppedHabits: { ...(backup.preppedHabits ?? {}), ...(saved.preppedHabits ?? {}) },
+      customContextTags: [...new Set([...(backup.customContextTags ?? []), ...(saved.customContextTags ?? [])])],
+      identity: hasCurrentPersonalHabits ? saved.identity ?? backup.identity ?? identity : backup.identity ?? saved.identity ?? identity,
+      goal: backup.goal ?? (hasCurrentPersonalHabits ? saved.goal ?? goal : ''),
+      dayKey: backup.dayKey ?? saved.dayKey ?? todayKey(),
+    };
+    localStorage.setItem(STORAGE, JSON.stringify(restoredWorkspace));
 
     setHabits(restoredHabits);
     setHabitOrder(restoredOrder);
     setHistory(mergedHistory);
     setBehaviorLogs(restoredLogs);
     setHabitEvents(restoredEvents);
-    setDailyConfirmations([...confirmations.values()].filter(row => restoredIds.has(row.habitId)));
-    setRewards(uniqueById<Reward>(saved.rewards ?? rewards, backup.rewards ?? []).filter(row => restoredIds.has(row.habitId)));
-    setVariations(uniqueById<HabitVariation>(saved.variations ?? variations, backup.variations ?? []).filter(row => restoredIds.has(row.habitId)));
-    setDifficultyHistory({ ...(backup.difficultyHistory ?? {}), ...(saved.difficultyHistory ?? {}) });
-    setPreppedHabits({ ...(backup.preppedHabits ?? {}), ...(saved.preppedHabits ?? {}) });
-    setCustomContextTags([...new Set([...(backup.customContextTags ?? []), ...(saved.customContextTags ?? [])])]);
-    setIdentity(hasCurrentPersonalHabits ? saved.identity ?? backup.identity ?? identity : backup.identity ?? saved.identity ?? identity);
-    setGoal(backup.goal ?? (hasCurrentPersonalHabits ? saved.goal ?? goal : ''));
+    setDailyConfirmations(mergedConfirmations);
+    setRewards(mergedRewards);
+    setVariations(mergedVariations);
+    setDifficultyHistory(restoredWorkspace.difficultyHistory);
+    setPreppedHabits(restoredWorkspace.preppedHabits);
+    setCustomContextTags(restoredWorkspace.customContextTags);
+    setIdentity(restoredWorkspace.identity);
+    setGoal(restoredWorkspace.goal);
     setWorkspaceReady(true);
-    setToast(`Restored ${backup.habits.length} habits and merged the available records. Existing personal records were kept.`);
+    setToast(`Restored ${restoredHabits.length} habits and ${restoredLogs.length} records. Existing personal records were kept.`);
+    return restoredHabits.length;
   }
 
   useEffect(() => {
-    if (!hydrated || typeof window === 'undefined' || !window.location.hash.startsWith('#habitly-recovery=')) return;
-    const encoded = window.location.hash.slice('#habitly-recovery='.length);
-    try {
-      const base64 = encoded.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(encoded.length / 4) * 4, '=');
-      const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
-      restoreLocalWorkspace(JSON.parse(new TextDecoder().decode(bytes)));
-      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
-    } catch (error) {
-      setToast(error instanceof Error ? error.message : 'The recovery link could not be read. Your saved data is unchanged.');
-      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
-    }
+    if (!hydrated || typeof window === 'undefined') return;
+    const hash = window.location.hash;
+    const rawPrefix = '#habitly-recovery=';
+    const gzipPrefix = '#habitly-recovery-gzip=';
+    const compressed = hash.startsWith(gzipPrefix);
+    if (!compressed && !hash.startsWith(rawPrefix)) return;
+    const encoded = hash.slice(compressed ? gzipPrefix.length : rawPrefix.length);
+    void (async () => {
+      try {
+        const base64 = encoded.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(encoded.length / 4) * 4, '=');
+        const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+        let json: string;
+        if (compressed) {
+          if (!('DecompressionStream' in window)) throw new Error('This browser cannot open the compressed restore link.');
+          const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+          json = await new Response(stream).text();
+        } else json = new TextDecoder().decode(bytes);
+        const restored = restoreLocalWorkspace(JSON.parse(json));
+        if (!restored) throw new Error('No habits were restored. Your saved data is unchanged.');
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+      } catch (error) {
+        setToast(error instanceof Error ? error.message : 'The recovery link could not be read. Your saved data is unchanged.');
+      }
+    })();
   }, [hydrated]);
 
   async function importLocalWorkspace(backup?: any) {
