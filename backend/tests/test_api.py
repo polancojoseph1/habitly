@@ -13,6 +13,7 @@ from app.config import settings
 from app.database import Base, get_db
 from app.main import app
 from app.models import WorkspaceState
+from app.streaks import tracker_day
 
 
 @pytest.fixture
@@ -271,7 +272,7 @@ def test_completion_votes_are_idempotent_and_reward_unlocks(client):
 def test_recovery_bridges_one_miss_and_two_misses_break_chain(client):
     _, identity = create_identity(client)
     one_miss = create_habit(client, identity["id"]).json()
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    yesterday = (tracker_day() - timedelta(days=1)).isoformat()
     client.post(f"/api/habits/{one_miss['id']}/log", json={"status": "MISSED", "logged_date": yesterday})
     recovered = client.post(f"/api/habits/{one_miss['id']}/log", json={"status": "RECOVERED"}).json()
     assert recovered["resilient_streak"] == 2
@@ -288,7 +289,7 @@ def test_recovery_bridges_one_miss_and_two_misses_break_chain(client):
 def test_prep_record_does_not_break_the_habit_streak(client):
     _, identity = create_identity(client)
     habit = create_habit(client, identity["id"]).json()
-    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    yesterday = (tracker_day() - timedelta(days=1)).isoformat()
     client.post(f"/api/habits/{habit['id']}/log", json={"status": "COMPLETED", "logged_date": yesterday})
     prep = client.post(f"/api/habits/{habit['id']}/prep", json={"environment_prepped": True})
     assert prep.status_code == 200
