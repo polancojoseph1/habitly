@@ -1011,6 +1011,20 @@ export default function Home() {
     setToast(`Restored ${backup.habits.length} habits and merged the available records. Existing personal records were kept.`);
   }
 
+  useEffect(() => {
+    if (!hydrated || typeof window === 'undefined' || !window.location.hash.startsWith('#habitly-recovery=')) return;
+    const encoded = window.location.hash.slice('#habitly-recovery='.length);
+    try {
+      const base64 = encoded.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(encoded.length / 4) * 4, '=');
+      const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0));
+      restoreLocalWorkspace(JSON.parse(new TextDecoder().decode(bytes)));
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'The recovery link could not be read. Your saved data is unchanged.');
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+    }
+  }, [hydrated]);
+
   async function importLocalWorkspace(backup?: any) {
     if (!apiUrl || !remoteToken) return;
     let local: any = {};
