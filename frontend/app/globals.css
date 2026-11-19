@@ -632,6 +632,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .primary-button { background: #6256c8; box-shadow: 0 6px 16px rgba(98,86,200,.2); }
 .primary-button:hover { background: #4d43ad; box-shadow: 0 9px 20px rgba(98,86,200,.25); }
 .secondary-button { background: var(--surface-soft); color: var(--ink); border: 1px solid var(--line); }
+.backup-restore-button { position: relative; display: inline-flex; align-items: center; cursor: pointer; overflow: hidden; }
+.backup-restore-button input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.backup-restore-button:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .identity-banner { min-height: 158px; padding: 30px 34px; margin-bottom: 18px; border: 1px solid #4e478e; border-radius: 20px; background: radial-gradient(ellipse at 90% 0%, rgba(202,177,255,.24), transparent 43%), linear-gradient(116deg, #302b5b, #433d78 65%, #51468c); box-shadow: var(--shadow); }
 .identity-copy h2 { font: 750 29px/1.2 'Manrope',sans-serif; letter-spacing: -.8px; }
 .identity-copy p { color: #d1cde8; font-size: 13px; }

@@ -40,6 +40,7 @@ jobs:
           npm ci --no-audit --no-fund
           npm run test:logging
           npm run test:difficulty
+          npm run test:workspace-cleanup
           npm run build
 
   build-and-push:
