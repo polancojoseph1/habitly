@@ -685,10 +685,9 @@ export default function Home() {
         const savedBehaviorLogs: BehaviorLog[] = data.behaviorLogs ?? [];
         const loadedBehaviorLogs = withoutSampleBehaviorLogs(savedBehaviorLogs);
         const savedConfirmations: DailyConfirmation[] = data.dailyConfirmations ?? [];
-        const accountConfirmations = savedConfirmations.filter(item => !item.habitId.startsWith('demo-'));
         setHistory(savedHistory); setHabitEvents(data.habitEvents ?? []); setBehaviorLogs(loadedBehaviorLogs); setVariations(data.variations ?? []); setPreppedHabits(data.preppedHabits ?? {}); setRewards(data.rewards ?? demoRewards);
         setDifficultyHistory(data.difficultyHistory ?? {});
-        setDailyConfirmations(accountConfirmations); setCustomContextTags(data.customContextTags ?? []);
+        setDailyConfirmations(savedConfirmations); setCustomContextTags(data.customContextTags ?? []);
         setIdentity(data.identity ?? 'The Writer'); setGoal(data.goal ?? 'Write a book');
         setVotes(data.votes ?? 45); setPrepped(data.prepped ?? false);
         setScorecard(data.scorecard ?? []); setJoinedTribes(data.joinedTribes ?? []);
@@ -835,7 +834,7 @@ export default function Home() {
         if (hasData) {
           preserveLocalWorkspace();
           setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
-          setHabits((data.habits ?? []).map(expandInviteLink).filter((habit: Habit) => !habit.id.startsWith('demo-')));
+          setHabits((data.habits ?? []).map(expandInviteLink));
           setRewards((data.rewards ?? []).filter((reward: Reward) => !reward.id.startsWith('reward-show')));
           setIdentity(data.identity ?? 'The Writer'); setGoal(data.goal ?? ''); setVotes(data.votes ?? 0);
           setPrepped(data.prepped ?? false); setPreppedHabits(data.preppedHabits ?? {});
@@ -968,6 +967,12 @@ export default function Home() {
     if (!backup || !Array.isArray(backup.habits) || backup.habits.length === 0 || !backup.habits.every((habit: any) => habit?.id && habit?.name)) {
       throw new Error('This file does not contain a valid Habitly workspace.');
     }
+    if (!backup.habits.some((habit: Habit) => !habit.id.startsWith('demo-'))) {
+      throw new Error('This backup contains only sample habits. No data was changed.');
+    }
+    if (remoteToken && !workspaceReady) {
+      throw new Error('Wait for your account workspace to load before restoring. No data was changed.');
+    }
     preserveLocalWorkspace();
     const saved = JSON.parse(localStorage.getItem(STORAGE) ?? '{}');
     const hasCurrentPersonalHabits = (saved.habits ?? habits).some((habit: Habit) => !habit.id.startsWith('demo-'));
@@ -978,13 +983,13 @@ export default function Home() {
       return [...rows.values()];
     };
     const restoredHabits = uniqueById<Habit>(
-      (saved.habits ?? habits).filter((habit: Habit) => !habit.id.startsWith('demo-')),
+      saved.habits ?? habits,
       backup.habits.filter((habit: Habit) => !habit.id.startsWith('demo-')),
     );
     const personalHistoryRows = (rows: string[]) => rows.filter(id => !id.startsWith('demo-') && !id.startsWith('missed:demo-'));
     const mergedHistory: Record<string, string[]> = Object.fromEntries(Object.entries(backup.history ?? {}).map(([day, rows]) => [day, personalHistoryRows(rows as string[])]));
     for (const [day, rows] of Object.entries(saved.history ?? {}) as [string, string[]][]) {
-      mergedHistory[day] = [...new Set([...(mergedHistory[day] ?? []), ...personalHistoryRows(rows)])];
+      mergedHistory[day] = [...new Set([...(mergedHistory[day] ?? []), ...rows])];
     }
     const confirmations = new Map<string, DailyConfirmation>();
     for (const row of backup.dailyConfirmations ?? []) confirmations.set(`${row.habitId}:${row.date}`, row);
@@ -992,10 +997,9 @@ export default function Home() {
     const restoredLogs = uniqueById<BehaviorLog>(withoutSampleBehaviorLogs(saved.behaviorLogs ?? behaviorLogs), withoutSampleBehaviorLogs(backup.behaviorLogs ?? []));
     const restoredEvents = uniqueById<HabitEvent>(saved.habitEvents ?? habitEvents, backup.habitEvents ?? []);
     const restoredOrder = [...new Set([...(backup.habitOrder ?? []), ...(saved.habitOrder ?? habitOrder), ...restoredHabits.map((habit: Habit) => habit.id)])].filter(id => restoredHabits.some(habit => habit.id === id));
-    const restoredIds = new Set(restoredHabits.map(habit => habit.id));
-    const mergedConfirmations = [...confirmations.values()].filter(row => restoredIds.has(row.habitId));
-    const mergedRewards = uniqueById<Reward>(saved.rewards ?? rewards, backup.rewards ?? []).filter(row => restoredIds.has(row.habitId));
-    const mergedVariations = uniqueById<HabitVariation>(saved.variations ?? variations, backup.variations ?? []).filter(row => restoredIds.has(row.habitId));
+    const mergedConfirmations = [...confirmations.values()];
+    const mergedRewards = uniqueById<Reward>(saved.rewards ?? rewards, backup.rewards ?? []);
+    const mergedVariations = uniqueById<HabitVariation>(saved.variations ?? variations, backup.variations ?? []);
     const restoredWorkspace = {
       ...backup,
       ...saved,
@@ -1011,7 +1015,7 @@ export default function Home() {
       preppedHabits: { ...(backup.preppedHabits ?? {}), ...(saved.preppedHabits ?? {}) },
       customContextTags: [...new Set([...(backup.customContextTags ?? []), ...(saved.customContextTags ?? [])])],
       identity: hasCurrentPersonalHabits ? saved.identity ?? backup.identity ?? identity : backup.identity ?? saved.identity ?? identity,
-      goal: backup.goal ?? (hasCurrentPersonalHabits ? saved.goal ?? goal : ''),
+      goal: hasCurrentPersonalHabits ? saved.goal ?? backup.goal ?? goal : backup.goal ?? saved.goal ?? goal,
       dayKey: backup.dayKey ?? saved.dayKey ?? todayKey(),
     };
     localStorage.setItem(STORAGE, JSON.stringify(restoredWorkspace));
@@ -1030,7 +1034,7 @@ export default function Home() {
     setIdentity(restoredWorkspace.identity);
     setGoal(restoredWorkspace.goal);
     setWorkspaceReady(true);
-    setToast(`Restored ${restoredHabits.length} habits and ${restoredLogs.length} records. Existing personal records were kept.`);
+    setToast(`Recovery file contained ${backup.habits.filter((habit: Habit) => !habit.id.startsWith('demo-')).length} habits and ${withoutSampleBehaviorLogs(backup.behaviorLogs ?? []).length} records. Check your workspace.`);
     return restoredHabits.length;
   }
 
