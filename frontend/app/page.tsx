@@ -199,15 +199,18 @@ function createEmptyBreakPlanAnswers(): BreakPlanAnswers {
   return { cueTriggers: [''], cueTimes: [''], cueLocations: [''], cuesToHide: [''], underlyingNeeds: [''], reframes: [''], frictionIdeas: [''], oldPayoffs: [''], agreements: [''], customCue: [''], customCraving: [''], customResponse: [''], customReward: [''] };
 }
 function getReplacementActions(habit: Habit) {
+  if (habit.replacementMode === 'OPTIONS') return [];
   const saved = habit.replacementActions?.map(action => action.trim()).filter(Boolean) ?? [];
   if (saved.length) return saved;
   const fallback = habit.alternativeRoutine?.trim() || habit.gateway?.trim();
   return fallback ? [fallback] : [];
 }
 function getReplacementOptions(habit: Habit) {
+  if (habit.replacementMode === 'STACK') return [];
   const saved = habit.replacementOptions?.map(action => action.trim()).filter(Boolean) ?? [];
   if (saved.length) return saved;
-  return habit.replacementMode === 'OPTIONS' ? getReplacementActions(habit) : [];
+  const fallback = habit.alternativeRoutine?.trim() || habit.gateway?.trim();
+  return habit.replacementMode === 'OPTIONS' && fallback ? [fallback] : [];
 }
 function getBreakPlanAnswers(habit: Habit): BreakPlanAnswers {
   const saved = habit.breakPlanAnswers ?? {};
