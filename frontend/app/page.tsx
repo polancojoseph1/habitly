@@ -837,6 +837,20 @@ export default function Home() {
         revisionRef.current = workspace.revision ?? 0; setWorkspaceRevision(workspace.revision ?? 0);
         if (hasData) {
           preserveLocalWorkspace();
+          // Keep this device's copy visible if the server is missing personal records.
+          // Replacing it here would silently hide changes made while sync was unavailable.
+          const local = JSON.parse(localStorage.getItem(STORAGE) ?? '{}');
+          const missing = (key: string, exclude: (row: any) => boolean = () => false) => {
+            const serverIds = new Set((data[key] ?? []).map((row: any) => row.id));
+            return (local[key] ?? []).some((row: any) => row?.id && !exclude(row) && !serverIds.has(row.id));
+          };
+          if (missing('habits', row => row.id.startsWith('demo-')) ||
+              missing('behaviorLogs', row => row.id.startsWith('sample-log-')) ||
+              missing('habitEvents')) {
+            setWorkspaceReady(false);
+            setConnectionError('This device has records missing from your account. Your device copy is preserved. Save a backup in Settings before reconnecting.');
+            return;
+          }
           setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
           setHabits((data.habits ?? []).map(expandInviteLink));
           setRewards((data.rewards ?? []).filter((reward: Reward) => !reward.id.startsWith('reward-show')));
