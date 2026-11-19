@@ -393,6 +393,7 @@ export default function Home() {
   const [active, setActive] = useState<Tab>('Today');
   const [habits, setHabits] = useState<Habit[]>(demoHabits);
   const [habitOrder, setHabitOrder] = useState<string[]>([]);
+  const [homepageOrder, setHomepageOrder] = useState<string[]>([]);
   const [reorderingHabits, setReorderingHabits] = useState(false);
   const [dragState, setDragState] = useState<{ id: string; offset: number; target: number } | null>(null);
   const dragStart = useRef<{ id: string; y: number; target: number } | null>(null);
@@ -679,6 +680,7 @@ export default function Home() {
         hasLocalWorkspace = true;
         const data = JSON.parse(saved);
         setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
+        setHomepageOrder(Array.isArray(data.homepageOrder) ? data.homepageOrder : []);
         const originalHabits: Habit[] = data.habits ?? demoHabits;
         const savedHabits: Habit[] = originalHabits.map(expandInviteLink);
         const savedHistory: Record<string, string[]> = data.history ?? demoHistory();
@@ -796,12 +798,12 @@ export default function Home() {
 
   useEffect(() => {
     if (!hydrated) return;
-    try { localStorage.setItem(STORAGE, JSON.stringify({ habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, difficultyHistory, habitEvents, behaviorLogs, dailyConfirmations, customContextTags, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, dayKey: todayKey(), apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand })); } catch { setConnectionError('Browser storage is unavailable. Export your local data before continuing.'); }
-  }, [hydrated, habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, difficultyHistory, habitEvents, behaviorLogs, dailyConfirmations, customContextTags, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand]);
+    try { localStorage.setItem(STORAGE, JSON.stringify({ habits, habitOrder, homepageOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, difficultyHistory, habitEvents, behaviorLogs, dailyConfirmations, customContextTags, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, dayKey: todayKey(), apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand })); } catch { setConnectionError('Browser storage is unavailable. Export your local data before continuing.'); }
+  }, [hydrated, habits, habitOrder, homepageOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, difficultyHistory, habitEvents, behaviorLogs, dailyConfirmations, customContextTags, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, apiUrl, accountEmail, remoteUserId, remoteIdentityId, remoteToken, telegramCommand]);
 
   useEffect(() => {
     if (!hydrated || !workspaceReady || !apiUrl || !remoteToken) return;
-    const payload = { habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, difficultyHistory, habitEvents, behaviorLogs, dailyConfirmations, customContextTags, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, dayKey: todayKey() };
+    const payload = { habits, habitOrder, homepageOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, difficultyHistory, habitEvents, behaviorLogs, dailyConfirmations, customContextTags, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand, dayKey: todayKey() };
     queuedWorkspace.current = JSON.stringify(payload);
     const timer = window.setTimeout(async () => {
       if (saveInFlight.current) return;
@@ -819,7 +821,7 @@ export default function Home() {
       finally { saveInFlight.current = false; }
     }, 700);
     return () => window.clearTimeout(timer);
-  }, [hydrated, workspaceReady, apiUrl, remoteToken, habits, habitOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, difficultyHistory, habitEvents, behaviorLogs, dailyConfirmations, customContextTags, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand]);
+  }, [hydrated, workspaceReady, apiUrl, remoteToken, habits, habitOrder, homepageOrder, rewards, identity, goal, votes, prepped, preppedHabits, history, difficultyHistory, habitEvents, behaviorLogs, dailyConfirmations, customContextTags, variations, scorecard, joinedTribes, communityCircles, diagnostics, darkMode, palette, labs, telegramCommand]);
 
   useEffect(() => {
     if (!hydrated || !apiUrl || !remoteToken) return;
@@ -852,6 +854,7 @@ export default function Home() {
             return;
           }
           setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
+        setHomepageOrder(Array.isArray(data.homepageOrder) ? data.homepageOrder : []);
           setHabits((data.habits ?? []).map(expandInviteLink));
           setRewards((data.rewards ?? []).filter((reward: Reward) => !reward.id.startsWith('reward-show')));
           setIdentity(data.identity ?? 'The Writer'); setGoal(data.goal ?? ''); setVotes(data.votes ?? 0);
@@ -912,18 +915,20 @@ export default function Home() {
   useEffect(() => {
     if (buildHabits.length === 0 && breakHabits.length > 0) setTodayCheckinTab('REPLACEMENT');
   }, [buildHabits.length, breakHabits.length]);
-  const orderedIds = habitOrder.filter(id => habits.some(habit => habit.id === id));
+  const orderedIds = homepageOrder.filter(id => habits.some(habit => habit.id === id));
   const todayHabits = [...habits].sort((a, b) => {
     const ai = orderedIds.indexOf(a.id), bi = orderedIds.indexOf(b.id);
     if (ai < 0 && bi < 0) return habits.indexOf(b) - habits.indexOf(a);
-    return (ai < 0 ? orderedIds.length : ai) - (bi < 0 ? orderedIds.length : bi);
+    if (ai < 0) return -1;
+    if (bi < 0) return 1;
+    return ai - bi;
   });
   function moveHabit(from: number, to: number) {
     const next = todayHabits.map(habit => habit.id);
     if (from < 0 || to < 0 || to >= next.length || from === to) return;
     const [moved] = next.splice(from, 1);
     next.splice(to, 0, moved);
-    setHabitOrder(next);
+    setHomepageOrder(next);
   }
   function dragTarget(y: number) {
     const items = Array.from(document.querySelectorAll<HTMLElement>('.today-order-item:not(.is-dragging)'));
@@ -1040,6 +1045,7 @@ export default function Home() {
 
     setHabits(restoredHabits);
     setHabitOrder(restoredOrder);
+    setHomepageOrder(Array.isArray(saved.homepageOrder) ? saved.homepageOrder : []);
     setHistory(mergedHistory);
     setBehaviorLogs(restoredLogs);
     setHabitEvents(restoredEvents);
@@ -1118,7 +1124,7 @@ export default function Home() {
       if (!result.imported) throw new Error('Server data already exists. Reload the server copy before importing.');
       const inviteTokens = new Map((result.invites ?? []).map((invite: any) => [invite.habit_id, invite.token]));
       const importedHabits = payload.habits.map((habit: Habit) => { const token = inviteTokens.get(habit.id); return token ? { ...habit, inviteLink: `${window.location.origin}/?accountability=${token}` } : habit; });
-      setHabits(importedHabits); setHabitOrder(payload.habitOrder); setRewards(payload.rewards); setIdentity(payload.identity); setGoal(payload.goal); setVotes(payload.votes); setPrepped(payload.prepped); setPreppedHabits(payload.preppedHabits); setHistory(payload.history); setDifficultyHistory(payload.difficultyHistory); setHabitEvents(payload.habitEvents); setBehaviorLogs(payload.behaviorLogs); setDailyConfirmations(payload.dailyConfirmations); setCustomContextTags(payload.customContextTags); setVariations(payload.variations); setScorecard(payload.scorecard); setJoinedTribes(payload.joinedTribes); setCommunityCircles(payload.communityCircles); setDiagnostics(payload.diagnostics); setDarkMode(payload.darkMode); if (palettes.some(option => option.id === payload.palette)) setPalette(payload.palette); setLabs(payload.labs); setTelegramCommand(payload.telegramCommand);
+      setHabits(importedHabits); setHabitOrder(payload.habitOrder); setHomepageOrder([]); setRewards(payload.rewards); setIdentity(payload.identity); setGoal(payload.goal); setVotes(payload.votes); setPrepped(payload.prepped); setPreppedHabits(payload.preppedHabits); setHistory(payload.history); setDifficultyHistory(payload.difficultyHistory); setHabitEvents(payload.habitEvents); setBehaviorLogs(payload.behaviorLogs); setDailyConfirmations(payload.dailyConfirmations); setCustomContextTags(payload.customContextTags); setVariations(payload.variations); setScorecard(payload.scorecard); setJoinedTribes(payload.joinedTribes); setCommunityCircles(payload.communityCircles); setDiagnostics(payload.diagnostics); setDarkMode(payload.darkMode); if (palettes.some(option => option.id === payload.palette)) setPalette(payload.palette); setLabs(payload.labs); setTelegramCommand(payload.telegramCommand);
       setWorkspaceReady(true); setServerHasWorkspace(true); setConnectionError('');
       revisionRef.current = result.revision ?? 1; setWorkspaceRevision(result.revision ?? 1);
       setToast(`Imported ${result.habits} user habits and ${result.rewards} rewards. This browser’s original copy was kept.`);
@@ -1875,7 +1881,7 @@ export default function Home() {
       difficultyLevels: savedDifficultyLevels, activeDifficultyLevelId: savedActiveDifficultyLevelId || undefined,
     };
     setHabits(current => editingHabitId ? current.map(item => item.id === editingHabitId ? habit : item) : [...current, habit]);
-    if (!editingHabitId) setHabitOrder(current => [habitId, ...current.filter(id => id !== habitId)]);
+    if (!editingHabitId) setHomepageOrder([habitId, ...todayHabits.map(item => item.id).filter(id => id !== habitId)]);
     if (!editingHabitId && habitType === 'BUILD' && bundle.trim()) {
       let rewardId = `reward-${Date.now()}`;
       if (apiUrl && remoteIdentityId && !habit.id.startsWith('demo-')) {
@@ -2013,6 +2019,7 @@ export default function Home() {
       if (hasData) {
         preserveLocalWorkspace();
         setHabitOrder(Array.isArray(data.habitOrder) ? data.habitOrder : []);
+        setHomepageOrder(Array.isArray(data.homepageOrder) ? data.homepageOrder : []);
         setHabits((data.habits ?? []).map(expandInviteLink).filter((h: Habit) => !h.id.startsWith('demo-'))); setRewards((data.rewards ?? []).filter((r: Reward) => !r.id.startsWith('reward-show')));
         setIdentity(data.identity ?? currentIdentity.identity_statement); setGoal(data.goal ?? ''); setVotes(data.votes ?? currentIdentity.total_votes ?? 0); setPrepped(data.prepped ?? false); setPreppedHabits(data.preppedHabits ?? {}); setHistory(data.history ?? {}); setHabitEvents(data.habitEvents ?? []); setBehaviorLogs(withoutSampleBehaviorLogs(data.behaviorLogs ?? [])); setDailyConfirmations(data.dailyConfirmations ?? []); setCustomContextTags(data.customContextTags ?? []); setVariations(data.variations ?? []); setScorecard(data.scorecard ?? []); setJoinedTribes(data.joinedTribes ?? []); setCommunityCircles(data.communityCircles ?? []); setDiagnostics(data.diagnostics ?? []); setWorkspaceReady(true);
         setDarkMode(data.darkMode ?? true); if (palettes.some(option => option.id === data.palette)) setPalette(data.palette); setLabs(data.labs ?? false); setTelegramCommand(data.telegramCommand ?? '');
