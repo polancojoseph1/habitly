@@ -7,7 +7,7 @@ export function Icon({ name, size = 18 }: { name: string; size?: number }) {
     leaf: <><path d="M20.5 3.5C12 3.5 5 6.4 5 13a6 6 0 0 0 6 6c6.6 0 9.5-7 9.5-15.5Z"/><path d="M3.5 21c3.5-5.5 7-8.5 13-12"/></>,
     heart: <path d="M20.8 8.7c0 5.2-8.8 10.2-8.8 10.2S3.2 13.9 3.2 8.7a4.7 4.7 0 0 1 8.8-2.3 4.7 4.7 0 0 1 8.8 2.3Z"/>,
     lock: <><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 1 1 8 0v3"/><path d="M12 14v3"/></>,
-    spark: <><path d="m12 3 1.9 5.8L20 11l-6.1 2.2L12 19l-2-5.8L4 11l6-2.2L12 3Z"/><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></>,
+    spark: <><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/></>,
     plus: <><path d="M12 5v14M5 12h14"/></>,
     arrow: <><path d="M5 12h14M13 6l6 6-6 6"/></>,
     'arrow-up-right': <path d="M5 19 19 5M8 5h11v11"/>,

@@ -210,7 +210,7 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
   return <div className="period-checkin">
     <article className="period-primary-card" aria-labelledby="period-primary-title">
       <div className="period-card-heading">
-        <div><span className="eyebrow">MAIN OUTCOME</span><h3 id="period-primary-title">{isSmoking ? 'Cigarettes recorded' : `Occurrences of ${habitName}`}</h3></div>
+        <div><span className="eyebrow">Main outcome</span><h3 id="period-primary-title">{isSmoking ? 'Cigarettes recorded' : `Occurrences of ${habitName}`}</h3></div>
         <PeriodInfoBubble label="How to read the comparison">{isSmoking
           ? 'Cigarette totals include recorded quantities and explicitly confirmed no-smoking days. Older “Old behavior” check-ins count as smoking episodes, but do not contain cigarette quantities.'
           : 'Counts use this period and the previous equally long period. A comparison needs every day in both periods to have logged behavior or an explicit daily confirmation. Incomplete records can change the comparison.'}</PeriodInfoBubble>
@@ -257,7 +257,7 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
 
     <article className="period-trigger-card">
       <div className="period-trigger-copy">
-        <span className="eyebrow">BIGGEST TRIGGER INSIGHT</span>
+        <span className="eyebrow">Biggest trigger insight</span>
         <h3>Your most logged trigger</h3>
         {topTrigger
           ? <><strong>{topTrigger.name}</strong><p>{triggerInsightSentence(topTrigger, periodLabel)}</p></>
@@ -276,7 +276,7 @@ export function PeriodCheckin({ habitName, isSmoking, periodLabel, current, prev
     </div>
     {techniqueModalOpen && <div className="modal-backdrop period-technique-modal-backdrop" onMouseDown={event => { if (event.target === event.currentTarget) setTechniqueModalOpen(false); }}>
       <section ref={techniqueDialogRef} id="period-technique-dialog" className="builder-modal period-technique-modal" role="dialog" aria-modal="true" aria-labelledby="period-technique-title" aria-describedby="period-technique-method" tabIndex={-1}>
-        <header className="modal-header"><div><span className="eyebrow">TECHNIQUE ANALYTICS · {periodLabel.toUpperCase()}</span><h2 id="period-technique-title">Techniques used</h2><p>Recorded applications and their resolved outcomes.</p></div><button ref={techniqueCloseRef} type="button" className="modal-close" onClick={() => setTechniqueModalOpen(false)} aria-label="Close technique analytics">×</button></header>
+        <header className="modal-header"><div><span className="eyebrow">Technique analytics · {periodLabel}</span><h2 id="period-technique-title">Techniques used</h2><p>Recorded applications and their resolved outcomes.</p></div><button ref={techniqueCloseRef} type="button" className="modal-close" onClick={() => setTechniqueModalOpen(false)} aria-label="Close technique analytics">×</button></header>
         <div className="period-technique-modal-body">
           {usedTechniques.length > 0
             ? <ul className="period-technique-outcome-list">{usedTechniques.map(item => {
