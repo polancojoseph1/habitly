@@ -64,7 +64,7 @@ type Reward = { id: string; name: string; habitId: string; detail: string };
 type Tab = 'Today' | 'Logging' | 'Journal' | 'Tracker' | 'History' | 'My habits' | 'Habit scorecard' | 'Community' | 'Recovery' | 'Reward vault' | 'Habit to break' | 'Playbook' | 'Settings';
 type Palette = 'lavender' | 'ocean' | 'rose' | 'amber' | 'sage';
 const palettes: { id: Palette; name: string; colors: [string, string, string] }[] = [
-  { id: 'lavender', name: 'Lavender', colors: ['#6256c8', '#b8adff', '#efedff'] },
+  { id: 'lavender', name: 'Green', colors: ['#267c49', '#72d497', '#e1f4e8'] },
   { id: 'ocean', name: 'Ocean', colors: ['#287c9b', '#77c2d5', '#e3f5f8'] },
   { id: 'rose', name: 'Rose', colors: ['#b65d78', '#ec9cab', '#fff0f2'] },
   { id: 'amber', name: 'Amber', colors: ['#a96b25', '#e3ad62', '#fff3dc'] },

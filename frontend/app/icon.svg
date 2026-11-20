@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <defs>
     <linearGradient id="tile" x1="8" y1="5" x2="56" y2="61" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#625bd0"/>
-      <stop offset="1" stop-color="#37336f"/>
+      <stop stop-color="#2b9a5b"/>
+      <stop offset="1" stop-color="#155530"/>
     </linearGradient>
   </defs>
   <rect width="64" height="64" fill="url(#tile)"/>
