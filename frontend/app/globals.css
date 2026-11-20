@@ -2030,3 +2030,20 @@ button, input, select, textarea { font-variant-numeric: tabular-nums; }
 :root[data-theme="dark"] .today-checkin-tabs button.is-active { background: #173f2a; color: #d9f8e2; border-color: #408b5e; }
 :root[data-theme="dark"] .secondary-button { background: #173f2a; border-color: #408b5e; color: #d9f8e2; }
 :root[data-theme="dark"] .secondary-button:hover { background: #245638; border-color: var(--accent-ink); color: #fff; }
+
+/* The dark sidebar uses black, white and green throughout. */
+:root[data-theme="dark"] .sidebar,
+:root[data-theme="dark"] .app-shell:has(.today-page-heading) .sidebar { background: #000; border-right-color: #1b4c30; }
+:root[data-theme="dark"] .sidebar .brand { color: #fff; border-bottom-color: #1b4c30; }
+:root[data-theme="dark"] .sidebar .brand-dot { color: var(--accent-ink); }
+:root[data-theme="dark"] .sidebar .brand-mark { background: var(--accent-ink); color: #000; }
+:root[data-theme="dark"] .sidebar .sidebar-caption { color: #a1f4bc; }
+:root[data-theme="dark"] .sidebar .nav-item { background: #000; color: #fff; }
+:root[data-theme="dark"] .sidebar .nav-item:hover { background: #10331f; color: #fff; }
+:root[data-theme="dark"] .sidebar .nav-item.nav-active { background: #17472c; color: #fff; box-shadow: inset 3px 0 #a1f4bc; }
+:root[data-theme="dark"] .sidebar .nav-item svg { color: inherit; }
+:root[data-theme="dark"] .sidebar .sidebar-new { background: #a1f4bc; border-color: #a1f4bc; color: #000; }
+:root[data-theme="dark"] .sidebar .sidebar-new > span:first-child { background: transparent; color: #000; }
+:root[data-theme="dark"] .sidebar .sidebar-new kbd { background: transparent; border-color: #36734b; color: #000; }
+:root[data-theme="dark"] .sidebar .identity-link { background: #000; border-top-color: #1b4c30; color: #fff; }
+:root[data-theme="dark"] .sidebar .identity-link:hover { background: #10331f; color: #fff; }
