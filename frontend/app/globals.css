@@ -1980,3 +1980,53 @@ button, input, select, textarea { font-variant-numeric: tabular-nums; }
 /* The original default palette is now green; its saved identifier stays compatible. */
 :root[data-palette="lavender"] { --green: #267c49; --green-dark: #1e6139; --accent-ink: #216b40; --accent-soft: #e1f4e8; --lime: #d2ecdc; --focus-ring: 0 0 0 3px rgba(38, 124, 73, .25); }
 :root[data-theme="dark"][data-palette="lavender"] { --green: #72e69b; --green-dark: #a1f4bc; --accent-ink: #a1f4bc; --accent-soft: #173f2a; --lime: #173f2a; --focus-ring: 0 0 0 3px rgba(114, 230, 155, .3); }
+
+/* Carry the black and green theme through every screen, including saved palettes. */
+:root[data-palette] { --green: #267c49; --green-dark: #1e6139; --accent-ink: #216b40; --accent-soft: #e1f4e8; --lime: #d2ecdc; --focus-ring: 0 0 0 3px rgba(38, 124, 73, .25); }
+:root[data-theme="dark"][data-palette] { --green: #72e69b; --green-dark: #a1f4bc; --accent-ink: #a1f4bc; --accent-soft: #173f2a; --lime: #173f2a; --focus-ring: 0 0 0 3px rgba(114, 230, 155, .3); }
+:root[data-theme="dark"] { --paper: #000; --white: #000; --surface-raised: #000; --surface-soft: #181818; --line: #414141; }
+:root[data-theme="dark"] .app-shell,
+:root[data-theme="dark"] .main-area,
+:root[data-theme="dark"] .topbar,
+:root[data-theme="dark"] .sidebar { background: #000; }
+:root[data-theme="dark"] .habit-card:not(.habit-card-done),
+:root[data-theme="dark"] .anti-card,
+:root[data-theme="dark"] .calendar-card,
+:root[data-theme="dark"] .settings-card,
+:root[data-theme="dark"] .reward-card:not(.reward-card-open),
+:root[data-theme="dark"] .tribe-card,
+:root[data-theme="dark"] .scorecard-hero,
+:root[data-theme="dark"] .community-hero,
+:root[data-theme="dark"] .vault-hero,
+:root[data-theme="dark"] .habits-intro,
+:root[data-theme="dark"] .logging-quick-panel,
+:root[data-theme="dark"] .logging-confirm-card,
+:root[data-theme="dark"] .logging-insight-section,
+:root[data-theme="dark"] .logging-history-section,
+:root[data-theme="dark"] .logging-form,
+:root[data-theme="dark"] .law-board-card,
+:root[data-theme="dark"] .playbook-law { background: #000; border-color: var(--line); }
+:root[data-palette="ocean"] { --accent-ink: #17663f; --accent-soft: #def3e5; --green: #167244; }
+:root[data-palette="rose"] { --accent-ink: #285e39; --accent-soft: #e5f2e7; --green: #28683e; }
+:root[data-palette="amber"] { --accent-ink: #42642f; --accent-soft: #edf4e5; --green: #416d35; }
+:root[data-palette="sage"] { --accent-ink: #315b4a; --accent-soft: #e6f2eb; --green: #3c6658; }
+:root[data-theme="dark"][data-palette="ocean"] { --accent-ink: #92edb9; --accent-soft: #123d2b; --green: #64db9c; }
+:root[data-theme="dark"][data-palette="rose"] { --accent-ink: #adebb9; --accent-soft: #1b3e27; --green: #80d99a; }
+:root[data-theme="dark"][data-palette="amber"] { --accent-ink: #c1e9a8; --accent-soft: #293d1d; --green: #a6d782; }
+:root[data-theme="dark"][data-palette="sage"] { --accent-ink: #b3e1ca; --accent-soft: #203d30; --green: #91c8ad; }
+:root[data-theme="dark"] .complete-button,
+:root[data-theme="dark"] .today-quick-complete:not(.is-complete),
+:root[data-theme="dark"] .today-choice-menu > summary,
+:root[data-theme="dark"] .logging-quick-action { background: #173f2a; border-color: #408b5e; color: #d9f8e2; }
+:root[data-theme="dark"] .complete-button:hover,
+:root[data-theme="dark"] .today-quick-complete:hover:not(:disabled),
+:root[data-theme="dark"] .logging-quick-action:hover { background: #245638; border-color: var(--accent-ink); }
+:root[data-theme="dark"] .logging-sync-banner,
+:root[data-theme="dark"] .logging-legacy-note,
+:root[data-theme="dark"] .logging-view-tabs,
+:root[data-theme="dark"] .playbook-switch { background: #000; }
+:root[data-theme="dark"] .logging-view-tabs button.selected,
+:root[data-theme="dark"] .playbook-switch button.selected,
+:root[data-theme="dark"] .today-checkin-tabs button.is-active { background: #173f2a; color: #d9f8e2; border-color: #408b5e; }
+:root[data-theme="dark"] .secondary-button { background: #173f2a; border-color: #408b5e; color: #d9f8e2; }
+:root[data-theme="dark"] .secondary-button:hover { background: #245638; border-color: var(--accent-ink); color: #fff; }

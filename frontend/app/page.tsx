@@ -65,10 +65,10 @@ type Tab = 'Today' | 'Logging' | 'Journal' | 'Tracker' | 'History' | 'My habits'
 type Palette = 'lavender' | 'ocean' | 'rose' | 'amber' | 'sage';
 const palettes: { id: Palette; name: string; colors: [string, string, string] }[] = [
   { id: 'lavender', name: 'Green', colors: ['#267c49', '#72d497', '#e1f4e8'] },
-  { id: 'ocean', name: 'Ocean', colors: ['#287c9b', '#77c2d5', '#e3f5f8'] },
-  { id: 'rose', name: 'Rose', colors: ['#b65d78', '#ec9cab', '#fff0f2'] },
-  { id: 'amber', name: 'Amber', colors: ['#a96b25', '#e3ad62', '#fff3dc'] },
-  { id: 'sage', name: 'Sage', colors: ['#527e70', '#91b6a2', '#e6f2eb'] },
+  { id: 'ocean', name: 'Emerald', colors: ['#167244', '#65c78d', '#def3e5'] },
+  { id: 'rose', name: 'Forest', colors: ['#28683e', '#81c392', '#e5f2e7'] },
+  { id: 'amber', name: 'Moss', colors: ['#416d35', '#a1c587', '#edf4e5'] },
+  { id: 'sage', name: 'Sage', colors: ['#3c6658', '#91b6a2', '#e6f2eb'] },
 ];
 function makeDailySteps(count: number, existing: DailyStep[] = []): DailyStep[] {
   return Array.from({ length: Math.max(0, Math.min(20, count)) }, (_, index) => existing[index] ?? ({
