@@ -1927,3 +1927,35 @@ button, input, select, textarea { font-variant-numeric: tabular-nums; }
 :root[data-theme="dark"] button:focus-visible,
 :root[data-theme="dark"] a:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
 .sidebar-new { margin: 16px 0 4px; }
+
+/* A completed practice earns a clear, green highlight. */
+:root { --success-fill: #237749; --success-ink: #165b36; --success-surface: #e1f4e8; --success-border: #83bf98; }
+:root[data-theme="dark"] { --success-fill: #72e69b; --success-ink: #a1f4bc; --success-surface: #173f2a; --success-border: #53bb79; }
+.today-progress-track > span { background: var(--success-fill); }
+.today-progress-note.has-completions { color: var(--success-ink); }
+.today-quick-card-done, .today-quick-card-done:hover,
+.habit-card.habit-card-done, :root[data-theme="dark"] .habit-card.habit-card-done {
+  border-color: var(--success-border); background: var(--success-surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--success-fill) 25%, transparent), 0 0 20px color-mix(in srgb, var(--success-fill) 12%, transparent);
+}
+.today-quick-mark.checked, :root[data-theme="dark"] .habit-check.checked,
+.habit-check.checked { border-color: var(--success-fill); background: var(--success-fill); color: #102519; }
+:root:not([data-theme="dark"]) .today-quick-mark.checked,
+:root:not([data-theme="dark"]) .habit-check.checked { color: #fff; }
+.today-quick-win.is-complete, :root[data-theme="dark"] .today-quick-win.is-complete {
+  border-color: var(--success-border); background: var(--success-surface); color: var(--success-ink); opacity: 1;
+}
+.today-quick-complete.is-complete, :root[data-theme="dark"] .today-quick-complete.is-complete {
+  border-color: var(--success-fill); background: var(--success-fill); color: #102519; opacity: 1;
+}
+:root:not([data-theme="dark"]) .today-quick-complete.is-complete { color: #fff; }
+.today-completion-banner { border-color: var(--success-border); background: color-mix(in srgb, var(--success-fill) 13%, var(--surface-raised)); }
+.today-completion-banner > span { background: var(--success-fill); color: #102519; }
+:root:not([data-theme="dark"]) .today-completion-banner > span { color: #fff; }
+.today-completion-banner b { color: var(--success-ink); }
+:root[data-theme="dark"] .sidebar { background: #08080a; border-color: #333139; }
+:root[data-theme="dark"] .brand { border-color: #333139; }
+:root[data-theme="dark"] .sidebar-caption { color: #aaa6b4; }
+:root[data-theme="dark"] .nav-item { color: #cbc8d2; }
+:root[data-theme="dark"] .nav-item:hover { background: #24222c; color: #fff; }
+:root[data-theme="dark"] .nav-active { background: color-mix(in srgb, var(--accent-ink) 25%, #131218); color: #fff; box-shadow: inset 3px 0 var(--accent-ink); }
